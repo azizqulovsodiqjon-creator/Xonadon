@@ -1,0 +1,1 @@
+web: gunicorn xonadon_project.wsgi:application

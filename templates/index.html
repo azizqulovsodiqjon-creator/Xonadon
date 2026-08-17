@@ -1,0 +1,516 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xonadon — uy-joy e'lonlari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="{% static 'style.css' %}">
+</head>
+<body>
+
+<!-- ============ PAGE 1: HOME ============ -->
+<div class="page show" id="pageHome">
+  <div class="navy-block">
+    <header class="nav">
+      <div class="logo" id="logoHome"><span class="logo-mark">🏠</span> Xonadon</div>
+      <div class="lang-wrap">
+        <button class="lang-select" id="langBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9z"/></svg>
+          <span id="langCode">UZ</span>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="lang-menu" id="langMenu">
+          <button data-lang="UZ">UZ</button>
+          <button data-lang="RU">RU</button>
+          <button data-lang="EN">EN</button>
+        </div>
+      </div>
+      <button class="icon-btn" id="darkToggle" title="Tungi rejim">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <div class="navbar-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="searchInput" placeholder="Qidirish... (nomi, hudud)">
+      </div>
+      <div class="navbar-right">
+        <button class="icon-btn" id="profileSearchBtn" title="Profil qidirish">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-5.5 6-5.5"/><circle cx="17" cy="16.5" r="3.2"/><path d="M20.5 21c0-2-1.5-3.3-3.5-3.3"/></svg>
+        </button>
+        <button class="icon-btn" id="notifBtn" title="Bildirishnomalar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </button>
+        <button class="pill-btn cta" id="postAdBtn">E'lon joylash</button>
+        <button class="avatar-btn" id="avatarBtn" title="Mening profilim">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>
+        </button>
+        <button class="pill-btn ghost" id="homeAdminBtn">Admin</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="segment" id="segment">
+          <button data-deal="sotuv">Sotuv</button>
+          <button data-deal="ijara">Ijara</button>
+          <button data-deal="kunlik">Kunlik</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <div class="view-controls">
+          <button class="view-btn active" data-view="grid" title="Katakcha"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></button>
+          <button class="view-btn" data-view="list" title="Ro'yxat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+          <button class="view-btn" data-view="compact" title="Ixcham"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="6" height="6" rx="1"/><path d="M11 6h10"/><rect x="3" y="14" width="6" height="6" rx="1"/><path d="M11 16h10"/></svg></button>
+        </div>
+        <button class="map-btn" id="mapBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/></svg>Xaritada</button>
+      </div>
+      <button class="filters-btn" id="filtersBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filtrlar</button>
+    </div>
+
+    <div class="filter-pills" id="filterPillsRow">
+      <button class="pill" id="propertyTypePill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>
+        <span id="typeLabel">Barcha turlar</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="type-dropdown" id="typeDropdown">
+        <button data-type="all" class="active">Barcha turlar</button>
+        <button data-type="kvartira">Kvartira</button>
+        <button data-type="hovli">Hovli/dacha</button>
+        <button data-type="tijorat">Tijorat binolari</button>
+        <button data-type="yer">Yer</button>
+      </div>
+      <button class="pill" data-toggle data-filter="owner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.9 3.1-6 7-6s7 2.1 7 6"/></svg>Egasi</button>
+      <button class="pill" data-toggle data-filter="mortgage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>Ipotekaga mumkin</button>
+      <button class="pill" data-toggle data-filter="lastWeek"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Oxirgi hafta</button>
+      <button class="pill" data-toggle data-filter="lastMonth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Oxirgi oy</button>
+    </div>
+  </div>
+
+  <section class="vip-section">
+    <div class="vip-head">
+      <div><span class="eyebrow">Tanlangan e'lonlar</span><h2>VIP e'lonlar</h2></div>
+      <div class="vip-sub">Admin tomonidan tasdiqlangan, eng ko'p ko'rilgan uy-joylar</div>
+    </div>
+    <div class="vip-scroll" id="vipScroll"></div>
+  </section>
+
+  <div class="results-bar"><div class="results-count"><b id="regularCount">0</b> ta e'lon</div></div>
+  <section class="grid view-grid" id="regularGrid"></section>
+
+  <footer class="site-footer">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo"><span class="logo-mark">🏠</span> Joymee Jizzax</div>
+        <p>Jizzax viloyati bo'ylab uy-joy sotish, sotib olish va topish uchun onlayn platforma. To'g'ridan-to'g'ri egasidan, tekshirilgan e'lonlar.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Havolalar</h4>
+        <a href="#" data-info="pageAloqa">Aloqa</a>
+        <a href="#" data-info="pageYordam">Yordam</a>
+        <a href="#" data-info="pageReklama">Reklama va hamkorlik</a>
+        <a href="#" data-info="pageOferta">Ommaviy oferta</a>
+      </div>
+      <div class="footer-col">
+        <h4>Ijtimoiy tarmoqlar</h4>
+        <div class="footer-social">
+          <a href="#" title="Telegram">✈️</a>
+          <a href="#" title="Instagram">📷</a>
+          <a href="#" title="YouTube">▶️</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div>© 2026 It Group. Barcha huquqlar himoyalangan.</div>
+      <div>Jizzax, O'zbekiston</div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ INFO PAGES ============ -->
+<div class="page" id="pageAloqa">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="aloqaBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="info-wrap">
+    <h2>Aloqa</h2>
+    <div class="info-lead">Savol va takliflaringiz bo'yicha biz bilan bog'lanishingiz mumkin.</div>
+    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
+    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+    <div class="contact-row"><span class="ic">✈️</span><a href="#">Telegram orqali yozish</a></div>
+    <div class="contact-row"><span class="ic">📷</span><a href="#">Instagram orqali yozish</a></div>
+  </div>
+</div>
+
+<div class="page" id="pageYordam">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="yordamBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="info-wrap">
+    <h2>Yordam</h2>
+    <div class="info-lead">Tez-tez so'raladigan savollar</div>
+    <div class="faq-item"><h4>Xonadon nima?</h4><p>Xonadon — bu ko'chmas mulk sohasidagi barcha jarayonlarda to'g'ridan-to'g'ri yordam beruvchi onlayn platforma.</p></div>
+    <div class="faq-item"><h4>E'lonni qanday qo'shish mumkin?</h4><p>Avval ro'yxatdan o'ting (telefon raqami orqali), so'ngra "E'lon joylash" tugmasini bosib qadamma-qadam formani to'ldiring.</p></div>
+    <div style="margin-top:26px;">
+      <div class="contact-row"><span class="ic">📞</span><a href="tel:+998995581110">+998 99 558 11 10</a></div>
+      <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="pageReklama">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="reklamaBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="info-wrap">
+    <h2>Reklama va hamkorlik</h2>
+    <div class="info-lead">Ilovada va veb-saytda reklama bo'yicha quyidagi raqamlarga murojaat qiling:</div>
+    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998995581110">+998 99 558 11 10</a></div>
+    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+  </div>
+</div>
+
+<div class="page" id="pageOferta">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="ofertaBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="info-wrap">
+    <h2>Ommaviy oferta</h2>
+    <div class="offer-text">
+      <p>Ushbu ommaviy oferta Xonadon platformasidan foydalanish shartlarini belgilaydi.</p>
+      <p><b>1. Umumiy qoidalar.</b> Xonadon — ko'chmas mulk e'lonlarini joylashtirish va qidirish uchun platforma.</p>
+      <p><b>2. Foydalanuvchi majburiyatlari.</b> Foydalanuvchi joylashtirilgan ma'lumotlarning haqiqiyligi uchun javobgar hisoblanadi.</p>
+      <p>To'liq shartlar: +998 99 558 11 10, +998 99 093 24 01.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE 2: LISTING DETAIL ============ -->
+<div class="page" id="pageDetail">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="detailBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="detail-wrap" id="detailContent"></div>
+</div>
+
+<!-- ============ PAGE 2b: SELLER PROFILE ============ -->
+<div class="page" id="pageSellerProfile">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="sellerProfileBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="detail-wrap" id="sellerProfileContent"></div>
+</div>
+
+<!-- ============ PAGE 2c: FULL MAP VIEW ============ -->
+<div class="page" id="pageMapFull">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="mapFullBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div id="mapFull"></div>
+</div>
+
+<!-- ============ PAGE 3: ADMIN DASHBOARD ============ -->
+<div class="page" id="pageAdmin">
+  <div class="navy-block"><header class="nav"><div class="logo"><span class="logo-mark">🔐</span> Admin panel</div><button class="pill-btn ghost" id="adminLogoutBtn">Chiqish</button></header></div>
+  <div class="admin-body">
+    <div class="admin-stats" id="adminStats"></div>
+    <div class="admin-tabs">
+      <button class="tab-btn active" data-tab="listings">E'lonlar</button>
+      <button class="tab-btn" data-tab="profiles">Profillar</button>
+    </div>
+    <div id="adminContent"></div>
+  </div>
+</div>
+
+<!-- ============ PAGE 4: MY PROFILE ============ -->
+<div class="page" id="pageMyProfile">
+  <div class="navy-block"><header class="nav"><button class="back-btn" id="myProfileBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Xonadon</div></header></div>
+  <div class="profile-shell">
+    <div class="profile-side">
+      <button class="profile-nav-item active" data-sub="profil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>Profil</button>
+      <button class="profile-nav-item" data-sub="balans"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Balans</button>
+      <button class="profile-nav-item" data-sub="xabarlar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-3.8-.9L3 20l1.1-3.5A8.3 8.3 0 0 1 3.5 12 8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg>Xabarlar</button>
+      <button class="profile-nav-item" data-sub="tasdiqlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>Profilni tasdiqlash</button>
+      <button class="profile-nav-item logout" id="logoutBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Chiqish</button>
+    </div>
+    <div class="profile-content">
+      <div id="sub-profil">
+        <div class="profile-header-row">
+          <div class="big-avatar" id="myAvatar">M</div>
+          <div style="flex:1;"><h2 id="profileUsername" style="font-size:20px;">mening_profilim</h2><div style="color:rgba(23,27,42,0.55);font-size:12.5px;">ID: 110611</div></div>
+          <button class="btn-black" id="editProfileBtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Profilni tahrirlash</button>
+        </div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px;" id="profileFullName">Ism Familiya</div>
+        <div style="font-size:13px;color:rgba(23,27,42,0.55);margin-bottom:6px;" id="profilePhoneDisplay">+998 90 000 00 00</div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="num" id="myAdsCount">0</div><div class="label">E'lonlar</div></div>
+          <div class="stat-box"><div class="num">0</div><div class="label">Ko'rishlar</div></div>
+          <div class="stat-box"><div class="num">0</div><div class="label">Qo'ng'iroqlar</div></div>
+          <div class="stat-box"><div class="num">0</div><div class="label">Sotuvlar</div></div>
+        </div>
+        <div class="profile-tabs" id="profileTabs">
+          <button class="profile-tab active" data-ptab="elonlar">E'lonlarim</button>
+          <button class="profile-tab" data-ptab="tanlangan">Tanlanganlar</button>
+        </div>
+        <div id="myProfileTabContent"></div>
+      </div>
+      <div id="sub-balans" class="hidden">
+        <h2 style="margin:0 0 20px;">Balansni to'ldirish</h2>
+        <div class="balance-card"><div class="brand">XONADON</div><div class="phone" id="balancePhone">+998 90 000 00 00</div><div class="amount">0 so'm</div></div>
+        <div style="margin-top:22px;"><label style="font-weight:700;font-size:13.5px;display:block;margin-bottom:8px;">Summani kiriting</label>
+          <input class="amount-input" id="amountInput" type="text" placeholder="Summani kiriting">
+          <div class="quick-amounts" id="quickAmounts"><button data-v="50">50</button><button data-v="100">100</button><button data-v="200">200</button><button data-v="500">500</button></div>
+        </div>
+        <div style="margin-top:20px;"><label style="font-weight:700;font-size:13.5px;display:block;margin-bottom:10px;">To'lov tizimini tanlang</label>
+          <div class="pay-methods" id="payMethods"><div class="pay-method sel" data-p="payme">Payme</div><div class="pay-method" data-p="click">Click</div></div>
+        </div>
+        <button class="btn-full-black" style="max-width:320px;margin-top:22px;" id="topUpBtn">To'ldirish</button>
+      </div>
+      <div id="sub-xabarlar" class="hidden">
+        <div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo'q</p></div>
+      </div>
+      <div id="sub-tasdiqlash" class="hidden">
+        <div class="verify-box">
+          <div class="badge">✓</div>
+          <h3>Profilingizni tasdiqlang</h3>
+          <p style="color:rgba(23,27,42,0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo'ladi — foydalanuvchilar sizga ko'proq ishonadi.</p>
+          <div class="verify-list">
+            <div style="font-weight:800;font-size:13.5px;margin-bottom:12px;">Nima kerak bo'ladi:</div>
+            <div class="verify-item">📄 Pasport yoki ID karta rasmi</div>
+            <div class="verify-item">🤳 Hujjatni ushlab turgan selfie</div>
+          </div>
+          <button class="btn-full-black" id="verifyBtn">Telegram orqali yuborish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE 5: POST-AD WIZARD ============ -->
+<div class="page" id="pagePost">
+  <div class="post-head"><button class="back-btn" id="postBack">← Orqaga</button></div>
+  <div class="post-body" id="postStep1">
+    <div class="post-title">Qo'shish</div>
+    <div class="section-label">Sotuvchi sifatida</div>
+    <div class="option-row" data-role="Kunlik ijaraga beraman" data-deal="kunlik"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kunlik ijaraga beraman</div>
+    <div class="option-row" data-role="Ijaraga beraman" data-deal="ijara"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga beraman</div>
+    <div class="option-row" data-role="Sotaman" data-deal="sotuv"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotaman</div>
+    <div class="section-label">Xaridor sifatida</div>
+    <div class="option-row" data-role="Ijaraga olaman" data-deal="ijara"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga olaman</div>
+    <div class="option-row" data-role="Sotib olaman" data-deal="sotuv"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotib olaman</div>
+  </div>
+  <div class="post-body hidden" id="postStep2">
+    <div class="post-title">Qo'shish</div>
+    <div class="option-row" data-cat="Kvartira" data-typekey="kvartira"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kvartira</div>
+    <div class="option-row" data-cat="Hovli/dacha" data-typekey="hovli"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Hovli/dacha</div>
+    <div class="option-row" data-cat="Mehmonxona" data-typekey="mehmonxona"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Mehmonxona</div>
+  </div>
+  <div class="post-body hidden" id="postStep3">
+    <div class="breadcrumb"><span id="bcRole"></span> › <span id="bcCat"></span></div>
+
+    <div class="upload-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-weight:800;font-size:16px;">Rasmlar</div>
+        <span style="font-weight:600;font-size:13px;color:rgba(23,27,42,0.55);" id="uploadCount">0/10</span>
+      </div>
+      <div style="font-size:13px;color:rgba(23,27,42,0.55);margin:4px 0 14px;">Birinchi rasm asosiy bo'ladi va e'lonlarda ko'rsatiladi</div>
+      <div id="uploadThumbs" class="upload-thumbs"></div>
+      <div class="upload-tile" id="uploadTile">📷</div>
+      <input type="file" id="postFileInput" accept="image/*" multiple class="hidden">
+    </div>
+
+    <div class="field"><label>E'lon sarlavhasi</label><input type="text" id="postTitle" placeholder="Sarlavhani kiriting"></div>
+    <div class="field"><label>Tavsif</label><textarea id="postDesc" placeholder="Tavsifni kiriting"></textarea></div>
+
+    <div class="field"><label>Holati</label>
+      <div class="toggle-row" id="condToggle"><button data-c="Ikkinchi qo'l">Ikkinchi qo'l</button><button class="sel" data-c="Yangi bino">Yangi bino</button></div>
+    </div>
+    <div class="field"><label>E'lon turi</label>
+  <div class="toggle-row" id="tierToggle">
+    <button class="sel" data-tier="regular">Oddiy</button>
+    <button data-tier="top">TOP</button>
+    <button data-tier="vip">VIP</button>
+  </div>
+</div>
+
+    <div class="two-col">
+      <div>
+        <div class="field"><label>Telefon raqami</label><input type="text" id="postPhone" value="+998"></div>
+        <div class="field"><label>Narx</label><input type="text" id="postPrice" placeholder="Narxni kiriting"></div>
+        <div class="field"><label>Ta'mir</label>
+          <select id="postRepair"><option value="Ta'mirni tanlang">Ta'mirni tanlang</option><option value="Evroremont">Evroremont</option><option value="O'rtacha">O'rtacha</option><option value="Ta'mirsiz">Ta'mirsiz</option></select>
+        </div>
+      </div>
+      <div>
+        <div class="field"><label>Maydonni kiriting, m²</label><input type="text" id="postArea" placeholder="Maydonni kiriting, m²"></div>
+        <div class="field"><label>Mamlakat</label><select id="postCountry"><option>O'zbekiston</option></select></div>
+        <div class="field"><label>Viloyat</label><select id="postRegion"><option selected>Jizzax viloyati</option></select></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="field"><label>Qavat</label><input type="text" id="postFloor" placeholder="Qavatni kiriting"></div>
+      </div>
+      <div>
+        <div class="field"><label>Tuman</label>
+          <select id="postDistrict">
+            <option value="">Tumanni tanlang</option>
+            <option>Jizzax shahri</option><option>Arnasoy tumani</option><option>Baxmal tumani</option>
+            <option>Do'stlik tumani</option><option>Forish tumani</option><option>G'allaorol tumani</option>
+            <option>Mirzacho'l tumani</option><option>Paxtakor tumani</option><option>Sh. Rashidov tumani</option>
+            <option>Yangiobod tumani</option><option>Zafarobod tumani</option><option>Zarbdor tumani</option><option>Zomin tumani</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>Uyning qavatlari soni</label><input type="text" id="postFloorsTotal" placeholder="Uyning qavatlari sonini kiriting"></div>
+
+    <div class="location-card">
+      <div class="lt">Joylashuv qo'shish</div>
+      <div style="font-size:12.5px;color:rgba(23,27,42,0.55);">Ilova xaritasida ko'rinish uchun joylashuv qo'shing. Xaritada ko'rsatilgan e'lonlar 3x ko'proq ko'riladi.</div>
+      <div id="postLocationMap"></div>
+      <div class="loc-hint">Xaritadan uyingiz joylashgan nuqtani belgilang (bosing yoki belgini suring).</div>
+    </div>
+
+    <button class="btn-full-black" id="finishPostBtn">Tayyor</button>
+  </div>
+</div>
+
+<!-- ============ ADMIN LOGIN MODAL ============ -->
+<div class="overlay" id="adminLoginModal">
+  <div class="modal">
+    <button class="modal-close" id="loginCloseBtn">✕</button>
+    <h3>Admin kirish</h3>
+    <div class="modal-sub">Demo login: <b>admin</b> / parol: <b>admin123</b></div>
+    <form id="adminLoginForm">
+      <div class="field"><label>Login</label><input required id="a_user" placeholder="admin"></div>
+      <div class="field"><label>Parol</label><input required id="a_pass" type="password" placeholder="••••••••"></div>
+      <div class="error-text" id="loginError">Login yoki parol xato.</div>
+      <button class="submit-btn" type="submit">Kirish</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ SIDE PANELS ============ -->
+<div class="side-panel" id="profileSearchPanel">
+  <div class="side-panel-head"><h3>Profil qidirish</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-body">
+    <div class="ps-search"><input type="text" id="psInput" placeholder="Sotuvchi nomini kiriting"></div>
+    <div class="ps-count"><span id="psCountNum">0</span> sotuvchi</div>
+    <div id="psList"></div>
+  </div>
+</div>
+
+<div class="side-panel" id="notifPanel">
+  <div class="side-panel-head"><h3>Bildirishnomalar</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-body"><div class="empty-state"><div class="emoji-box">🔔</div><p>Hozircha bildirishnomalar yo'q</p></div></div>
+</div>
+
+<div class="side-panel" id="filtersPanel">
+  <div class="side-panel-head"><h3>Filtrlar</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-body">
+    <div class="field"><label>Narx, dan (у.е)</label><input type="text" id="priceFromInput" placeholder="0"></div>
+    <div class="field"><label>Narx, gacha (у.е)</label><input type="text" id="priceToInput" placeholder="Cheksiz"></div>
+    <div class="field"><label>Xonalar soni</label>
+      <div class="toggle-row" id="roomsToggle"><button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4+</button></div>
+    </div>
+    <button class="btn-full-black" id="applyFiltersBtn">Qo'llash</button>
+    <button class="btn-full-outline" id="resetFiltersBtn">Tozalash</button>
+  </div>
+</div>
+
+<div class="side-panel" id="editProfilePanel">
+  <div class="side-panel-head"><h3>Profilni tahrirlash</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-body">
+    <div class="field"><label>Ism familiya</label><input type="text" id="editFullNameInput" placeholder="Ism familiya"></div>
+    <div class="field"><label>Foydalanuvchi nomi</label><input type="text" id="editUsernameInput" placeholder="username"></div>
+    <div class="field"><label>Telefon raqami</label><input type="text" id="editPhoneInput" value="+998"></div>
+    <button class="btn-full-black" id="saveProfileBtn">Saqlash</button>
+  </div>
+</div>
+
+<!-- ============ AUTH FLOW ============ -->
+<div class="auth-gate hidden" id="authGate">
+  <div class="auth-gate-box">
+    <h3>Akkauntingiz yo'qmi?</h3>
+    <p style="color:rgba(23,27,42,0.6);font-size:14px;">Bu bo'limdan foydalanish uchun ro'yxatdan o'tishingiz kerak.</p>
+    <div class="auth-gate-actions">
+      <button class="btn-outline" id="authGateCancel">Bekor qilish</button>
+      <button class="btn-black" id="authGateEnter">Kirish</button>
+    </div>
+  </div>
+</div>
+
+<div class="auth-full hidden" id="authPhoneScreen">
+  <div class="auth-full-image">
+    <svg class="auth-illustration" viewBox="0 0 400 640" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1B3A8C"/><stop offset="100%" stop-color="#2F6FED"/></linearGradient></defs>
+      <rect width="400" height="640" fill="url(#skyGrad)"/>
+      <circle cx="322" cy="96" r="48" fill="#FFD100" opacity="0.92"/>
+      <circle cx="322" cy="96" r="70" fill="#FFD100" opacity="0.14"/>
+      <path d="M0 300 Q100 260 200 290 T400 280 V640 H0 Z" fill="#26428f" opacity="0.55"/>
+      <rect x="0" y="470" width="400" height="170" fill="#0F2136"/>
+      <rect x="34" y="350" width="58" height="120" rx="4" fill="#FFD100" opacity="0.18"/>
+      <rect x="308" y="320" width="64" height="150" rx="4" fill="#FFD100" opacity="0.14"/>
+      <polygon points="145,300 260,300 202,225" fill="#FFD100"/>
+      <rect x="150" y="300" width="105" height="140" fill="#FCFAF3"/>
+      <rect x="183" y="365" width="38" height="75" fill="#0F2136"/>
+      <rect x="160" y="315" width="26" height="26" rx="2" fill="#2F6FED" opacity="0.85"/>
+      <rect x="219" y="315" width="26" height="26" rx="2" fill="#2F6FED" opacity="0.85"/>
+      <rect x="140" y="440" width="125" height="8" fill="#0F2136" opacity="0.3"/>
+    </svg>
+    <div class="auth-full-logo"><span class="logo-mark">🏠</span><span style="color:#fff;font-weight:800;font-size:19px;">XONADON</span></div>
+  </div>
+  <div class="auth-full-form">
+    <button class="close-x auth-close" id="authPhoneClose">✕</button>
+    <h2>Kirish</h2>
+    <label>Telefon raqam</label>
+    <input type="text" id="phoneInput" value="+998">
+    <div class="auth-terms">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
+    <button class="btn-full-black" id="phoneNextBtn">Keyingi</button>
+    <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
+  </div>
+</div>
+
+<div class="auth-gate hidden" id="otpMethodModal">
+  <div class="auth-gate-box" style="max-width:380px;">
+    <div class="otp-phone" id="otpPhoneDisplay">+998990932401</div>
+    <h3>Raqam to'g'rimi?</h3>
+    <p style="margin-bottom:18px;">Kodni olish usulini tanlang:</p>
+    <button class="otp-choice tg" id="otpTelegramBtn">Telegram orqali (tavsiya etiladi)</button>
+    <button class="otp-choice sms" id="otpSmsBtn">SMS orqali</button>
+    <button class="otp-choice edit" id="otpEditBtn">Tahrirlash</button>
+  </div>
+</div>
+
+<div class="auth-full hidden" id="authCodeScreen">
+  <div class="auth-full-image">
+    <svg class="auth-illustration" viewBox="0 0 400 640" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="skyGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1B3A8C"/><stop offset="100%" stop-color="#2F6FED"/></linearGradient></defs>
+      <rect width="400" height="640" fill="url(#skyGrad2)"/>
+      <circle cx="322" cy="96" r="48" fill="#FFD100" opacity="0.92"/>
+      <circle cx="322" cy="96" r="70" fill="#FFD100" opacity="0.14"/>
+      <path d="M0 300 Q100 260 200 290 T400 280 V640 H0 Z" fill="#26428f" opacity="0.55"/>
+      <rect x="0" y="470" width="400" height="170" fill="#0F2136"/>
+      <rect x="34" y="350" width="58" height="120" rx="4" fill="#FFD100" opacity="0.18"/>
+      <rect x="308" y="320" width="64" height="150" rx="4" fill="#FFD100" opacity="0.14"/>
+      <polygon points="145,300 260,300 202,225" fill="#FFD100"/>
+      <rect x="150" y="300" width="105" height="140" fill="#FCFAF3"/>
+      <rect x="183" y="365" width="38" height="75" fill="#0F2136"/>
+      <rect x="160" y="315" width="26" height="26" rx="2" fill="#2F6FED" opacity="0.85"/>
+      <rect x="219" y="315" width="26" height="26" rx="2" fill="#2F6FED" opacity="0.85"/>
+      <rect x="140" y="440" width="125" height="8" fill="#0F2136" opacity="0.3"/>
+    </svg>
+    <div class="auth-full-logo"><span class="logo-mark">🏠</span><span style="color:#fff;font-weight:800;font-size:19px;">XONADON</span></div>
+  </div>
+  <div class="auth-full-form">
+    <button class="close-x auth-close" id="authCodeClose">✕</button>
+    <h2>Kodni kiriting</h2>
+    <label id="codeSubLabel">Raqamingizga yuborilgan 6 xonali kod</label>
+    <div class="code-boxes" id="codeBoxes">
+      <input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric">
+      <input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric">
+    </div>
+    <button class="btn-full-black" id="codeConfirmBtn">Tasdiqlash</button>
+    <div class="auth-terms">Kodni olmadingizmi? <span id="resendLink" style="color:#2F6FED;font-weight:700;cursor:pointer;">Qayta yuborish</span></div>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="toast" id="toast"></div>
+
+<script src="{% static 'script.js' %}"></script>
+</body>
+</html>
