@@ -15,6 +15,7 @@
 
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null};
   var API_BASE = '/api/listings/';
+  var PROFILE_API = '/api/profiles/';
   var viewMode = 'grid';
 
   /* =========================================================
@@ -862,8 +863,10 @@ function loadListings(cb){
     });
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
-    document.getElementById('phoneNextBtn').addEventListener('click', function(){
+       document.getElementById('phoneNextBtn').addEventListener('click', function(){
+      var fullName = document.getElementById('fullNameInput').value.trim();
       var phone = document.getElementById('phoneInput').value.trim();
+      if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
       if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
       document.getElementById('otpPhoneDisplay').textContent = phone;
       document.getElementById('authPhoneScreen').classList.add('hidden');
@@ -894,13 +897,45 @@ function loadListings(cb){
     });
     document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('resendLink').addEventListener('click', function(){ toast('Kod qayta yuborildi (demo).'); });
-    document.getElementById('codeConfirmBtn').addEventListener('click', function(){
+        document.getElementById('codeConfirmBtn').addEventListener('click', function(){
       var code = Array.from(codeBoxes).map(function(b){ return b.value; }).join('');
       if(code.length < 6){ alert("Iltimos, 6 xonali kodni to'liq kiriting."); return; }
       isLoggedIn = true;
+      var fullName = document.getElementById('fullNameInput').value.trim();
       var phone = document.getElementById('phoneInput').value.trim();
-      document.getElementById('profilePhoneDisplay').textContent = phone;
-      document.getElementById('balancePhone').textContent = phone;
+      var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
+
+      function applyProfile(p){
+        document.getElementById('profileFullName').textContent = p.full_name;
+        document.getElementById('profileUsername').textContent = p.username;
+        document.getElementById('profilePhoneDisplay').textContent = p.phone;
+        document.getElementById('balancePhone').textContent = p.phone;
+        var av = document.getElementById('myAvatar');
+        av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
+      }
+
+      fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
+        .then(function(r){ return r.json(); })
+        .then(function(existing){
+          if(existing.length){
+            var p = existing[0];
+            applyProfile(p);
+            fetch(PROFILE_API + p.id + '/', {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ full_name: fullName, username: usernameGenerated })
+            }).catch(function(err){ console.error(err); });
+          } else {
+            var newProfile = { phone: phone, username: usernameGenerated, full_name: fullName, role: 'Uy egasi' };
+            applyProfile(newProfile);
+            fetch(PROFILE_API, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify(newProfile)
+            }).catch(function(err){ console.error(err); });
+          }
+        }).catch(function(err){ console.error(err); });
+
       closeAllAuth();
       if(pendingAction){ pendingAction(); pendingAction=null; }
     });

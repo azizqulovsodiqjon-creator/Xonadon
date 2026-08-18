@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Listing, ListingImage
+from .models import Listing, ListingImage, Profile
 
 
 class ListingImageSerializer(serializers.ModelSerializer):
@@ -19,3 +19,11 @@ class ListingSerializer(serializers.ModelSerializer):
             'condition', 'phone', 'seller', 'owner_role', 'owner',
             'mortgage', 'deal', 'vip', 'top', 'created_at', 'images',
         ]
+
+from .models import Profile
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['id', 'phone', 'username', 'full_name', 'role', 'created_at']

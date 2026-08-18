@@ -40,3 +40,12 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f"{self.listing.title} - image"
+class Profile(models.Model):
+    phone = models.CharField(max_length=30, unique=True)
+    username = models.CharField(max_length=100, blank=True)
+    full_name = models.CharField(max_length=150, blank=True)
+    role = models.CharField(max_length=100, default="Uy egasi")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.username or self.phone
