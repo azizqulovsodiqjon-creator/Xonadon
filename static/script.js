@@ -175,7 +175,7 @@ function loadListings(cb){
             (l.top ? '<span class="detail-tag top">▲ TOP</span>' : '') +
             '<span class="detail-tag">' + l.type + '</span>' +
           '</div>' +
-          '<div class="action-btns-row"><button class="action-btn outline">Sotuvchiga yozing</button><button class="action-btn filled">Qo\'ng\'iroq qilish</button></div>' +
+          '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>' +
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
@@ -210,6 +210,21 @@ function loadListings(cb){
     renderSimilarListings(l);
     var vBtn = document.getElementById('viewSellerProfileBtn');
     if(vBtn){ vBtn.addEventListener('click', function(){ openSellerProfile(l.seller, fromAdmin); }); }
+
+    var callBtn = document.getElementById('callSellerBtn');
+    if(callBtn){
+      callBtn.addEventListener('click', function(){
+        if(l.phone){ window.location.href = 'tel:' + l.phone; }
+        else { toast("Telefon raqami ko'rsatilmagan."); }
+      });
+    }
+    var msgBtn = document.getElementById('msgSellerBtn');
+    if(msgBtn){
+      msgBtn.addEventListener('click', function(){
+        if(l.phone){ toast("Sotuvchi raqami: " + l.phone); }
+        else { toast("Telefon raqami ko'rsatilmagan."); }
+      });
+    }
   }
 
   function initGallery(){
