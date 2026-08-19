@@ -878,7 +878,8 @@ function loadListings(cb){
     });
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
-       document.getElementById('phoneNextBtn').addEventListener('click', function(){
+       document.getElementById('phoneNextBtn').addEventListener('click', function(e){
+      e.preventDefault();
       var fullName = document.getElementById('fullNameInput').value.trim();
       var phone = document.getElementById('phoneInput').value.trim();
       if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
