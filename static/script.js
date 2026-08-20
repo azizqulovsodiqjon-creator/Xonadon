@@ -236,15 +236,15 @@
     if(detailRouteBtn){
       detailRouteBtn.addEventListener('click', function(){
         if(!currentMap){ toast("Xarita hali yuklanmadi."); return; }
+        routeTargetListing = l;
         detailRouteBtn.textContent = "Joylashuv aniqlanmoqda...";
-        requestUserLocation(function(){
+        startLiveLocation(function(){
           if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); detailRouteBtn.textContent = "Yo'nalishni ko'rsatish"; return; }
+          updateUserMarkerOnMap(currentMap);
           detailRouteBtn.textContent = "Yo'nalish qidirilmoqda...";
           fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
             if(detailRouteLine){ currentMap.removeLayer(detailRouteLine); }
             detailRouteLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(currentMap);
-            var userIcon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
-            L.marker([userLat, userLng], {icon:userIcon}).addTo(currentMap).bindPopup('Siz shu yerdasiz');
             currentMap.fitBounds(detailRouteLine.getBounds(), {padding:[40,40]});
             detailRouteBtn.textContent = "Masofa: " + km + " km";
           }, function(){
@@ -315,6 +315,7 @@
 
   function returnFromDetail(){
     if(currentMap){ try{ currentMap.remove(); }catch(e){} currentMap=null; }
+    stopLiveLocationIfUnused();
     if(lastPage==='pageAdmin'){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); }
   }
 
@@ -361,6 +362,7 @@
   ==========================================================*/
   var fullMap = null, fullMapToken = 0;
   var userLat = null, userLng = null, userMarker = null, routeLine = null;
+  var geoWatchId = null, routeTargetListing = null;
 
   function fetchRoute(fromLat, fromLng, toLat, toLng, onSuccess, onError){
     var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
@@ -376,30 +378,56 @@
     }).catch(function(err){ console.error('Marshrut xatosi:', err); onError(); });
   }
 
-  function requestUserLocation(cb){
-    if(!navigator.geolocation){ if(cb) cb(); return; }
-    navigator.geolocation.getCurrentPosition(function(pos){
-      userLat = pos.coords.latitude;
-      userLng = pos.coords.longitude;
-      if(fullMap){
-        if(userMarker){ fullMap.removeLayer(userMarker); }
-        var icon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
-        userMarker = L.marker([userLat, userLng], {icon:icon}).addTo(fullMap).bindPopup('Siz shu yerdasiz');
-      }
-      if(cb) cb();
-    }, function(err){ console.error('Joylashuv xatosi:', err); if(cb) cb(); }, {enableHighAccuracy:true});
+  function updateUserMarkerOnMap(mapObj){
+    if(!mapObj || userLat == null) return;
+    if(userMarker){ try{ mapObj.removeLayer(userMarker); }catch(e){} }
+    var icon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
+    userMarker = L.marker([userLat, userLng], {icon:icon}).addTo(mapObj).bindPopup('Siz shu yerdasiz');
   }
 
+  function startLiveLocation(cb){
+    if(!navigator.geolocation){ if(cb) cb(); return; }
+    if(geoWatchId != null){ if(userLat != null && cb) cb(); return; }
+    geoWatchId = navigator.geolocation.watchPosition(function(pos){
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      if(fullMap){ updateUserMarkerOnMap(fullMap); }
+      if(currentMap){ updateUserMarkerOnMap(currentMap); }
+      if(routeTargetListing && (fullMap || currentMap)){
+        var activeMap = fullMap || currentMap;
+        fetchRoute(userLat, userLng, routeTargetListing.lat, routeTargetListing.lng, function(coords, km){
+          if(fullMap){
+            if(routeLine){ fullMap.removeLayer(routeLine); }
+            routeLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(fullMap);
+            toast("Masofa: " + km + " km");
+          }
+          if(currentMap){
+            if(detailRouteLine){ currentMap.removeLayer(detailRouteLine); }
+            detailRouteLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(currentMap);
+            var btn = document.getElementById('detailRouteBtn');
+            if(btn) btn.textContent = "Masofa: " + km + " km";
+          }
+        }, function(){});
+      }
+      if(cb){ cb(); cb = null; }
+    }, function(err){ console.error('Joylashuv xatosi:', err); if(cb){ cb(); cb = null; } }, {enableHighAccuracy:true, maximumAge:5000});
+  }
+
+  function requestUserLocation(cb){ startLiveLocation(cb); }
+
   function drawRouteToListing(l){
-    if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
-    if(routeLine){ fullMap.removeLayer(routeLine); routeLine = null; }
-    toast("Yo'nalish qidirilmoqda...");
-    fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
-      routeLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(fullMap);
-      toast("Masofa: " + km + " km");
-      fullMap.fitBounds(routeLine.getBounds(), {padding:[50,50]});
-    }, function(){
-      toast("Yo'nalishni topib bo'lmadi.");
+    routeTargetListing = l;
+    toast("Joylashuvingiz aniqlanmoqda...");
+    startLiveLocation(function(){
+      if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
+      fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
+        if(routeLine){ fullMap.removeLayer(routeLine); routeLine = null; }
+        routeLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(fullMap);
+        toast("Masofa: " + km + " km");
+        fullMap.fitBounds(routeLine.getBounds(), {padding:[50,50]});
+      }, function(){
+        toast("Yo'nalishni topib bo'lmadi.");
+      });
     });
   }
 
@@ -421,6 +449,7 @@
     showPage('pageMapFull');
     fullMapToken++;
     var myToken = fullMapToken;
+    routeTargetListing = null;
     setTimeout(function(){
       if(myToken !== fullMapToken) return;
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
@@ -438,9 +467,18 @@
         popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
         m.bindPopup(popupEl);
       });
-      requestUserLocation();
+      startLiveLocation(function(){ updateUserMarkerOnMap(fullMap); });
       setTimeout(function(){ if(fullMap) fullMap.invalidateSize(); }, 100);
     }, 60);
+  }
+
+  function stopLiveLocationIfUnused(){
+    if(!fullMap && !currentMap && geoWatchId != null){
+      navigator.geolocation.clearWatch(geoWatchId);
+      geoWatchId = null;
+      userLat = null; userLng = null;
+      routeTargetListing = null;
+    }
   }
 
   /* =========================================================
@@ -662,6 +700,7 @@
     document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
+      stopLiveLocationIfUnused();
       showPage('pageHome'); renderPublic();
     });
 
