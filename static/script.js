@@ -1,8 +1,13 @@
 (function(){
   "use strict";
 
+  // Global xato aniqlash - har qanday JS xatosini konsolga chiqaradi
+  window.addEventListener('error', function(e){
+    console.error('GLOBAL XATO:', e.message, '| Fayl:', e.filename, '| Qator:', e.lineno);
+  });
+
   /* =========================================================
-     MA'LUMOTLAR BAZASI (demo, brauzer xotirasida)
+     MA'LUMOTLAR BAZASI
   ==========================================================*/
   var listings = [];
   var nextListingId = 1;
@@ -30,23 +35,23 @@
   function closeModal(id){ document.getElementById(id).classList.remove('show'); }
   function findListing(id){ for(var i=0;i<listings.length;i++){ if(listings[i].id===id) return listings[i]; } return null; }
   function mapListing(item){
-  var imgs = (item.images && item.images.length) ? item.images.map(function(im){ return im.image; }) : [];
-  return {
-    id: item.id, price: item.price, title: item.title, desc: item.desc,
-    district: item.district, lat: item.lat, lng: item.lng, rooms: item.rooms,
-    area: item.area, floor: item.floor, type: item.type, typeKey: item.type_key,
-    repair: item.repair, condition: item.condition, phone: item.phone,
-    seller: item.seller, ownerRole: item.owner_role, owner: item.owner,
-    mortgage: item.mortgage, daysAgo: 0, deal: item.deal, vip: item.vip, top: item.top,
-    photos: imgs, img: imgs.length ? imgs[0] : ''
-  };
-}
-function loadListings(cb){
-  fetch(API_BASE).then(function(r){ return r.json(); }).then(function(data){
-    listings = data.map(mapListing);
-    if(cb){ cb(); } else { renderPublic(); }
-  }).catch(function(err){ console.error(err); toast("Yuklashda xato yuz berdi."); });
-}
+    var imgs = (item.images && item.images.length) ? item.images.map(function(im){ return im.image; }) : [];
+    return {
+      id: item.id, price: item.price, title: item.title, desc: item.desc,
+      district: item.district, lat: item.lat, lng: item.lng, rooms: item.rooms,
+      area: item.area, floor: item.floor, type: item.type, typeKey: item.type_key,
+      repair: item.repair, condition: item.condition, phone: item.phone,
+      seller: item.seller, ownerRole: item.owner_role, owner: item.owner,
+      mortgage: item.mortgage, daysAgo: 0, deal: item.deal, vip: item.vip, top: item.top,
+      photos: imgs, img: imgs.length ? imgs[0] : ''
+    };
+  }
+  function loadListings(cb){
+    fetch(API_BASE).then(function(r){ return r.json(); }).then(function(data){
+      listings = data.map(mapListing);
+      if(cb){ cb(); } else { renderPublic(); }
+    }).catch(function(err){ console.error('loadListings xato:', err); toast("Yuklashda xato yuz berdi."); });
+  }
   function showPage(id){
     var pages = document.querySelectorAll('.page');
     for(var i=0;i<pages.length;i++){ pages[i].classList.remove('show'); }
@@ -383,15 +388,25 @@ function loadListings(cb){
     renderAdminStats();
     var wrap = document.getElementById('adminContent');
     if(adminTab==='profiles'){
-      var sellers = sellersSummary();
-      wrap.innerHTML = sellers.map(function(s){
-        return '<div class="profile-row" data-seller="'+s.name+'" style="cursor:pointer;">' +
-          '<div class="profile-avatar">'+s.name.charAt(0).toUpperCase()+'</div>' +
-          '<div class="profile-info"><div class="profile-name">'+s.name+'</div><div class="profile-meta">'+s.role+'</div></div>' +
-          '<div class="profile-count">'+s.count+' ta e\'lon</div></div>';
-      }).join('');
-      wrap.querySelectorAll('[data-seller]').forEach(function(row){
-        row.addEventListener('click', function(){ openSellerProfile(this.getAttribute('data-seller'), true); });
+      fetch(PROFILE_API).then(function(r){ return r.json(); }).then(function(profiles){
+        if(!profiles.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha ro\'yxatdan o\'tgan foydalanuvchi yo\'q.</div>'; return; }
+        wrap.innerHTML = profiles.map(function(p){
+          var listingCount = listings.filter(function(l){ return l.seller === p.username; }).length;
+          return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;">' +
+            '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
+            '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+'</div><div class="profile-meta">'+p.phone+' · '+p.role+'</div></div>' +
+            '<div class="profile-count">'+listingCount+' ta e\'lon</div></div>';
+        }).join('');
+        wrap.querySelectorAll('[data-seller]').forEach(function(row){
+          row.addEventListener('click', function(){
+            var sellerName = this.getAttribute('data-seller');
+            if(listings.some(function(l){ return l.seller === sellerName; })){
+              openSellerProfile(sellerName, true);
+            } else {
+              toast("Bu foydalanuvchining hali e'loni yo'q.");
+            }
+          });
+        });
       });
       return;
     }
@@ -434,7 +449,6 @@ function loadListings(cb){
     document.getElementById('searchInput').setAttribute('placeholder', dict.search);
     document.getElementById('postAdBtn').textContent = dict.post_ad;
     document.getElementById('homeAdminBtn').textContent = dict.admin;
-    document.getElementById('mapBtn').lastChild ? null : null;
     document.querySelector('#mapBtn').childNodes[1] ? (document.querySelector('#mapBtn').lastChild.textContent = dict.on_map) : null;
     document.querySelector('#filtersBtn').lastChild.textContent = ' ' + dict.filters;
     if(filterState.type === 'all'){ document.getElementById('typeLabel').textContent = dict.type_all; }
@@ -454,7 +468,7 @@ function loadListings(cb){
   var postLocationMap = null, postLocationMarker = null;
   var JIZZAX_CENTER = [40.1158, 67.8422];
   var postTier = 'regular';
-  document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')==='regular'); });
+
   function renderUploadThumbs(){
     var wrap = document.getElementById('uploadThumbs');
     wrap.innerHTML = postPhotos.map(function(url, i){
@@ -508,38 +522,38 @@ function loadListings(cb){
   ==========================================================*/
   document.addEventListener('DOMContentLoaded', init);
   if(document.readyState !== 'loading') init();
+
   function init(){
-  document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){
-  b.addEventListener('click', function(){
-    document.getElementById('tierToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
-    this.classList.add('sel');
-    postTier = this.getAttribute('data-tier');
-  });
-});
+    try{
+
+    document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){
+      b.classList.toggle('sel', b.getAttribute('data-tier')==='regular');
+      b.addEventListener('click', function(){
+        document.getElementById('tierToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        postTier = this.getAttribute('data-tier');
+      });
+    });
 
     loadListings();
     document.getElementById('langCode').textContent = 'UZ';
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
 
-    // qidiruv
     document.getElementById('searchInput').addEventListener('input', function(e){
       filterState.search = e.target.value.trim();
       renderPublic();
     });
 
-    // til
     var langBtn = document.getElementById('langBtn'), langMenu = document.getElementById('langMenu');
     langBtn.addEventListener('click', function(e){ e.stopPropagation(); langMenu.classList.toggle('open'); });
     langMenu.querySelectorAll('button').forEach(function(b){ b.addEventListener('click', function(){ applyLang(this.getAttribute('data-lang')); langMenu.classList.remove('open'); }); });
 
-    // qorong'u rejim
     document.getElementById('darkToggle').addEventListener('click', function(){
       document.body.classList.toggle('dark');
       this.classList.toggle('mode-active');
     });
 
-    // segment (sotuv/ijara/kunlik)
     document.querySelectorAll('#segment button').forEach(function(b){
       b.addEventListener('click', function(){
         document.querySelectorAll('#segment button').forEach(function(x){ x.classList.remove('active'); });
@@ -549,7 +563,6 @@ function loadListings(cb){
       });
     });
 
-    // ko'rinish rejimlari (grid/list/compact)
     document.querySelectorAll('.view-controls .view-btn').forEach(function(b){
       b.addEventListener('click', function(){
         document.querySelectorAll('.view-controls .view-btn').forEach(function(x){ x.classList.remove('active'); });
@@ -560,14 +573,12 @@ function loadListings(cb){
       });
     });
 
-    // xaritada
     document.getElementById('mapBtn').addEventListener('click', openMapFull);
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       showPage('pageHome'); renderPublic();
     });
 
-    // mulk turi dropdown
     var typePill = document.getElementById('propertyTypePill'), typeDropdown = document.getElementById('typeDropdown');
     typePill.addEventListener('click', function(e){ e.stopPropagation(); typeDropdown.classList.toggle('open'); typePill.classList.toggle('open'); });
     typeDropdown.querySelectorAll('button').forEach(function(opt){
@@ -582,7 +593,6 @@ function loadListings(cb){
       });
     });
 
-    // toggle pill'lar
     document.querySelectorAll('#filterPillsRow .pill[data-toggle]').forEach(function(p){
       p.addEventListener('click', function(){
         this.classList.toggle('selected');
@@ -591,13 +601,11 @@ function loadListings(cb){
       });
     });
 
-    // tashqariga bosilganda dropdownlar yopiladi
     document.addEventListener('click', function(){
       langMenu.classList.remove('open');
       typeDropdown.classList.remove('open'); typePill.classList.remove('open');
     });
 
-    // panellar (backdrop)
     var backdrop = document.getElementById('backdrop');
     var panels = ['profileSearchPanel','notifPanel','filtersPanel','editProfilePanel'];
     function openPanel(id){ closeAllPanels(); document.getElementById(id).classList.add('open'); backdrop.classList.add('open'); }
@@ -605,7 +613,6 @@ function loadListings(cb){
     backdrop.addEventListener('click', closeAllPanels);
     document.querySelectorAll('[data-close]').forEach(function(b){ b.addEventListener('click', closeAllPanels); });
 
-    // profil qidirish
     function renderSellerSearch(filter){
       var list = document.getElementById('psList');
       var sellers = sellersSummary().filter(function(s){ return s.name.toLowerCase().indexOf(filter.toLowerCase())>-1; });
@@ -622,7 +629,6 @@ function loadListings(cb){
     document.getElementById('psInput').addEventListener('input', function(e){ renderSellerSearch(e.target.value); });
     document.getElementById('notifBtn').addEventListener('click', function(){ openPanel('notifPanel'); });
 
-    // filtrlar paneli
     document.getElementById('filtersBtn').addEventListener('click', function(){ openPanel('filtersPanel'); });
     document.getElementById('roomsToggle').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
@@ -650,7 +656,6 @@ function loadListings(cb){
       renderPublic();
     });
 
-    // admin
     document.getElementById('adminLoginForm').addEventListener('submit', loginAdmin);
     document.getElementById('loginCloseBtn').addEventListener('click', function(){ closeModal('adminLoginModal'); });
     document.getElementById('homeAdminBtn').addEventListener('click', function(){ openModal('adminLoginModal'); });
@@ -658,11 +663,9 @@ function loadListings(cb){
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.addEventListener('click', function(){ setAdminTab(this.getAttribute('data-tab')); }); });
     document.querySelectorAll('.overlay').forEach(function(ov){ ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); }); });
 
-    // detail / seller profile orqaga
     document.getElementById('detailBackBtn').addEventListener('click', returnFromDetail);
     document.getElementById('sellerProfileBackBtn').addEventListener('click', returnFromSellerProfile);
 
-    // footer info sahifalari
     document.querySelectorAll('[data-info]').forEach(function(link){
       link.addEventListener('click', function(e){ e.preventDefault(); showPage(this.getAttribute('data-info')); });
     });
@@ -671,7 +674,6 @@ function loadListings(cb){
       if(b) b.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
     });
 
-    // Mening profilim
     document.getElementById('avatarBtn').addEventListener('click', function(){
       requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); });
     });
@@ -713,7 +715,6 @@ function loadListings(cb){
       });
     });
 
-    // profilni tahrirlash
     document.getElementById('editProfileBtn').addEventListener('click', function(){
       document.getElementById('editFullNameInput').value = document.getElementById('profileFullName').textContent.trim();
       document.getElementById('editUsernameInput').value = document.getElementById('profileUsername').textContent.trim();
@@ -737,7 +738,6 @@ function loadListings(cb){
       toast('Profil yangilandi.');
     });
 
-    // balans (kosmetik demo)
     document.querySelectorAll('#quickAmounts button').forEach(function(b){
       b.addEventListener('click', function(){
         document.querySelectorAll('#quickAmounts button').forEach(function(x){ x.classList.remove('sel'); });
@@ -751,7 +751,6 @@ function loadListings(cb){
     document.getElementById('topUpBtn').addEventListener('click', function(){ toast("To'lov tizimiga yo'naltirilmoqda (demo)."); });
     document.getElementById('verifyBtn').addEventListener('click', function(){ toast('Telegram bot ochilmoqda (demo).'); });
 
-    // e'lon joylash vizardi
     document.getElementById('postAdBtn').addEventListener('click', function(){
       requireAuth(function(){
         showPage('pagePost');
@@ -794,7 +793,6 @@ function loadListings(cb){
       showPage('pageHome'); renderPublic();
     });
 
-    // Holati (Ikkinchi qo'l / Yangi bino)
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
         document.getElementById('condToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
@@ -802,10 +800,8 @@ function loadListings(cb){
         postCondition = this.getAttribute('data-c');
       });
     });
-    // Ta'mir select
     document.getElementById('postRepair').addEventListener('change', function(){ postRepair = this.value; });
 
-    // haqiqiy rasm yuklash
     renderUploadThumbs();
     document.getElementById('uploadTile').addEventListener('click', function(){ document.getElementById('postFileInput').click(); });
     document.getElementById('postFileInput').addEventListener('change', function(e){
@@ -867,10 +863,9 @@ function loadListings(cb){
           toast("E'lon joylandi!");
           openDetail(newListing.id, false);
         });
-      }).catch(function(err){ console.error(err); alert("E'lonni saqlashda xato yuz berdi."); });
+      }).catch(function(err){ console.error('finishPostBtn xato:', err); alert("E'lonni saqlashda xato yuz berdi."); });
     });
 
-    // AUTH FLOW
     document.getElementById('authGateCancel').addEventListener('click', function(){ document.getElementById('authGate').classList.add('hidden'); pendingAction=null; });
     document.getElementById('authGateEnter').addEventListener('click', function(){
       document.getElementById('authGate').classList.add('hidden');
@@ -878,16 +873,21 @@ function loadListings(cb){
     });
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
-       document.getElementById('phoneNextBtn').addEventListener('click', function(e){
-      e.preventDefault();
-      var fullName = document.getElementById('fullNameInput').value.trim();
-      var phone = document.getElementById('phoneInput').value.trim();
-      if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
-      if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
-      document.getElementById('otpPhoneDisplay').textContent = phone;
-      document.getElementById('authPhoneScreen').classList.add('hidden');
-      document.getElementById('otpMethodModal').classList.remove('hidden');
+
+    document.getElementById('phoneNextBtn').addEventListener('click', function(ev){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{
+        var fullName = document.getElementById('fullNameInput').value.trim();
+        var phone = document.getElementById('phoneInput').value.trim();
+        if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
+        if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
+        document.getElementById('otpPhoneDisplay').textContent = phone;
+        document.getElementById('authPhoneScreen').classList.add('hidden');
+        document.getElementById('otpMethodModal').classList.remove('hidden');
+      }catch(err){ console.error('phoneNextBtn xato:', err); }
+      return false;
     });
+
     document.getElementById('otpEditBtn').addEventListener('click', function(){
       document.getElementById('otpMethodModal').classList.add('hidden');
       document.getElementById('authPhoneScreen').classList.remove('hidden');
@@ -913,49 +913,56 @@ function loadListings(cb){
     });
     document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('resendLink').addEventListener('click', function(){ toast('Kod qayta yuborildi (demo).'); });
-        document.getElementById('codeConfirmBtn').addEventListener('click', function(){
-      var code = Array.from(codeBoxes).map(function(b){ return b.value; }).join('');
-      if(code.length < 6){ alert("Iltimos, 6 xonali kodni to'liq kiriting."); return; }
-      isLoggedIn = true;
-      var fullName = document.getElementById('fullNameInput').value.trim();
-      var phone = document.getElementById('phoneInput').value.trim();
-      var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
+    document.getElementById('codeConfirmBtn').addEventListener('click', function(ev){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{
+        var code = Array.from(codeBoxes).map(function(b){ return b.value; }).join('');
+        if(code.length < 6){ alert("Iltimos, 6 xonali kodni to'liq kiriting."); return; }
+        isLoggedIn = true;
+        var fullName = document.getElementById('fullNameInput').value.trim();
+        var phone = document.getElementById('phoneInput').value.trim();
+        var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
 
-      function applyProfile(p){
-        document.getElementById('profileFullName').textContent = p.full_name;
-        document.getElementById('profileUsername').textContent = p.username;
-        document.getElementById('profilePhoneDisplay').textContent = p.phone;
-        document.getElementById('balancePhone').textContent = p.phone;
-        var av = document.getElementById('myAvatar');
-        av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
-      }
+        function applyProfile(p){
+          document.getElementById('profileFullName').textContent = p.full_name;
+          document.getElementById('profileUsername').textContent = p.username;
+          document.getElementById('profilePhoneDisplay').textContent = p.phone;
+          document.getElementById('balancePhone').textContent = p.phone;
+          var av = document.getElementById('myAvatar');
+          av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
+        }
 
-      fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
-        .then(function(r){ return r.json(); })
-        .then(function(existing){
-          if(existing.length){
-            var p = existing[0];
-            applyProfile(p);
-            fetch(PROFILE_API + p.id + '/', {
-              method: 'PATCH',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ full_name: fullName, username: usernameGenerated })
-            }).catch(function(err){ console.error(err); });
-          } else {
-            var newProfile = { phone: phone, username: usernameGenerated, full_name: fullName, role: 'Uy egasi' };
-            applyProfile(newProfile);
-            fetch(PROFILE_API, {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify(newProfile)
-            }).catch(function(err){ console.error(err); });
-          }
-        }).catch(function(err){ console.error(err); });
+        fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
+          .then(function(r){ return r.json(); })
+          .then(function(existing){
+            if(existing.length){
+              var p = existing[0];
+              applyProfile(p);
+              fetch(PROFILE_API + p.id + '/', {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ full_name: fullName, username: usernameGenerated })
+              }).catch(function(err){ console.error('profile patch xato:', err); });
+            } else {
+              var newProfile = { phone: phone, username: usernameGenerated, full_name: fullName, role: 'Uy egasi' };
+              applyProfile(newProfile);
+              fetch(PROFILE_API, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(newProfile)
+              }).catch(function(err){ console.error('profile post xato:', err); });
+            }
+          }).catch(function(err){ console.error('profile fetch xato:', err); });
 
-      closeAllAuth();
-      if(pendingAction){ pendingAction(); pendingAction=null; }
+        closeAllAuth();
+        if(pendingAction){ pendingAction(); pendingAction=null; }
+      }catch(err){ console.error('codeConfirmBtn xato:', err); }
+      return false;
     });
 
+    }catch(initErr){
+      console.error('INIT XATO:', initErr);
+    }
   } // init()
 
 })();

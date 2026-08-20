@@ -56,7 +56,7 @@
     <div class="toolbar">
       <div class="toolbar-left">
         <div class="segment" id="segment">
-          <button data-deal="sotuv">Sotuv</button>
+          <button class="active" data-deal="sotuv">Sotuv</button>
           <button data-deal="ijara">Ijara</button>
           <button data-deal="kunlik">Kunlik</button>
         </div>
@@ -453,7 +453,7 @@
     </svg>
     <div class="auth-full-logo"><span class="logo-mark">🏠</span><span style="color:#fff;font-weight:800;font-size:19px;">XONADON</span></div>
   </div>
-<div class="auth-full-form">
+  <div class="auth-full-form">
     <button class="close-x auth-close" id="authPhoneClose">✕</button>
     <h2>Kirish</h2>
     <label>Ism familiya</label>
@@ -463,6 +463,7 @@
     <div class="auth-terms">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
     <button class="btn-full-black" id="phoneNextBtn">Keyingi</button>
     <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
+  </div>
 </div>
 
 <div class="auth-gate hidden" id="otpMethodModal">
@@ -513,5 +514,6 @@
 <div class="toast" id="toast"></div>
 
 <script src="{% static 'script.js' %}"></script>
+
 </body>
 </html>
