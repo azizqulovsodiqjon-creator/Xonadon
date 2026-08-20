@@ -335,6 +335,53 @@
      TO'LIQ XARITA KO'RINISHI
   ==========================================================*/
   var fullMap = null, fullMapToken = 0;
+  var userLat = null, userLng = null, userMarker = null, routeLine = null;
+
+  function distanceKm(lat1,lng1,lat2,lng2){
+    var R = 6371;
+    var dLat = (lat2-lat1)*Math.PI/180;
+    var dLng = (lng2-lng1)*Math.PI/180;
+    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+    var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R*c;
+  }
+
+  function requestUserLocation(){
+    if(!navigator.geolocation){ return; }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      if(fullMap){
+        if(userMarker){ fullMap.removeLayer(userMarker); }
+        var icon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
+        userMarker = L.marker([userLat, userLng], {icon:icon}).addTo(fullMap).bindPopup('Siz shu yerdasiz');
+      }
+    }, function(err){ console.error('Joylashuv xatosi:', err); }, {enableHighAccuracy:true});
+  }
+
+  function drawRouteToListing(l){
+    if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
+    if(routeLine){ fullMap.removeLayer(routeLine); }
+    routeLine = L.polyline([[userLat,userLng],[l.lat,l.lng]], {color:'#fdf90e', weight:5, dashArray:'10,8'}).addTo(fullMap);
+    var km = distanceKm(userLat, userLng, l.lat, l.lng).toFixed(1);
+    toast("Masofa: " + km + " km");
+    fullMap.fitBounds(routeLine.getBounds(), {padding:[50,50]});
+  }
+
+  function doMapSearch(){
+    var q = document.getElementById('mapSearchInput').value.trim();
+    if(!q || !fullMap) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ', Jizzax, Uzbekiston'))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && data.length){
+          fullMap.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 15);
+        } else {
+          toast("Joy topilmadi.");
+        }
+      }).catch(function(err){ console.error('Qidiruv xatosi:', err); toast("Qidirishda xato yuz berdi."); });
+  }
+
   function openMapFull(){
     showPage('pageMapFull');
     fullMapToken++;
@@ -351,10 +398,12 @@
         var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+l.price+' у.е</div>', iconSize:[0,0]});
         var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
         var popupEl = document.createElement('div');
-        popupEl.innerHTML = '<b>'+l.title+'</b><br>'+l.district+'<br><span class="map-popup-link">Batafsil</span>';
-        popupEl.querySelector('.map-popup-link').addEventListener('click', function(){ openDetail(l.id, false); });
+        popupEl.innerHTML = '<b>'+l.title+'</b><br>'+l.district+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
+        popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
+        popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
         m.bindPopup(popupEl);
       });
+      requestUserLocation();
       setTimeout(function(){ if(fullMap) fullMap.invalidateSize(); }, 100);
     }, 60);
   }
@@ -574,6 +623,8 @@
     });
 
     document.getElementById('mapBtn').addEventListener('click', openMapFull);
+    document.getElementById('mapSearchBtn').addEventListener('click', doMapSearch);
+    document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       showPage('pageHome'); renderPublic();

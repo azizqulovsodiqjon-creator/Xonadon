@@ -398,3 +398,9 @@
   @media (max-width:720px){
     .owner-contact-btn{margin-left:0;width:100%;}
   }
+
+  /* ---------- xarita qidiruv va joylashuv ---------- */
+  .map-search-box{position:absolute;top:80px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:8px;width:90%;max-width:440px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.2);padding:8px;}
+  .map-search-box input{flex:1;border:none;outline:none;padding:10px 12px;font-size:14px;font-family:'Manrope',sans-serif;background:var(--paper);border-radius:9px;color:var(--ink);}
+  .map-search-box button{background:var(--gold);border:none;padding:0 18px;border-radius:9px;font-weight:800;font-size:13.5px;cursor:pointer;color:#000;}
+  .user-location-pin{width:16px;height:16px;border-radius:50%;background:#2F6FED;border:3px solid #fff;box-shadow:0 0 0 4px rgba(47,111,237,0.3);}
