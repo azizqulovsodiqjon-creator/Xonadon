@@ -488,7 +488,7 @@
     e.preventDefault();
     var u = document.getElementById('a_user').value, p = document.getElementById('a_pass').value;
     var errBox = document.getElementById('loginError');
-    if(u==='admin' && p==='admin123'){
+    if(u==='988912' && p==='988912'){
       errBox.style.display='none'; closeModal('adminLoginModal');
       document.getElementById('adminLoginForm').reset();
       showPage('pageAdmin'); renderAdmin();
@@ -570,7 +570,6 @@
     document.querySelectorAll('#segment button[data-deal]').forEach(function(b){ b.textContent = dict[b.getAttribute('data-deal')]; });
     document.getElementById('searchInput').setAttribute('placeholder', dict.search);
     document.getElementById('postAdBtn').textContent = dict.post_ad;
-    document.getElementById('homeAdminBtn').textContent = dict.admin;
     document.querySelector('#mapBtn').childNodes[1] ? (document.querySelector('#mapBtn').lastChild.textContent = dict.on_map) : null;
     document.querySelector('#filtersBtn').lastChild.textContent = ' ' + dict.filters;
     if(filterState.type === 'all'){ document.getElementById('typeLabel').textContent = dict.type_all; }
@@ -627,7 +626,27 @@
   /* =========================================================
      AUTH FLOW (telefon + kod, demo)
   ==========================================================*/
-  function requireAuth(action){
+  function applyProfile(p){
+    document.getElementById('profileFullName').textContent = p.full_name;
+    document.getElementById('profileUsername').textContent = p.username;
+    document.getElementById('profilePhoneDisplay').textContent = p.phone;
+    document.getElementById('balancePhone').textContent = p.phone;
+    var av = document.getElementById('myAvatar');
+    av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
+  }
+  function saveLoginToStorage(p){
+    try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
+  }
+  function loadLoginFromStorage(){
+    try{
+      var raw = localStorage.getItem('xonadonProfile');
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
+  function clearLoginStorage(){
+    try{ localStorage.removeItem('xonadonProfile'); }catch(e){}
+  }
     if(isLoggedIn){ action(); return; }
     pendingAction = action;
     document.getElementById('authGate').classList.remove('hidden');
@@ -659,6 +678,12 @@
 
     loadListings();
     document.getElementById('langCode').textContent = 'UZ';
+
+    var savedProfile = loadLoginFromStorage();
+    if(savedProfile){
+      isLoggedIn = true;
+      applyProfile(savedProfile);
+    }
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
 
@@ -813,7 +838,7 @@
     function switchProfileSub(sub){
       ['profil','balans','xabarlar','tasdiqlash'].forEach(function(s){ document.getElementById('sub-'+s).classList.toggle('hidden', s!==sub); });
     }
-    document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; showPage('pageHome'); renderPublic(); });
+    document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; clearLoginStorage(); showPage('pageHome'); renderPublic(); });
 
     function renderMyListings(){
       var username = document.getElementById('profileUsername').textContent.trim();
@@ -1048,21 +1073,13 @@
         var phone = document.getElementById('phoneInput').value.trim();
         var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
 
-        function applyProfile(p){
-          document.getElementById('profileFullName').textContent = p.full_name;
-          document.getElementById('profileUsername').textContent = p.username;
-          document.getElementById('profilePhoneDisplay').textContent = p.phone;
-          document.getElementById('balancePhone').textContent = p.phone;
-          var av = document.getElementById('myAvatar');
-          av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
-        }
-
         fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
           .then(function(r){ return r.json(); })
           .then(function(existing){
             if(existing.length){
               var p = existing[0];
               applyProfile(p);
+              saveLoginToStorage(p);
               fetch(PROFILE_API + p.id + '/', {
                 method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
@@ -1075,7 +1092,9 @@
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(newProfile)
-              }).catch(function(err){ console.error('profile post xato:', err); });
+              }).then(function(r){ return r.json(); }).then(function(created){
+                saveLoginToStorage(created);
+              }).catch(function(err){ console.error('profile post xato:', err); saveLoginToStorage(newProfile); });
             }
           }).catch(function(err){ console.error('profile fetch xato:', err); });
 
