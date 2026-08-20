@@ -148,6 +148,7 @@
      UY TAFSILOTLARI SAHIFASI
   ==========================================================*/
   var galleryPhotos = [], galleryIndex = 0;
+  var detailRouteLine = null;
 
   function floorRows(l){
     if(l.floor && l.floor.indexOf('/') !== -1){
@@ -201,6 +202,7 @@
         '<div class="location-row2"><span class="pin">📍</span>' + l.district + '</div>' +
         '<div class="map-box" id="detailMap"></div>' +
         '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
+        '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">Yo\'nalishni ko\'rsatish</button>' +
       '</div>' +
       '<div class="owner-card">' +
         '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
@@ -228,6 +230,28 @@
       msgBtn.addEventListener('click', function(){
         if(l.phone){ toast("Sotuvchi raqami: " + l.phone); }
         else { toast("Telefon raqami ko'rsatilmagan."); }
+      });
+    }
+    var detailRouteBtn = document.getElementById('detailRouteBtn');
+    if(detailRouteBtn){
+      detailRouteBtn.addEventListener('click', function(){
+        if(!currentMap){ toast("Xarita hali yuklanmadi."); return; }
+        detailRouteBtn.textContent = "Joylashuv aniqlanmoqda...";
+        requestUserLocation(function(){
+          if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); detailRouteBtn.textContent = "Yo'nalishni ko'rsatish"; return; }
+          detailRouteBtn.textContent = "Yo'nalish qidirilmoqda...";
+          fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
+            if(detailRouteLine){ currentMap.removeLayer(detailRouteLine); }
+            detailRouteLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(currentMap);
+            var userIcon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
+            L.marker([userLat, userLng], {icon:userIcon}).addTo(currentMap).bindPopup('Siz shu yerdasiz');
+            currentMap.fitBounds(detailRouteLine.getBounds(), {padding:[40,40]});
+            detailRouteBtn.textContent = "Masofa: " + km + " km";
+          }, function(){
+            toast("Yo'nalishni topib bo'lmadi.");
+            detailRouteBtn.textContent = "Yo'nalishni ko'rsatish";
+          });
+        });
       });
     }
   }
@@ -272,6 +296,7 @@
 
   function initDetailMap(l){
     if(currentMap){ try{ currentMap.remove(); }catch(e){} currentMap=null; }
+    detailRouteLine = null;
     mapInitToken++;
     var myToken = mapInitToken;
     setTimeout(function(){
@@ -337,17 +362,22 @@
   var fullMap = null, fullMapToken = 0;
   var userLat = null, userLng = null, userMarker = null, routeLine = null;
 
-  function distanceKm(lat1,lng1,lat2,lng2){
-    var R = 6371;
-    var dLat = (lat2-lat1)*Math.PI/180;
-    var dLng = (lng2-lng1)*Math.PI/180;
-    var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-    var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R*c;
+  function fetchRoute(fromLat, fromLng, toLat, toLng, onSuccess, onError){
+    var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
+    fetch(url).then(function(r){ return r.json(); }).then(function(data){
+      if(data && data.routes && data.routes.length){
+        var route = data.routes[0];
+        var coords = route.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+        var km = (route.distance / 1000).toFixed(1);
+        onSuccess(coords, km);
+      } else {
+        onError();
+      }
+    }).catch(function(err){ console.error('Marshrut xatosi:', err); onError(); });
   }
 
-  function requestUserLocation(){
-    if(!navigator.geolocation){ return; }
+  function requestUserLocation(cb){
+    if(!navigator.geolocation){ if(cb) cb(); return; }
     navigator.geolocation.getCurrentPosition(function(pos){
       userLat = pos.coords.latitude;
       userLng = pos.coords.longitude;
@@ -356,16 +386,21 @@
         var icon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
         userMarker = L.marker([userLat, userLng], {icon:icon}).addTo(fullMap).bindPopup('Siz shu yerdasiz');
       }
-    }, function(err){ console.error('Joylashuv xatosi:', err); }, {enableHighAccuracy:true});
+      if(cb) cb();
+    }, function(err){ console.error('Joylashuv xatosi:', err); if(cb) cb(); }, {enableHighAccuracy:true});
   }
 
   function drawRouteToListing(l){
     if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
-    if(routeLine){ fullMap.removeLayer(routeLine); }
-    routeLine = L.polyline([[userLat,userLng],[l.lat,l.lng]], {color:'#fdf90e', weight:5, dashArray:'10,8'}).addTo(fullMap);
-    var km = distanceKm(userLat, userLng, l.lat, l.lng).toFixed(1);
-    toast("Masofa: " + km + " km");
-    fullMap.fitBounds(routeLine.getBounds(), {padding:[50,50]});
+    if(routeLine){ fullMap.removeLayer(routeLine); routeLine = null; }
+    toast("Yo'nalish qidirilmoqda...");
+    fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
+      routeLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(fullMap);
+      toast("Masofa: " + km + " km");
+      fullMap.fitBounds(routeLine.getBounds(), {padding:[50,50]});
+    }, function(){
+      toast("Yo'nalishni topib bo'lmadi.");
+    });
   }
 
   function doMapSearch(){
