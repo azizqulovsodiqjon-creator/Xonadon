@@ -15,7 +15,8 @@
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{background:var(--paper);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease;}
+  body{background:var(--paper);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease;overscroll-behavior-y:contain;}
+  html{overscroll-behavior-y:contain;}
   h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;letter-spacing:-0.01em;margin:0;}
   button{font-family:'Manrope',sans-serif;cursor:pointer;}
   a{text-decoration:none;color:inherit;}
