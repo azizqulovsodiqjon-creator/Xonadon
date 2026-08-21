@@ -435,7 +435,7 @@
     document.getElementById('backdrop').classList.add('open');
     fetch(MESSAGE_THREAD_API + '?me=' + encodeURIComponent(myUsername()) + '&with=' + encodeURIComponent(otherUsername))
       .then(function(r){ return r.json(); })
-      .then(function(list){ renderThreadMessages(list); })
+      .then(function(list){ renderThreadMessages(list); updateNotifBadge(); })
       .catch(function(err){ console.error('message thread xato:', err); toast('Xabarlarni yuklashda xato yuz berdi.'); });
   }
   function sendThreadMessage(){
@@ -451,8 +451,9 @@
       openMessageThread(currentThreadWith);
     }).catch(function(err){ console.error('send message xato:', err); toast("Xabar yuborishda xato yuz berdi."); });
   }
-  function renderConversationsList(){
-    var wrap = document.getElementById('xabarlarList');
+  function renderConversationsList(targetId){
+    var wrap = document.getElementById(targetId || 'xabarlarList');
+    if(!wrap) return;
     fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(myUsername()))
       .then(function(r){ return r.json(); })
       .then(function(list){
@@ -465,9 +466,21 @@
             '<div class="conv-preview">' + escapeHtml(c.lastText || '') + '</div></div></div>';
         }).join('');
         wrap.querySelectorAll('[data-with]').forEach(function(row){
+          // openMessageThread already closes every open side-panel itself.
           row.addEventListener('click', function(){ openMessageThread(this.getAttribute('data-with')); });
         });
       }).catch(function(err){ console.error('conversations xato:', err); });
+  }
+  function updateNotifBadge(){
+    var badge = document.getElementById('notifBadge');
+    if(!badge || !isLoggedIn) return;
+    fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(myUsername()))
+      .then(function(r){ return r.json(); })
+      .then(function(list){
+        var total = list.reduce(function(sum, c){ return sum + (c.unread || 0); }, 0);
+        badge.textContent = total > 99 ? '99+' : String(total);
+        badge.classList.toggle('hidden', total === 0);
+      }).catch(function(err){ console.error('notif badge xato:', err); });
   }
 
   /* =========================================================
@@ -841,6 +854,7 @@
     document.getElementById('balancePhone').textContent = p.phone || '';
     var av = document.getElementById('myAvatar');
     av.textContent = (p.full_name || p.username || 'M').charAt(0).toUpperCase();
+    updateNotifBadge();
   }
   function saveLoginToStorage(p){
     try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
@@ -987,7 +1001,12 @@
       loadProfilesDirectory(function(){ renderSellerSearch(document.getElementById('psInput').value || ''); });
     });
     document.getElementById('psInput').addEventListener('input', function(e){ renderSellerSearch(e.target.value); });
-    document.getElementById('notifBtn').addEventListener('click', function(){ openPanel('notifPanel'); });
+    document.getElementById('notifBtn').addEventListener('click', function(){
+      requireAuth(function(){
+        renderConversationsList('notifMessagesList');
+        openPanel('notifPanel');
+      });
+    });
 
     document.getElementById('filtersBtn').addEventListener('click', function(){ openPanel('filtersPanel'); });
     document.getElementById('applyFiltersBtn').addEventListener('click', function(){

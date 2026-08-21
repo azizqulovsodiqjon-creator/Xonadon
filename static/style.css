@@ -50,7 +50,9 @@
   .lang-menu.open{display:flex;}
   .lang-menu button{background:none;border:none;text-align:left;padding:8px 10px;border-radius:6px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--ink);}
   .lang-menu button:hover{background:var(--paper);}
-  .icon-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:transparent;color:var(--ink);flex-shrink:0;}
+  .icon-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:transparent;color:var(--ink);flex-shrink:0;position:relative;}
+  .notif-badge{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
+  .notif-badge.hidden{display:none;}
   .icon-btn:hover{background:var(--paper);}
   .icon-btn svg{width:18px;height:18px;}
   .icon-btn.mode-active{background:var(--gold);color:#000;}
