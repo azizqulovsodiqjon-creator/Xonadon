@@ -76,9 +76,9 @@
     document.getElementById(id).classList.add('show');
     window.scrollTo(0,0);
     // The admin FAB (shield icon) is a floating, always-in-DOM button, so
-    // it must be explicitly hidden on every page except "Mening profilim".
+    // it must be explicitly hidden on every page except the home page.
     var adminFab = document.getElementById('homeAdminBtn');
-    if(adminFab) adminFab.classList.toggle('hidden', id !== 'pageMyProfile');
+    if(adminFab) adminFab.classList.toggle('hidden', id !== 'pageHome');
   }
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
