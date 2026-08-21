@@ -260,7 +260,7 @@
         <button class="btn-full-black" style="max-width:320px;margin-top:22px;" id="topUpBtn">To'ldirish</button>
       </div>
       <div id="sub-xabarlar" class="hidden">
-        <div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo'q</p></div>
+        <div id="xabarlarList"><div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo'q</p></div></div>
       </div>
       <div id="sub-tasdiqlash" class="hidden">
         <div class="verify-box">
@@ -407,13 +407,31 @@
 <div class="side-panel" id="filtersPanel">
   <div class="side-panel-head"><h3>Filtrlar</h3><button class="close-x" data-close>✕</button></div>
   <div class="side-panel-body">
+    <div class="field"><label>Tuman</label>
+      <select id="filterDistrict">
+        <option value="">Barcha tumanlar</option>
+        <option>Jizzax shahri</option><option>Arnasoy tumani</option><option>Baxmal tumani</option>
+        <option>Do'stlik tumani</option><option>Forish tumani</option><option>G'allaorol tumani</option>
+        <option>Mirzacho'l tumani</option><option>Paxtakor tumani</option><option>Sh. Rashidov tumani</option>
+        <option>Yangiobod tumani</option><option>Zafarobod tumani</option><option>Zarbdor tumani</option><option>Zomin tumani</option>
+      </select>
+    </div>
     <div class="field"><label>Narx, dan (у.е)</label><input type="text" id="priceFromInput" placeholder="0"></div>
     <div class="field"><label>Narx, gacha (у.е)</label><input type="text" id="priceToInput" placeholder="Cheksiz"></div>
-    <div class="field"><label>Xonalar soni</label>
-      <div class="toggle-row" id="roomsToggle"><button data-r="1">1</button><button data-r="2">2</button><button data-r="3">3</button><button data-r="4">4+</button></div>
-    </div>
+    <div class="field"><label>Xonalar soni</label><input type="text" inputmode="numeric" id="roomsInput" placeholder="Masalan: 3"></div>
     <button class="btn-full-black" id="applyFiltersBtn">Qo'llash</button>
     <button class="btn-full-outline" id="resetFiltersBtn">Tozalash</button>
+  </div>
+</div>
+
+<div class="side-panel" id="messageThreadPanel">
+  <div class="side-panel-head"><h3 id="threadWithName">Xabar</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-body">
+    <div id="threadMessages" class="thread-messages"></div>
+    <div class="thread-input-row">
+      <input type="text" id="threadInput" placeholder="Xabar yozing...">
+      <button id="threadSendBtn">Yuborish</button>
+    </div>
   </div>
 </div>
 

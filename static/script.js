@@ -18,14 +18,19 @@
   var isLoggedIn = false, pendingAction = null;
   var sellerProfileFromAdmin = false;
 
-  var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null};
+  var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null, district:null};
   var API_BASE = '/api/listings/';
   var PROFILE_API = '/api/profiles/';
   var PROFILES_DIRECTORY_API = '/api/profiles/directory/';
   var ADMIN_LOGIN_API = '/api/admin/login/';
   var ADMIN_LOGOUT_API = '/api/admin/logout/';
+  var SEND_MESSAGE_API = '/api/messages/send/';
+  var MESSAGE_THREAD_API = '/api/messages/thread/';
+  var MESSAGE_CONVERSATIONS_API = '/api/messages/conversations/';
   var viewMode = 'grid';
   var allProfilesDirectory = []; // every registered user (username/full_name/role) - no phone
+  var currentThreadWith = null;
+  function myUsername(){ return document.getElementById('profileUsername').textContent.trim(); }
 
   // Django's CSRF cookie, read so write requests (POST/PATCH/DELETE) can
   // send it back as the X-CSRFToken header - required once a session is
@@ -127,10 +132,8 @@
     if(state.lastMonth && p.daysAgo > 30) return false;
     if(state.priceMin != null && priceNum(p.price) < state.priceMin) return false;
     if(state.priceMax != null && priceNum(p.price) > state.priceMax) return false;
-    if(state.rooms != null){
-      if(state.rooms === 4){ if(!p.rooms || p.rooms < 4) return false; }
-      else if(p.rooms !== state.rooms) return false;
-    }
+    if(state.rooms != null && (!p.rooms || p.rooms < state.rooms)) return false;
+    if(state.district && p.district !== state.district) return false;
     if(state.search){
       var q = state.search.toLowerCase();
       var hay = (p.title + ' ' + p.district + ' ' + p.desc).toLowerCase();
@@ -262,15 +265,17 @@
     var callBtn = document.getElementById('callSellerBtn');
     if(callBtn){
       callBtn.addEventListener('click', function(){
-        if(l.phone){ window.location.href = 'tel:' + l.phone; }
-        else { toast("Telefon raqami ko'rsatilmagan."); }
+        if(l.phone){
+          toast("Telefon: " + l.phone);
+          callBtn.textContent = l.phone;
+          window.location.href = 'tel:' + l.phone;
+        } else { toast("Telefon raqami ko'rsatilmagan."); }
       });
     }
     var msgBtn = document.getElementById('msgSellerBtn');
     if(msgBtn){
       msgBtn.addEventListener('click', function(){
-        if(l.phone){ toast("Sotuvchi raqami: " + l.phone); }
-        else { toast("Telefon raqami ko'rsatilmagan."); }
+        requireAuth(function(){ openMessageThread(l.seller); });
       });
     }
     var detailRouteBtn = document.getElementById('detailRouteBtn');
@@ -397,6 +402,71 @@
   }
   function returnFromSellerProfile(){
     if(sellerProfileFromAdmin){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); }
+  }
+
+  /* =========================================================
+     XABARLAR (ichki xabarlashish)
+  ==========================================================*/
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function formatMsgTime(iso){
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleString('uz-UZ', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+  }
+  function renderThreadMessages(list){
+    var me = myUsername();
+    var wrap = document.getElementById('threadMessages');
+    if(!list.length){ wrap.innerHTML = '<div class="empty-note">Hozircha xabar yo\'q. Birinchi bo\'lib yozing!</div>'; return; }
+    wrap.innerHTML = list.map(function(m){
+      var mine = m.sender === me;
+      return '<div class="msg-bubble ' + (mine?'mine':'theirs') + '">' + escapeHtml(m.text) +
+        '<span class="msg-time">' + formatMsgTime(m.created_at) + '</span></div>';
+    }).join('');
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+  function openMessageThread(otherUsername){
+    currentThreadWith = otherUsername;
+    document.getElementById('threadWithName').textContent = displayName(otherUsername);
+    document.getElementById('threadInput').value = '';
+    document.getElementById('threadMessages').innerHTML = '<div class="empty-note">Yuklanmoqda...</div>';
+    var panels = document.querySelectorAll('.side-panel.open');
+    panels.forEach(function(p){ p.classList.remove('open'); });
+    document.getElementById('messageThreadPanel').classList.add('open');
+    document.getElementById('backdrop').classList.add('open');
+    fetch(MESSAGE_THREAD_API + '?me=' + encodeURIComponent(myUsername()) + '&with=' + encodeURIComponent(otherUsername))
+      .then(function(r){ return r.json(); })
+      .then(function(list){ renderThreadMessages(list); })
+      .catch(function(err){ console.error('message thread xato:', err); toast('Xabarlarni yuklashda xato yuz berdi.'); });
+  }
+  function sendThreadMessage(){
+    var input = document.getElementById('threadInput');
+    var text = input.value.trim();
+    if(!text || !currentThreadWith) return;
+    fetch(SEND_MESSAGE_API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({sender: myUsername(), receiver: currentThreadWith, text: text})
+    }).then(function(r){ return r.json(); }).then(function(){
+      input.value = '';
+      openMessageThread(currentThreadWith);
+    }).catch(function(err){ console.error('send message xato:', err); toast("Xabar yuborishda xato yuz berdi."); });
+  }
+  function renderConversationsList(){
+    var wrap = document.getElementById('xabarlarList');
+    fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(myUsername()))
+      .then(function(r){ return r.json(); })
+      .then(function(list){
+        if(!list.length){ wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo\'q</p></div>'; return; }
+        wrap.innerHTML = list.map(function(c){
+          return '<div class="conv-row" data-with="' + c.username + '">' +
+            '<div class="ps-avatar"></div>' +
+            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + displayName(c.username) + '</span>' +
+              (c.unread ? '<span class="conv-unread">' + c.unread + '</span>' : '') + '</div>' +
+            '<div class="conv-preview">' + escapeHtml(c.lastText || '') + '</div></div></div>';
+        }).join('');
+        wrap.querySelectorAll('[data-with]').forEach(function(row){
+          row.addEventListener('click', function(){ openMessageThread(this.getAttribute('data-with')); });
+        });
+      }).catch(function(err){ console.error('conversations xato:', err); });
   }
 
   /* =========================================================
@@ -650,6 +720,39 @@
   var postLocationMap = null, postLocationMarker = null;
   var JIZZAX_CENTER = [40.1158, 67.8422];
   var postTier = 'regular';
+  var editingListingId = null; // set while editing an existing listing (Saqlash instead of pay+post)
+
+  function openEditListing(l){
+    editingListingId = l.id;
+    postDeal = l.deal || 'sotuv';
+    postTypeKey = l.typeKey || 'kvartira';
+    postCat = l.type || 'Kvartira';
+    postRepair = l.repair || "Ta'mirni tanlang";
+    postCondition = l.condition || "Yangi bino";
+    postTier = l.vip ? 'vip' : (l.top ? 'top' : 'regular');
+    postPhotos = (l.photos || []).slice();
+
+    showPage('pagePost');
+    renderUploadThumbs();
+    document.getElementById('uploadCount').textContent = postPhotos.length + '/10';
+    document.getElementById('postTitle').value = l.title || '';
+    document.getElementById('postDesc').value = l.desc || '';
+    document.getElementById('postPhone').value = l.phone || '+998';
+    document.getElementById('postPrice').value = l.price || '';
+    var floorParts = String(l.floor || '').split('/');
+    document.getElementById('postFloor').value = floorParts[0] === '—' ? '' : (floorParts[0] || '');
+    document.getElementById('postFloorsTotal').value = floorParts[1] || '';
+    document.getElementById('postArea').value = l.area || '';
+    document.getElementById('postRepair').value = postRepair;
+    document.getElementById('postDistrict').value = l.district || '';
+    document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
+    document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
+    document.getElementById('paymentSummary').classList.add('hidden');
+    var editBtn = document.getElementById('finishPostBtn');
+    editBtn.textContent = 'Saqlash';
+    editBtn.disabled = false;
+    showPostStep(3);
+  }
 
   /* =========================================================
      TO'LOV (Stripe) - e'lon joylash pullik
@@ -700,6 +803,15 @@
       postLocationMarker = L.marker(JIZZAX_CENTER, {draggable:true}).addTo(postLocationMap);
       postLocationMap.on('click', function(e){ postLocationMarker.setLatLng(e.latlng); });
       setTimeout(function(){ postLocationMap.invalidateSize(); }, 60);
+      // Center on the user's real current location if they allow it,
+      // instead of always defaulting to the Jizzax city center.
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(function(pos){
+          var latlng = [pos.coords.latitude, pos.coords.longitude];
+          postLocationMarker.setLatLng(latlng);
+          postLocationMap.setView(latlng, 14);
+        }, function(){ /* denied/unavailable - keep the default Jizzax center */ }, {enableHighAccuracy:true, timeout:8000});
+      }
     }, 60);
   }
   function showPostStep(n){
@@ -839,7 +951,7 @@
     });
 
     var backdrop = document.getElementById('backdrop');
-    var panels = ['profileSearchPanel','notifPanel','filtersPanel','editProfilePanel'];
+    var panels = ['profileSearchPanel','notifPanel','filtersPanel','editProfilePanel','messageThreadPanel'];
     function openPanel(id){ closeAllPanels(); document.getElementById(id).classList.add('open'); backdrop.classList.add('open'); }
     function closeAllPanels(){ panels.forEach(function(p){ document.getElementById(p).classList.remove('open'); }); backdrop.classList.remove('open'); }
     backdrop.addEventListener('click', closeAllPanels);
@@ -866,20 +978,14 @@
     document.getElementById('notifBtn').addEventListener('click', function(){ openPanel('notifPanel'); });
 
     document.getElementById('filtersBtn').addEventListener('click', function(){ openPanel('filtersPanel'); });
-    document.getElementById('roomsToggle').querySelectorAll('button').forEach(function(b){
-      b.addEventListener('click', function(){
-        var already = this.classList.contains('sel');
-        document.getElementById('roomsToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
-        if(!already){ this.classList.add('sel'); }
-      });
-    });
     document.getElementById('applyFiltersBtn').addEventListener('click', function(){
       var pf = document.getElementById('priceFromInput').value.trim();
       var pt = document.getElementById('priceToInput').value.trim();
+      var rooms = document.getElementById('roomsInput').value.trim();
       filterState.priceMin = pf ? parseInt(pf,10) : null;
       filterState.priceMax = pt ? parseInt(pt,10) : null;
-      var selRoom = document.querySelector('#roomsToggle button.sel');
-      filterState.rooms = selRoom ? parseInt(selRoom.getAttribute('data-r'),10) : null;
+      filterState.rooms = rooms ? parseInt(rooms,10) || null : null;
+      filterState.district = document.getElementById('filterDistrict').value || null;
       closeAllPanels();
       renderPublic();
       toast('Filtrlar qo\'llandi.');
@@ -887,8 +993,9 @@
     document.getElementById('resetFiltersBtn').addEventListener('click', function(){
       document.getElementById('priceFromInput').value='';
       document.getElementById('priceToInput').value='';
-      document.getElementById('roomsToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
-      filterState.priceMin=null; filterState.priceMax=null; filterState.rooms=null;
+      document.getElementById('roomsInput').value='';
+      document.getElementById('filterDistrict').value='';
+      filterState.priceMin=null; filterState.priceMax=null; filterState.rooms=null; filterState.district=null;
       renderPublic();
     });
 
@@ -923,7 +1030,10 @@
     });
     function switchProfileSub(sub){
       ['profil','balans','xabarlar','tasdiqlash'].forEach(function(s){ document.getElementById('sub-'+s).classList.toggle('hidden', s!==sub); });
+      if(sub === 'xabarlar'){ renderConversationsList(); }
     }
+    document.getElementById('threadSendBtn').addEventListener('click', sendThreadMessage);
+    document.getElementById('threadInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendThreadMessage(); } });
     document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; clearLoginStorage(); showPage('pageHome'); renderPublic(); });
 
     function renderMyListings(){
@@ -937,9 +1047,33 @@
       }
       box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+'</div></div></div>';
+          '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+'</div>' +
+          '<div class="meta" style="gap:8px;"><button type="button" class="qbtn" data-edit="'+l.id+'">Tahrirlash</button>' +
+          '<button type="button" class="qbtn del" data-delmine="'+l.id+'">O\'chirish</button></div></div></div>';
       }).join('') + '</div>';
       box.querySelectorAll('[data-id]').forEach(function(el){ el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), false); }); });
+      box.querySelectorAll('[data-edit]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          var l = findListing(Number(this.getAttribute('data-edit')));
+          if(l) openEditListing(l);
+        });
+      });
+      box.querySelectorAll('[data-delmine]').forEach(function(btn){
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          var id = Number(this.getAttribute('data-delmine'));
+          if(!confirm("E'lonni o'chirishni tasdiqlaysizmi?")) return;
+          fetch(API_BASE + id + '/', {
+            method: 'DELETE',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({seller: username})
+          }).then(function(r){
+            if(r.status === 403){ toast("Bu e'lonni o'chirishga ruxsatingiz yo'q."); return; }
+            loadListings(function(){ renderMyListings(); toast("E'lon o'chirildi."); });
+          }).catch(function(err){ console.error('delete mine xato:', err); toast("O'chirishda xato yuz berdi."); });
+        });
+      });
     }
     document.querySelectorAll('.profile-tab').forEach(function(tab){
       tab.addEventListener('click', function(){
@@ -990,6 +1124,11 @@
     document.getElementById('postAdBtn').addEventListener('click', function(){
       requireAuth(function(){
         showPage('pagePost');
+        editingListingId = null;
+        document.getElementById('paymentSummary').classList.remove('hidden');
+        var finishBtn = document.getElementById('finishPostBtn');
+        finishBtn.textContent = "To'lov qilish va joylash";
+        finishBtn.disabled = false;
         postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino";
         postPhotos = [];
         renderUploadThumbs();
@@ -1024,6 +1163,15 @@
       });
     });
     document.getElementById('postBack').addEventListener('click', function(){
+      if(editingListingId){
+        editingListingId = null;
+        document.getElementById('paymentSummary').classList.remove('hidden');
+        var cancelBtn = document.getElementById('finishPostBtn');
+        cancelBtn.textContent = "To'lov qilish va joylash";
+        cancelBtn.disabled = false;
+        showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings();
+        return;
+      }
       if(!document.getElementById('postStep3').classList.contains('hidden')){ showPostStep(2); return; }
       if(!document.getElementById('postStep2').classList.contains('hidden')){ showPostStep(1); return; }
       showPage('pageHome'); renderPublic();
@@ -1062,7 +1210,11 @@
         alert("Iltimos, sarlavha, narx, maydon va tumanni to'ldiring.");
         return;
       }
-      if(!paymentInfo.configured){
+      if(!postPhotos.length && !editingListingId){
+        alert("Iltimos, kamida bitta rasm qo'shing.");
+        return;
+      }
+      if(!editingListingId && !paymentInfo.configured){
         alert("To'lov tizimi hali sozlanmagan. Iltimos, keyinroq urinib ko'ring.");
         return;
       }
@@ -1094,6 +1246,31 @@
       };
 
       var btn = this;
+
+      if(editingListingId){
+        btn.disabled = true;
+        btn.textContent = 'Saqlanmoqda...';
+        fetch(API_BASE + editingListingId + '/', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        }).then(function(r){ return r.json(); }).then(function(updated){
+          var savedId = editingListingId;
+          editingListingId = null;
+          document.getElementById('paymentSummary').classList.remove('hidden');
+          loadListings(function(){
+            toast("E'lon yangilandi!");
+            openDetail(savedId, false);
+          });
+        }).catch(function(err){
+          console.error('edit save xato:', err);
+          alert("Saqlashda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = 'Saqlash';
+        });
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = "Yo'naltirilmoqda...";
       fetch(CHECKOUT_SESSION_API, {

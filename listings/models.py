@@ -51,6 +51,26 @@ class Profile(models.Model):
         return self.username or self.phone
 
 
+class Message(models.Model):
+    """
+    A single chat message between two users, identified by username (the
+    same lightweight, client-asserted identity the rest of the site uses -
+    there's no real per-request auth here, matching the existing app).
+    """
+    listing = models.ForeignKey(Listing, null=True, blank=True, on_delete=models.SET_NULL, related_name='messages')
+    sender = models.CharField(max_length=100)
+    receiver = models.CharField(max_length=100)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender} -> {self.receiver}: {self.text[:30]}"
+
+
 class PendingListingPayment(models.Model):
     """
     A listing "waiting on payment": created right before we redirect the

@@ -10,8 +10,9 @@ from rest_framework.decorators import api_view, permission_classes, throttle_cla
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
-from .models import Listing, Profile, PendingListingPayment
-from .serializers import ListingSerializer, ProfileSerializer
+from django.db.models import Q
+from .models import Listing, Profile, PendingListingPayment, Message
+from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
 
 @ensure_csrf_cookie
@@ -27,11 +28,22 @@ class ListingViewSet(viewsets.ModelViewSet):
     serializer_class = ListingSerializer
 
     def get_permissions(self):
-        # Anyone can browse or post a listing (that's the public site flow),
-        # but only an authenticated admin (is_staff) can delete one.
-        if self.action == 'destroy':
-            return [IsAdminUser()]
+        # Anyone can browse, post, or edit a listing (that's the public
+        # site flow - there's no real per-request auth to lock editing
+        # down further). destroy() below does its own check.
         return [AllowAny()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        user = request.user
+        is_admin = bool(user and user.is_authenticated and user.is_staff)
+        # The owner can delete their own listing too - identified by the
+        # same client-asserted username used everywhere else on the site
+        # (no real per-request auth exists here to check more strongly).
+        claimed_seller = str(request.data.get('seller') or request.query_params.get('seller') or '').strip()
+        if not is_admin and claimed_seller != instance.seller:
+            return Response({'detail': "Bu e'lonni o'chirishga ruxsatingiz yo'q."}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -90,6 +102,60 @@ def admin_logout(request):
 def admin_status(request):
     u = request.user
     return Response({'isAdmin': bool(u and u.is_authenticated and u.is_staff)})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_message(request):
+    sender = str(request.data.get('sender', '')).strip()
+    receiver = str(request.data.get('receiver', '')).strip()
+    text = str(request.data.get('text', '')).strip()
+    listing_id = request.data.get('listing') or None
+    if not sender or not receiver or not text:
+        return Response({'ok': False, 'error': "Xabar matni va foydalanuvchilar kerak."}, status=400)
+    if sender == receiver:
+        return Response({'ok': False, 'error': "O'zingizga xabar yubora olmaysiz."}, status=400)
+    msg = Message.objects.create(sender=sender, receiver=receiver, text=text, listing_id=listing_id)
+    return Response(MessageSerializer(msg).data, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def message_thread(request):
+    me = str(request.query_params.get('me', '')).strip()
+    other = str(request.query_params.get('with', '')).strip()
+    if not me or not other:
+        return Response({'ok': False, 'error': "'me' va 'with' parametrlari kerak."}, status=400)
+    qs = Message.objects.filter(Q(sender=me, receiver=other) | Q(sender=other, receiver=me)).order_by('created_at')
+    # Opening the thread marks what they sent me as read.
+    Message.objects.filter(sender=other, receiver=me, read=False).update(read=True)
+    return Response(MessageSerializer(qs, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def message_conversations(request):
+    me = str(request.query_params.get('me', '')).strip()
+    if not me:
+        return Response({'ok': False, 'error': "'me' parametri kerak."}, status=400)
+    mine = Message.objects.filter(Q(sender=me) | Q(receiver=me))
+    partners = set()
+    for m in mine.only('sender', 'receiver'):
+        partners.add(m.receiver if m.sender == me else m.sender)
+
+    result = []
+    for partner in partners:
+        thread = mine.filter(Q(sender=partner) | Q(receiver=partner))
+        last = thread.order_by('-created_at').first()
+        unread = thread.filter(sender=partner, receiver=me, read=False).count()
+        result.append({
+            'username': partner,
+            'lastText': last.text if last else '',
+            'lastAt': last.created_at.isoformat() if last else None,
+            'unread': unread,
+        })
+    result.sort(key=lambda r: r['lastAt'] or '', reverse=True)
+    return Response(result)
 
 
 @api_view(['GET'])
