@@ -21,7 +21,23 @@
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null};
   var API_BASE = '/api/listings/';
   var PROFILE_API = '/api/profiles/';
+  var ADMIN_LOGIN_API = '/api/admin/login/';
+  var ADMIN_LOGOUT_API = '/api/admin/logout/';
   var viewMode = 'grid';
+
+  // Django's CSRF cookie, read so write requests (POST/PATCH/DELETE) can
+  // send it back as the X-CSRFToken header - required once a session is
+  // authenticated (admin login/logout/delete).
+  function getCookie(name){
+    var match = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+  function csrfHeaders(extra){
+    var h = extra || {};
+    var token = getCookie('csrftoken');
+    if(token) h['X-CSRFToken'] = token;
+    return h;
+  }
 
   /* =========================================================
      KICHIK YORDAMCHI FUNKSIYALAR
@@ -488,13 +504,32 @@
     e.preventDefault();
     var u = document.getElementById('a_user').value, p = document.getElementById('a_pass').value;
     var errBox = document.getElementById('loginError');
-    if(u==='988912' && p==='988912'){
-      errBox.style.display='none'; closeModal('adminLoginModal');
-      document.getElementById('adminLoginForm').reset();
-      showPage('pageAdmin'); renderAdmin();
-    } else { errBox.style.display='block'; }
+    var btn = document.getElementById('adminLoginForm').querySelector('button[type="submit"]');
+    if(btn) btn.disabled = true;
+    fetch(ADMIN_LOGIN_API, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: csrfHeaders({'Content-Type': 'application/json'}),
+      body: JSON.stringify({username: u, password: p})
+    }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
+      .then(function(res){
+        if(res.status === 200 && res.data.ok){
+          errBox.style.display='none'; closeModal('adminLoginModal');
+          document.getElementById('adminLoginForm').reset();
+          showPage('pageAdmin'); renderAdmin();
+        } else {
+          errBox.textContent = (res.data && res.data.error) || "Login yoki parol noto'g'ri.";
+          errBox.style.display='block';
+        }
+      })
+      .catch(function(err){ console.error('loginAdmin xato:', err); errBox.textContent = "Ulanishda xato yuz berdi."; errBox.style.display='block'; })
+      .finally(function(){ if(btn) btn.disabled = false; });
   }
-  function logoutAdmin(){ showPage('pageHome'); renderPublic(); }
+  function logoutAdmin(){
+    fetch(ADMIN_LOGOUT_API, {method:'POST', credentials:'same-origin', headers: csrfHeaders()})
+      .catch(function(err){ console.error('logoutAdmin xato:', err); })
+      .finally(function(){ showPage('pageHome'); renderPublic(); });
+  }
   function setAdminTab(tab){
     adminTab = tab;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
@@ -549,10 +584,13 @@
     });
   }
   function deleteListing(id){
-    fetch(API_BASE + id + '/', {method:'DELETE'}).then(function(){
-      loadListings(function(){ renderAdmin(); });
-      toast("E'lon o'chirildi.");
-    });
+    fetch(API_BASE + id + '/', {method:'DELETE', credentials:'same-origin', headers: csrfHeaders()})
+      .then(function(r){
+        if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+        loadListings(function(){ renderAdmin(); });
+        toast("E'lon o'chirildi.");
+      })
+      .catch(function(err){ console.error('deleteListing xato:', err); toast("O'chirishda xato yuz berdi."); });
   }
 
   /* =========================================================

@@ -39,6 +39,23 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
+# Render (and similar PaaS) terminate TLS at a proxy and forward plain HTTP
+# to the app, so Django needs to be told the original request was HTTPS -
+# otherwise CSRF's Origin check fails for real https:// requests.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS', 'https://xonadon.onrender.com'
+    ).split(',') if origin.strip()
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_RATES': {
+        # Rate-limit admin login attempts per IP to blunt password guessing.
+        'admin_login': '5/min',
+    },
+}
+
 
 # Application definition
 
