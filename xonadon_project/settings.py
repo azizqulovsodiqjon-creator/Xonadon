@@ -56,6 +56,25 @@ REST_FRAMEWORK = {
     },
 }
 
+# --- Stripe (listing payments) ---------------------------------------
+# Keys live only in env vars - never commit real keys. Until they're set,
+# the payment endpoints report "not configured" instead of crashing, so
+# the rest of the site keeps working.
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+
+# Price per listing tier, in USD cents, server-side only - the client
+# never gets to say what it should pay. Defaults below are an approximate
+# so'm -> USD conversion of 50 000 / 100 000 / 200 000 so'm; override any
+# of them with an env var (e.g. PRICE_VIP_CENTS=1600) without a redeploy
+# of code, whenever the real exchange rate or desired pricing changes.
+LISTING_PRICE_CENTS = {
+    'regular': int(os.environ.get('PRICE_REGULAR_CENTS', '400')),   # ~$4.00  (50 000 so'm)
+    'top': int(os.environ.get('PRICE_TOP_CENTS', '800')),           # ~$8.00  (100 000 so'm)
+    'vip': int(os.environ.get('PRICE_VIP_CENTS', '1600')),          # ~$16.00 (200 000 so'm)
+}
+
 
 # Application definition
 

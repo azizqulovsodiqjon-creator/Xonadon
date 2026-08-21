@@ -1,13 +1,16 @@
+import stripe
+from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
-from .models import Listing, Profile
+from .models import Listing, Profile, PendingListingPayment
 from .serializers import ListingSerializer, ProfileSerializer
 
 
@@ -97,3 +100,158 @@ def profiles_directory(request):
     # without exposing phone numbers the way the full Profile list does.
     data = Profile.objects.order_by('username').values('username', 'full_name', 'role')
     return Response(list(data))
+
+
+# =========================================================
+# PAYMENTS (Stripe) - posting a listing costs money per tier
+# =========================================================
+
+TIER_LABELS = {'regular': "Oddiy e'lon", 'top': "TOP e'lon", 'vip': "VIP e'lon"}
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def payment_config(request):
+    # Lets the frontend show real prices/currency and know whether Stripe
+    # keys have even been set yet, without ever seeing the secret key.
+    return Response({
+        'configured': bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
+        'publishableKey': settings.STRIPE_PUBLISHABLE_KEY,
+        'currency': 'usd',
+        'prices': settings.LISTING_PRICE_CENTS,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_checkout_session(request):
+    if not settings.STRIPE_SECRET_KEY:
+        return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan. Administrator bilan bog'laning."}, status=503)
+
+    tier = str(request.data.get('tier', '')).strip()
+    amount = settings.LISTING_PRICE_CENTS.get(tier)
+    if amount is None:
+        return Response({'ok': False, 'error': "Noto'g'ri e'lon turi."}, status=400)
+
+    listing_payload = request.data.get('listing')
+    if not isinstance(listing_payload, dict):
+        return Response({'ok': False, 'error': "E'lon ma'lumotlari yo'q."}, status=400)
+
+    # The tier the client picked decides vip/top, not whatever flags it
+    # sent - so nobody can post a VIP listing at the regular price.
+    listing_payload = dict(listing_payload)
+    listing_payload['vip'] = (tier == 'vip')
+    listing_payload['top'] = (tier == 'top')
+
+    # Validate the listing data up front so we don't charge someone for a
+    # payload that will fail to save once payment succeeds.
+    serializer = ListingSerializer(data=listing_payload)
+    if not serializer.is_valid():
+        return Response({'ok': False, 'error': "E'lon ma'lumotlari noto'g'ri.", 'details': serializer.errors}, status=400)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    origin = request.build_absolute_uri('/').rstrip('/')
+    tier_label = TIER_LABELS.get(tier, "E'lon")
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': amount,
+                    'product_data': {'name': 'Xonadon - ' + tier_label + ' joylash'},
+                },
+                'quantity': 1,
+            }],
+            success_url=f'{origin}/?post_payment=success&session_id={{CHECKOUT_SESSION_ID}}',
+            cancel_url=f'{origin}/?post_payment=cancelled',
+        )
+    except Exception as exc:
+        return Response({'ok': False, 'error': str(exc)}, status=502)
+
+    PendingListingPayment.objects.create(
+        stripe_session_id=session.id,
+        tier=tier,
+        amount_cents=amount,
+        currency='usd',
+        payload=listing_payload,
+    )
+    return Response({'ok': True, 'url': session.url})
+
+
+def _finalize_pending_payment(pending):
+    """Idempotent: create the Listing for a paid pending row exactly once.
+
+    Called from both the success-redirect confirm endpoint and the
+    webhook - whichever gets there first wins, the other is a no-op.
+    """
+    if pending.created_listing_id:
+        return pending.created_listing
+    serializer = ListingSerializer(data=pending.payload)
+    serializer.is_valid(raise_exception=True)
+    listing = serializer.save()
+    pending.paid = True
+    pending.created_listing = listing
+    pending.save(update_fields=['paid', 'created_listing'])
+    return listing
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def confirm_payment(request):
+    session_id = request.query_params.get('session_id', '')
+    if not session_id:
+        return Response({'ok': False, 'error': 'session_id kerak.'}, status=400)
+
+    try:
+        pending = PendingListingPayment.objects.get(stripe_session_id=session_id)
+    except PendingListingPayment.DoesNotExist:
+        return Response({'ok': False, 'error': "To'lov topilmadi."}, status=404)
+
+    if pending.created_listing_id:
+        return Response({'ok': True, 'listing': ListingSerializer(pending.created_listing).data})
+
+    if not settings.STRIPE_SECRET_KEY:
+        return Response({'ok': False, 'error': "To'lov tizimi sozlanmagan."}, status=503)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except Exception as exc:
+        return Response({'ok': False, 'error': str(exc)}, status=502)
+
+    if session.payment_status != 'paid':
+        return Response({'ok': False, 'status': session.payment_status})
+
+    listing = _finalize_pending_payment(pending)
+    return Response({'ok': True, 'listing': ListingSerializer(listing).data})
+
+
+@csrf_exempt
+def stripe_webhook(request):
+    # Plain Django view (not DRF) so we get the raw request body untouched
+    # for Stripe's signature check - it's the authoritative confirmation
+    # path in case the user closes the tab before the success redirect.
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method not allowed'}, status=405)
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        return JsonResponse({'ok': True})  # not configured yet - accept quietly
+
+    try:
+        event = stripe.Webhook.construct_event(
+            request.body, request.META.get('HTTP_STRIPE_SIGNATURE', ''), settings.STRIPE_WEBHOOK_SECRET
+        )
+    except (ValueError, stripe.error.SignatureVerificationError):
+        return JsonResponse({'error': 'invalid signature'}, status=400)
+
+    if event['type'] == 'checkout.session.completed':
+        session_obj = event['data']['object']
+        try:
+            pending = PendingListingPayment.objects.get(stripe_session_id=session_obj['id'])
+            _finalize_pending_payment(pending)
+        except PendingListingPayment.DoesNotExist:
+            pass
+
+    return JsonResponse({'ok': True})

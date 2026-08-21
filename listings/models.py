@@ -49,3 +49,31 @@ class Profile(models.Model):
 
     def __str__(self):
         return self.username or self.phone
+
+
+class PendingListingPayment(models.Model):
+    """
+    A listing "waiting on payment": created right before we redirect the
+    user to Stripe Checkout, and turned into a real Listing only once
+    Stripe confirms the payment (via the success-redirect confirm call
+    and/or the webhook - whichever arrives first; both are idempotent).
+
+    The listing's own price/amount is decided server-side from `tier`,
+    never trusted from the client, so nobody can tamper with what they
+    actually pay.
+    """
+    TIER_CHOICES = [('regular', 'Oddiy'), ('top', 'Top'), ('vip', 'Vip')]
+
+    stripe_session_id = models.CharField(max_length=255, unique=True)
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    amount_cents = models.IntegerField()
+    currency = models.CharField(max_length=10, default='usd')
+    payload = models.JSONField()
+    paid = models.BooleanField(default=False)
+    created_listing = models.ForeignKey(
+        Listing, null=True, blank=True, on_delete=models.SET_NULL, related_name='+'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tier} payment ({'paid' if self.paid else 'pending'}) - {self.stripe_session_id}"

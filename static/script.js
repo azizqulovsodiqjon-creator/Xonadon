@@ -651,6 +651,29 @@
   var JIZZAX_CENTER = [40.1158, 67.8422];
   var postTier = 'regular';
 
+  /* =========================================================
+     TO'LOV (Stripe) - e'lon joylash pullik
+  ==========================================================*/
+  var PAYMENT_CONFIG_API = '/api/payments/config/';
+  var CHECKOUT_SESSION_API = '/api/payments/create-checkout-session/';
+  var CONFIRM_PAYMENT_API = '/api/payments/confirm/';
+  var paymentInfo = {configured:false, currency:'usd', prices:{regular:400, top:800, vip:1600}};
+
+  function loadPaymentConfig(cb){
+    fetch(PAYMENT_CONFIG_API).then(function(r){ return r.json(); }).then(function(data){
+      paymentInfo = data;
+      updatePaymentSummary();
+      if(cb) cb();
+    }).catch(function(err){ console.error('payment config xato:', err); if(cb) cb(); });
+  }
+  function formatUsd(cents){ return '$' + (cents/100).toFixed(2); }
+  function updatePaymentSummary(){
+    var amountEl = document.getElementById('paymentAmount');
+    if(!amountEl) return;
+    var cents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
+    amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+  }
+
   function renderUploadThumbs(){
     var wrap = document.getElementById('uploadThumbs');
     wrap.innerHTML = postPhotos.map(function(url, i){
@@ -681,7 +704,7 @@
   }
   function showPostStep(n){
     [1,2,3].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
-    if(n===3) initPostLocationMap();
+    if(n===3){ initPostLocationMap(); updatePaymentSummary(); }
   }
 
   /* =========================================================
@@ -735,11 +758,13 @@
         document.getElementById('tierToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
         this.classList.add('sel');
         postTier = this.getAttribute('data-tier');
+        updatePaymentSummary();
       });
     });
 
     loadListings();
     loadProfilesDirectory();
+    loadPaymentConfig();
     document.getElementById('langCode').textContent = 'UZ';
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
@@ -1037,6 +1062,10 @@
         alert("Iltimos, sarlavha, narx, maydon va tumanni to'ldiring.");
         return;
       }
+      if(!paymentInfo.configured){
+        alert("To'lov tizimi hali sozlanmagan. Iltimos, keyinroq urinib ko'ring.");
+        return;
+      }
       var pos = postLocationMarker ? postLocationMarker.getLatLng() : {lat:JIZZAX_CENTER[0], lng:JIZZAX_CENTER[1]};
       var seller = document.getElementById('profileUsername').textContent.trim() || 'yangi_foydalanuvchi';
       var floorsTotal = document.getElementById('postFloorsTotal').value.trim();
@@ -1064,18 +1093,61 @@
         top: postTier === 'top'
       };
 
-      fetch(API_BASE, {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Yo'naltirilmoqda...";
+      fetch(CHECKOUT_SESSION_API, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      }).then(function(r){ return r.json(); }).then(function(newListing){
-        loadListings(function(){
-          renderPublic();
-          toast("E'lon joylandi!");
-          openDetail(newListing.id, false);
+        body: JSON.stringify({tier: postTier, listing: payload})
+      }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
+        .then(function(res){
+          if(res.status === 200 && res.data.ok && res.data.url){
+            window.location.href = res.data.url; // off to Stripe Checkout
+          } else {
+            alert((res.data && res.data.error) || "To'lovni boshlashda xato yuz berdi.");
+            btn.disabled = false;
+            btn.textContent = "To'lov qilish va joylash";
+          }
+        })
+        .catch(function(err){
+          console.error('finishPostBtn xato:', err);
+          alert("To'lovni boshlashda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = "To'lov qilish va joylash";
         });
-      }).catch(function(err){ console.error('finishPostBtn xato:', err); alert("E'lonni saqlashda xato yuz berdi."); });
     });
+
+    // Coming back from Stripe Checkout (success or cancel) - confirm and
+    // finish creating the listing, or let the user know it was cancelled.
+    (function handlePaymentReturn(){
+      var params = new URLSearchParams(window.location.search);
+      var outcome = params.get('post_payment');
+      if(!outcome) return;
+      var sessionId = params.get('session_id');
+      history.replaceState(null, '', window.location.pathname);
+
+      if(outcome === 'cancelled'){
+        toast("To'lov bekor qilindi.");
+        return;
+      }
+      if(outcome === 'success' && sessionId){
+        toast("To'lov tasdiqlanmoqda...");
+        fetch(CONFIRM_PAYMENT_API + '?session_id=' + encodeURIComponent(sessionId))
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if(res.ok && res.listing){
+              loadListings(function(){
+                renderPublic();
+                toast("To'lov qabul qilindi, e'lon joylandi!");
+                openDetail(res.listing.id, false);
+              });
+            } else {
+              toast("To'lov hali tasdiqlanmadi. Bir ozdan so'ng qayta urinib ko'ring.");
+            }
+          }).catch(function(err){ console.error('confirm payment xato:', err); toast("To'lovni tasdiqlashda xato yuz berdi."); });
+      }
+    })();
 
     document.getElementById('authGateCancel').addEventListener('click', function(){ document.getElementById('authGate').classList.add('hidden'); pendingAction=null; });
     document.getElementById('authGateEnter').addEventListener('click', function(){
