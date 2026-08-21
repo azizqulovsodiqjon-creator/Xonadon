@@ -647,6 +647,7 @@
   function clearLoginStorage(){
     try{ localStorage.removeItem('xonadonProfile'); }catch(e){}
   }
+  function requireAuth(action){
     if(isLoggedIn){ action(); return; }
     pendingAction = action;
     document.getElementById('authGate').classList.remove('hidden');
@@ -678,12 +679,6 @@
 
     loadListings();
     document.getElementById('langCode').textContent = 'UZ';
-
-    var savedProfile = loadLoginFromStorage();
-    if(savedProfile){
-      isLoggedIn = true;
-      applyProfile(savedProfile);
-    }
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
 
@@ -1106,6 +1101,16 @@
 
     }catch(initErr){
       console.error('INIT XATO:', initErr);
+    }
+
+    try{
+      var savedProfile = loadLoginFromStorage();
+      if(savedProfile){
+        isLoggedIn = true;
+        applyProfile(savedProfile);
+      }
+    }catch(loginRestoreErr){
+      console.error('LOGIN TIKLASH XATO:', loginRestoreErr);
     }
   } // init()
 
