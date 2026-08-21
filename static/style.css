@@ -408,3 +408,4 @@
   /* ---------- admin floating tugma ---------- */
   .admin-fab{position:fixed;bottom:24px;right:24px;width:50px;height:50px;border-radius:50%;background:var(--teal-900);color:#fff;border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(0,0,0,0.28);cursor:pointer;z-index:90;}
   .admin-fab:hover{filter:brightness(1.15);}
+  .admin-fab.hidden{display:none;}

@@ -87,3 +87,13 @@ def admin_logout(request):
 def admin_status(request):
     u = request.user
     return Response({'isAdmin': bool(u and u.is_authenticated and u.is_staff)})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def profiles_directory(request):
+    # A public, privacy-safe listing of every registered user - just
+    # enough (username/name/role) to power the "Profil qidirish" search,
+    # without exposing phone numbers the way the full Profile list does.
+    data = Profile.objects.order_by('username').values('username', 'full_name', 'role')
+    return Response(list(data))

@@ -21,9 +21,11 @@
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null};
   var API_BASE = '/api/listings/';
   var PROFILE_API = '/api/profiles/';
+  var PROFILES_DIRECTORY_API = '/api/profiles/directory/';
   var ADMIN_LOGIN_API = '/api/admin/login/';
   var ADMIN_LOGOUT_API = '/api/admin/logout/';
   var viewMode = 'grid';
+  var allProfilesDirectory = []; // every registered user (username/full_name/role) - no phone
 
   // Django's CSRF cookie, read so write requests (POST/PATCH/DELETE) can
   // send it back as the X-CSRFToken header - required once a session is
@@ -73,6 +75,10 @@
     for(var i=0;i<pages.length;i++){ pages[i].classList.remove('show'); }
     document.getElementById(id).classList.add('show');
     window.scrollTo(0,0);
+    // The admin FAB (shield icon) is a floating, always-in-DOM button, so
+    // it must be explicitly hidden on every page except "Mening profilim".
+    var adminFab = document.getElementById('homeAdminBtn');
+    if(adminFab) adminFab.classList.toggle('hidden', id !== 'pageMyProfile');
   }
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
@@ -86,6 +92,25 @@
       if(l.vip) map[l.seller].vip++;
       else if(l.top) map[l.seller].top++;
       else map[l.seller].regular++;
+    });
+    return Object.keys(map).map(function(k){ return map[k]; });
+  }
+  function loadProfilesDirectory(cb){
+    fetch(PROFILES_DIRECTORY_API).then(function(r){ return r.json(); }).then(function(data){
+      allProfilesDirectory = data;
+      if(cb) cb();
+    }).catch(function(err){ console.error('profiles directory xato:', err); if(cb) cb(); });
+  }
+  // Every registered user should show up in "Profil qidirish", whether or
+  // not they've posted a listing yet - merge the listing-derived stats
+  // with the full user directory (0 e'lon for those with none).
+  function combinedSellers(){
+    var map = {};
+    sellersSummary().forEach(function(s){ map[s.name] = s; });
+    allProfilesDirectory.forEach(function(p){
+      if(!map[p.username]){
+        map[p.username] = {name:p.username, count:0, vip:0, top:0, regular:0, role:p.role};
+      }
     });
     return Object.keys(map).map(function(k){ return map[k]; });
   }
@@ -341,11 +366,12 @@
   function openSellerProfile(sellerName, fromAdmin){
     sellerProfileFromAdmin = !!fromAdmin;
     var mine = listings.filter(function(l){ return l.seller===sellerName; });
-    if(!mine.length) return;
+    var meta = allProfilesDirectory.filter(function(p){ return p.username===sellerName; })[0];
+    if(!mine.length && !meta) return; // truly unknown seller, nothing to show
     var vipCount = mine.filter(function(l){ return l.vip; }).length;
     var topCount = mine.filter(function(l){ return l.top && !l.vip; }).length;
     var regularCount = mine.length - vipCount - topCount;
-    var role = mine[0].ownerRole;
+    var role = mine.length ? mine[0].ownerRole : (meta ? meta.role : 'Foydalanuvchi');
 
     document.getElementById('sellerProfileContent').innerHTML =
       '<div class="seller-head-card"><div class="owner-avatar">'+sellerName.charAt(0).toUpperCase()+'</div>' +
@@ -358,12 +384,12 @@
       '</div><h3 style="margin-bottom:14px;">Barcha e\'lonlari</h3><div class="grid" id="sellerListingsGrid" style="padding:0;"></div>';
 
     var gridWrap = document.getElementById('sellerListingsGrid');
-    gridWrap.innerHTML = mine.map(function(l){
+    gridWrap.innerHTML = mine.length ? mine.map(function(l){
       return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt="">' +
         (l.top ? '<div class="top-badge">▲ TOP</div>' : '') + '<div class="type-badge">'+l.type+'</div></div>' +
         '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+', '+l.district+'</div>' +
         '<div class="meta"><span>'+(l.vip?'★ VIP':(l.top?'▲ TOP':'Oddiy'))+'</span></div></div></div>';
-    }).join('');
+    }).join('') : '<div class="empty-note">Hali e\'lon joylamagan.</div>';
     gridWrap.querySelectorAll('[data-id]').forEach(function(el){
       el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), sellerProfileFromAdmin); });
     });
@@ -556,12 +582,9 @@
         }).join('');
         wrap.querySelectorAll('[data-seller]').forEach(function(row){
           row.addEventListener('click', function(){
-            var sellerName = this.getAttribute('data-seller');
-            if(listings.some(function(l){ return l.seller === sellerName; })){
-              openSellerProfile(sellerName, true);
-            } else {
-              toast("Bu foydalanuvchining hali e'loni yo'q.");
-            }
+            // openSellerProfile now handles users with zero listings too
+            // (shows their profile with an empty-listings state).
+            openSellerProfile(this.getAttribute('data-seller'), true);
           });
         });
       });
@@ -716,6 +739,7 @@
     });
 
     loadListings();
+    loadProfilesDirectory();
     document.getElementById('langCode').textContent = 'UZ';
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
@@ -798,7 +822,7 @@
 
     function renderSellerSearch(filter){
       var list = document.getElementById('psList');
-      var sellers = sellersSummary().filter(function(s){ return s.name.toLowerCase().indexOf(filter.toLowerCase())>-1; });
+      var sellers = combinedSellers().filter(function(s){ return s.name.toLowerCase().indexOf(filter.toLowerCase())>-1; });
       list.innerHTML = sellers.map(function(s){
         return '<div class="ps-row" data-seller="'+s.name+'"><div class="ps-avatar"></div>' +
           '<div><div class="ps-name">'+displayName(s.name)+'</div><div class="ps-handle">@'+s.name+' · '+s.count+' e\'lon</div></div></div>';
@@ -808,7 +832,11 @@
         row.addEventListener('click', function(){ closeAllPanels(); openSellerProfile(this.getAttribute('data-seller'), false); });
       });
     }
-    document.getElementById('profileSearchBtn').addEventListener('click', function(){ renderSellerSearch(''); openPanel('profileSearchPanel'); });
+    document.getElementById('profileSearchBtn').addEventListener('click', function(){
+      renderSellerSearch('');
+      openPanel('profileSearchPanel');
+      loadProfilesDirectory(function(){ renderSellerSearch(document.getElementById('psInput').value || ''); });
+    });
     document.getElementById('psInput').addEventListener('input', function(e){ renderSellerSearch(e.target.value); });
     document.getElementById('notifBtn').addEventListener('click', function(){ openPanel('notifPanel'); });
 
@@ -1127,6 +1155,7 @@
                 body: JSON.stringify(newProfile)
               }).then(function(r){ return r.json(); }).then(function(created){
                 saveLoginToStorage(created);
+                loadProfilesDirectory();
               }).catch(function(err){ console.error('profile post xato:', err); saveLoginToStorage(newProfile); });
             }
           }).catch(function(err){ console.error('profile fetch xato:', err); });

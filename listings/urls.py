@@ -11,5 +11,6 @@ urlpatterns = [
     path('api/admin/login/', views.admin_login, name='admin-login'),
     path('api/admin/logout/', views.admin_logout, name='admin-logout'),
     path('api/admin/status/', views.admin_status, name='admin-status'),
+    path('api/profiles/directory/', views.profiles_directory, name='profiles-directory'),
     path('api/', include(router.urls)),
 ]
