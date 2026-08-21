@@ -59,6 +59,11 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Profile.objects.all().order_by('-created_at')
+        if self.action != 'list':
+            # retrieve/update/partial_update/destroy all target one known
+            # id (e.g. editing your own profile) - that's not a bulk data
+            # leak, so only the LIST action below needs locking down.
+            return qs
         phone = self.request.query_params.get('phone')
         if phone:
             # Looking up a single profile by exact phone number is needed

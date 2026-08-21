@@ -16,6 +16,7 @@
   var currentMap = null, mapInitToken = 0;
   var currentLang = "UZ";
   var isLoggedIn = false, pendingAction = null;
+  var currentProfile = null; // the full Profile record (id/phone/username/...) for the logged-in user
   var sellerProfileFromAdmin = false;
 
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null, district:null};
@@ -832,12 +833,14 @@
      AUTH FLOW (telefon + kod, demo)
   ==========================================================*/
   function applyProfile(p){
-    document.getElementById('profileFullName').textContent = p.full_name;
+    if(!p || !p.username){ console.error('applyProfile: invalid profile', p); return; }
+    currentProfile = p;
+    document.getElementById('profileFullName').textContent = p.full_name || '';
     document.getElementById('profileUsername').textContent = p.username;
-    document.getElementById('profilePhoneDisplay').textContent = p.phone;
-    document.getElementById('balancePhone').textContent = p.phone;
+    document.getElementById('profilePhoneDisplay').textContent = p.phone || '';
+    document.getElementById('balancePhone').textContent = p.phone || '';
     var av = document.getElementById('myAvatar');
-    av.textContent = (p.full_name || p.username).charAt(0).toUpperCase() || 'M';
+    av.textContent = (p.full_name || p.username || 'M').charAt(0).toUpperCase();
   }
   function saveLoginToStorage(p){
     try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
@@ -1106,15 +1109,28 @@
       var phone = document.getElementById('editPhoneInput').value.trim();
       if(!fullName || !username){ alert("Iltimos, ism va foydalanuvchi nomini to'ldiring."); return; }
       if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
-      document.getElementById('profileFullName').textContent = fullName;
-      document.getElementById('profileUsername').textContent = username;
-      document.getElementById('profilePhoneDisplay').textContent = phone;
-      document.getElementById('balancePhone').textContent = phone;
-      var av = document.getElementById('myAvatar');
-      av.textContent = username.charAt(0).toUpperCase();
-      closeAllPanels();
-      renderMyListings();
-      toast('Profil yangilandi.');
+      if(!currentProfile || !currentProfile.id){ alert("Profil topilmadi. Iltimos, qayta kiring."); return; }
+
+      var saveBtn = this;
+      saveBtn.disabled = true;
+      fetch(PROFILE_API + currentProfile.id + '/', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({full_name: fullName, username: username, phone: phone})
+      }).then(function(r){ return r.json(); }).then(function(updated){
+        // Persist for real - this used to only touch the DOM, so a page
+        // reload (or messaging under 'me') would silently revert to the
+        // old username, which is exactly why messages could look like
+        // they never reached the right person.
+        applyProfile(updated);
+        saveLoginToStorage(updated);
+        closeAllPanels();
+        renderMyListings();
+        toast('Profil yangilandi.');
+      }).catch(function(err){
+        console.error('save profile xato:', err);
+        alert("Profilni saqlashda xato yuz berdi.");
+      }).finally(function(){ saveBtn.disabled = false; });
     });
 
     document.querySelectorAll('#quickAmounts button').forEach(function(b){
@@ -1442,6 +1458,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(newProfile)
               }).then(function(r){ return r.json(); }).then(function(created){
+                applyProfile(created); // pick up the real id, not just the local draft
                 saveLoginToStorage(created);
                 loadProfilesDirectory();
               }).catch(function(err){ console.error('profile post xato:', err); saveLoginToStorage(newProfile); });
