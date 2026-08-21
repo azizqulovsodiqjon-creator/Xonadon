@@ -770,11 +770,20 @@
     }).catch(function(err){ console.error('payment config xato:', err); if(cb) cb(); });
   }
   function formatUsd(cents){ return '$' + (cents/100).toFixed(2); }
+  function isPaidTier(){ return postTier === 'top' || postTier === 'vip'; }
   function updatePaymentSummary(){
     var amountEl = document.getElementById('paymentAmount');
-    if(!amountEl) return;
-    var cents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
-    amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+    var finishBtn = document.getElementById('finishPostBtn');
+    if(!amountEl || !finishBtn) return;
+    if(!isPaidTier()){
+      amountEl.textContent = 'Bepul';
+    } else {
+      var cents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
+      amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+    }
+    if(!editingListingId){
+      finishBtn.textContent = isPaidTier() ? "To'lov qilish va joylash" : "E'lon joylash";
+    }
   }
 
   function renderUploadThumbs(){
@@ -1125,9 +1134,11 @@
       requireAuth(function(){
         showPage('pagePost');
         editingListingId = null;
+        postTier = 'regular';
+        document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')==='regular'); });
         document.getElementById('paymentSummary').classList.remove('hidden');
         var finishBtn = document.getElementById('finishPostBtn');
-        finishBtn.textContent = "To'lov qilish va joylash";
+        finishBtn.textContent = "E'lon joylash";
         finishBtn.disabled = false;
         postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino";
         postPhotos = [];
@@ -1166,9 +1177,8 @@
       if(editingListingId){
         editingListingId = null;
         document.getElementById('paymentSummary').classList.remove('hidden');
-        var cancelBtn = document.getElementById('finishPostBtn');
-        cancelBtn.textContent = "To'lov qilish va joylash";
-        cancelBtn.disabled = false;
+        document.getElementById('finishPostBtn').disabled = false;
+        updatePaymentSummary();
         showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings();
         return;
       }
@@ -1214,7 +1224,13 @@
         alert("Iltimos, kamida bitta rasm qo'shing.");
         return;
       }
-      if(!editingListingId && !paymentInfo.configured){
+      var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
+      var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
+      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorValCheck > floorsTotalCheck){
+        alert("Qavat raqami (" + floorValCheck + ") uyning umumiy qavatlar sonidan (" + floorsTotalCheck + ") oshmasligi kerak.");
+        return;
+      }
+      if(!editingListingId && isPaidTier() && !paymentInfo.configured){
         alert("To'lov tizimi hali sozlanmagan. Iltimos, keyinroq urinib ko'ring.");
         return;
       }
@@ -1267,6 +1283,29 @@
           alert("Saqlashda xato yuz berdi.");
           btn.disabled = false;
           btn.textContent = 'Saqlash';
+        });
+        return;
+      }
+
+      if(!isPaidTier()){
+        // Regular listings are free - skip Stripe entirely.
+        btn.disabled = true;
+        btn.textContent = 'Joylanmoqda...';
+        fetch(API_BASE, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        }).then(function(r){ return r.json(); }).then(function(newListing){
+          loadListings(function(){
+            renderPublic();
+            toast("E'lon joylandi!");
+            openDetail(newListing.id, false);
+          });
+        }).catch(function(err){
+          console.error('free post xato:', err);
+          alert("E'lonni saqlashda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = "E'lon joylash";
         });
         return;
       }
