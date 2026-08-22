@@ -62,6 +62,7 @@ class Profile(models.Model):
     username = models.CharField(max_length=100, blank=True)
     full_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=100, default="Uy egasi")
+    balance_cents = models.IntegerField(default=0)  # USD cents, topped up via Stripe
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -121,3 +122,19 @@ class PendingListingPayment(models.Model):
 
     def __str__(self):
         return f"{self.tier} payment ({'paid' if self.paid else 'pending'}) - {self.stripe_session_id}"
+
+
+class PendingBalanceTopup(models.Model):
+    """A balance top-up waiting on Stripe confirmation, same idea as
+    PendingListingPayment but credits a Profile's balance_cents instead
+    of creating a Listing."""
+
+    stripe_session_id = models.CharField(max_length=255, unique=True)
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='topups')
+    amount_cents = models.IntegerField()
+    currency = models.CharField(max_length=10, default='usd')
+    paid = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"topup {self.amount_cents}c for {self.profile} ({'paid' if self.paid else 'pending'})"

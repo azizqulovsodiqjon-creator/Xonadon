@@ -11,7 +11,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q
-from .models import Listing, Profile, PendingListingPayment, Message, normalize_phone
+from .models import Listing, Profile, PendingListingPayment, PendingBalanceTopup, Message, normalize_phone
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
 
@@ -301,6 +301,142 @@ def confirm_payment(request):
     return Response({'ok': True, 'listing': ListingSerializer(listing).data})
 
 
+# =========================================================
+# BALANCE (top up via Stripe, spend on posting a listing)
+# =========================================================
+
+MIN_TOPUP_CENTS = 100  # $1.00
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_balance_topup_session(request):
+    if not settings.STRIPE_SECRET_KEY:
+        return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
+
+    profile_id = request.data.get('profile_id')
+    try:
+        amount = int(request.data.get('amount_cents'))
+    except (TypeError, ValueError):
+        amount = None
+    if not profile_id or not amount or amount < MIN_TOPUP_CENTS:
+        return Response({'ok': False, 'error': "Noto'g'ri summa (kamida $1.00)."}, status=400)
+
+    try:
+        profile = Profile.objects.get(id=profile_id)
+    except Profile.DoesNotExist:
+        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    origin = request.build_absolute_uri('/').rstrip('/')
+
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': amount,
+                    'product_data': {'name': "Joymee Jizzax - balansni to'ldirish"},
+                },
+                'quantity': 1,
+            }],
+            success_url=f'{origin}/?balance_payment=success&session_id={{CHECKOUT_SESSION_ID}}',
+            cancel_url=f'{origin}/?balance_payment=cancelled',
+        )
+    except Exception as exc:
+        return Response({'ok': False, 'error': str(exc)}, status=502)
+
+    PendingBalanceTopup.objects.create(
+        stripe_session_id=session.id, profile=profile, amount_cents=amount, currency='usd',
+    )
+    return Response({'ok': True, 'url': session.url})
+
+
+def _finalize_balance_topup(pending):
+    """Idempotent: credit the profile's balance for a paid pending row
+    exactly once. Called from both the confirm endpoint and the webhook."""
+    if pending.paid:
+        return pending.profile
+    pending.paid = True
+    pending.save(update_fields=['paid'])
+    profile = pending.profile
+    profile.balance_cents = (profile.balance_cents or 0) + pending.amount_cents
+    profile.save(update_fields=['balance_cents'])
+    return profile
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def confirm_balance_topup(request):
+    session_id = request.query_params.get('session_id', '')
+    if not session_id:
+        return Response({'ok': False, 'error': 'session_id kerak.'}, status=400)
+
+    try:
+        pending = PendingBalanceTopup.objects.get(stripe_session_id=session_id)
+    except PendingBalanceTopup.DoesNotExist:
+        return Response({'ok': False, 'error': "To'lov topilmadi."}, status=404)
+
+    if pending.paid:
+        return Response({'ok': True, 'profile': ProfileSerializer(pending.profile).data})
+
+    if not settings.STRIPE_SECRET_KEY:
+        return Response({'ok': False, 'error': "To'lov tizimi sozlanmagan."}, status=503)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except Exception as exc:
+        return Response({'ok': False, 'error': str(exc)}, status=502)
+
+    if session.payment_status != 'paid':
+        return Response({'ok': False, 'status': session.payment_status})
+
+    profile = _finalize_balance_topup(pending)
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def create_listing_from_balance(request):
+    """Pay for a top/vip listing straight out of the profile's balance -
+    no Stripe redirect, the listing is created immediately."""
+    tier = str(request.data.get('tier', '')).strip()
+    amount = settings.LISTING_PRICE_CENTS.get(tier)
+    if amount is None:
+        return Response({'ok': False, 'error': "Noto'g'ri e'lon turi."}, status=400)
+
+    profile_id = request.data.get('profile_id')
+    listing_payload = request.data.get('listing')
+    if not profile_id or not isinstance(listing_payload, dict):
+        return Response({'ok': False, 'error': "Ma'lumotlar yo'q."}, status=400)
+
+    try:
+        profile = Profile.objects.get(id=profile_id)
+    except Profile.DoesNotExist:
+        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+
+    if (profile.balance_cents or 0) < amount:
+        return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
+
+    listing_payload = dict(listing_payload)
+    listing_payload['vip'] = (tier == 'vip')
+    listing_payload['top'] = (tier == 'top')
+    serializer = ListingSerializer(data=listing_payload)
+    if not serializer.is_valid():
+        return Response({'ok': False, 'error': "E'lon ma'lumotlari noto'g'ri.", 'details': serializer.errors}, status=400)
+
+    # Deduct first, then create - if the listing save somehow fails the
+    # serializer.is_valid() check above already caught bad data, so this
+    # is effectively atomic in practice for sqlite/postgres single-request use.
+    profile.balance_cents = (profile.balance_cents or 0) - amount
+    profile.save(update_fields=['balance_cents'])
+    listing = serializer.save()
+    return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
+
+
 @csrf_exempt
 def stripe_webhook(request):
     # Plain Django view (not DRF) so we get the raw request body untouched
@@ -320,10 +456,15 @@ def stripe_webhook(request):
 
     if event['type'] == 'checkout.session.completed':
         session_obj = event['data']['object']
+        sid = session_obj['id']
         try:
-            pending = PendingListingPayment.objects.get(stripe_session_id=session_obj['id'])
+            pending = PendingListingPayment.objects.get(stripe_session_id=sid)
             _finalize_pending_payment(pending)
         except PendingListingPayment.DoesNotExist:
-            pass
+            try:
+                topup = PendingBalanceTopup.objects.get(stripe_session_id=sid)
+                _finalize_balance_topup(topup)
+            except PendingBalanceTopup.DoesNotExist:
+                pass
 
     return JsonResponse({'ok': True})

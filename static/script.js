@@ -779,7 +779,11 @@
   var PAYMENT_CONFIG_API = '/api/payments/config/';
   var CHECKOUT_SESSION_API = '/api/payments/create-checkout-session/';
   var CONFIRM_PAYMENT_API = '/api/payments/confirm/';
+  var BALANCE_TOPUP_API = '/api/payments/create-balance-topup-session/';
+  var CONFIRM_BALANCE_API = '/api/payments/confirm-balance/';
+  var LISTING_FROM_BALANCE_API = '/api/payments/create-listing-from-balance/';
   var paymentInfo = {configured:false, currency:'usd', prices:{regular:400, top:800, vip:1600}};
+  var postPayMethod = 'card'; // 'card' (Stripe) or 'balance'
 
   function loadPaymentConfig(cb){
     fetch(PAYMENT_CONFIG_API).then(function(r){ return r.json(); }).then(function(data){
@@ -790,18 +794,30 @@
   }
   function formatUsd(cents){ return '$' + (cents/100).toFixed(2); }
   function isPaidTier(){ return postTier === 'top' || postTier === 'vip'; }
+  function myBalanceCents(){ return (currentProfile && currentProfile.balance_cents) || 0; }
   function updatePaymentSummary(){
     var amountEl = document.getElementById('paymentAmount');
     var finishBtn = document.getElementById('finishPostBtn');
+    var methodToggle = document.getElementById('postPayMethodToggle');
     if(!amountEl || !finishBtn) return;
     if(!isPaidTier()){
       amountEl.textContent = 'Bepul';
+      if(methodToggle) methodToggle.classList.add('hidden');
     } else {
       var cents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
       amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+      if(methodToggle) methodToggle.classList.remove('hidden');
+      var balEl = document.getElementById('postPayBalanceAmount');
+      if(balEl) balEl.textContent = formatUsd(myBalanceCents());
     }
     if(!editingListingId){
-      finishBtn.textContent = isPaidTier() ? "To'lov qilish va joylash" : "E'lon joylash";
+      if(!isPaidTier()){
+        finishBtn.textContent = "E'lon joylash";
+      } else if(postPayMethod === 'balance'){
+        finishBtn.textContent = "Balansdan to'lash va joylash";
+      } else {
+        finishBtn.textContent = "To'lov qilish va joylash";
+      }
     }
   }
 
@@ -857,9 +873,12 @@
     document.getElementById('profileUsername').textContent = p.username;
     document.getElementById('profilePhoneDisplay').textContent = p.phone || '';
     document.getElementById('balancePhone').textContent = p.phone || '';
+    var balEl = document.getElementById('balanceAmount');
+    if(balEl) balEl.textContent = formatUsd(p.balance_cents || 0);
     var av = document.getElementById('myAvatar');
     av.textContent = (p.full_name || p.username || 'M').charAt(0).toUpperCase();
     updateNotifBadge();
+    updatePaymentSummary();
   }
   function saveLoginToStorage(p){
     try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
@@ -901,6 +920,15 @@
         document.getElementById('tierToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
         this.classList.add('sel');
         postTier = this.getAttribute('data-tier');
+        updatePaymentSummary();
+      });
+    });
+
+    document.getElementById('postPayMethodToggle').querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.getElementById('postPayMethodToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        postPayMethod = this.getAttribute('data-method');
         updatePaymentSummary();
       });
     });
@@ -1173,10 +1201,38 @@
         document.getElementById('amountInput').value = this.getAttribute('data-v');
       });
     });
-    document.querySelectorAll('#payMethods .pay-method').forEach(function(m){
-      m.addEventListener('click', function(){ document.querySelectorAll('#payMethods .pay-method').forEach(function(x){ x.classList.remove('sel'); }); this.classList.add('sel'); });
+    document.getElementById('topUpBtn').addEventListener('click', function(){
+      if(!currentProfile || !currentProfile.id){ alert("Profil topilmadi. Iltimos, qayta kiring."); return; }
+      if(!paymentInfo.configured){ alert("To'lov tizimi hali sozlanmagan."); return; }
+      var raw = document.getElementById('amountInput').value.trim();
+      var usd = parseFloat(raw.replace(',', '.'));
+      if(!usd || isNaN(usd) || usd < 1){ alert("Iltimos, kamida $1 miqdorida summa kiriting."); return; }
+      var cents = Math.round(usd * 100);
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Yo'naltirilmoqda...";
+      fetch(BALANCE_TOPUP_API, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({profile_id: currentProfile.id, amount_cents: cents})
+      }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
+        .then(function(res){
+          if(res.status === 200 && res.data.ok && res.data.url){
+            window.location.href = res.data.url;
+          } else {
+            alert((res.data && res.data.error) || "To'lovni boshlashda xato yuz berdi.");
+            btn.disabled = false;
+            btn.textContent = "Stripe orqali to'ldirish";
+          }
+        })
+        .catch(function(err){
+          console.error('topUpBtn xato:', err);
+          alert("To'lovni boshlashda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = "Stripe orqali to'ldirish";
+        });
     });
-    document.getElementById('topUpBtn').addEventListener('click', function(){ toast("To'lov tizimiga yo'naltirilmoqda (demo)."); });
     document.getElementById('verifyBtn').addEventListener('click', function(){ toast('Telegram bot ochilmoqda (demo).'); });
 
     document.getElementById('postAdBtn').addEventListener('click', function(){
@@ -1184,6 +1240,8 @@
         showPage('pagePost');
         editingListingId = null;
         postTier = 'regular';
+        postPayMethod = 'card';
+        document.getElementById('postPayMethodToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-method')==='card'); });
         document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')==='regular'); });
         document.getElementById('paymentSummary').classList.remove('hidden');
         var finishBtn = document.getElementById('finishPostBtn');
@@ -1279,7 +1337,7 @@
         alert("Uyning qavatlari soni (" + floorsTotalCheck + ") qavat raqamidan (" + floorValCheck + ") kichik bo'lishi kerak.");
         return;
       }
-      if(!editingListingId && isPaidTier() && !paymentInfo.configured){
+      if(!editingListingId && isPaidTier() && postPayMethod === 'card' && !paymentInfo.configured){
         alert("To'lov tizimi hali sozlanmagan. Iltimos, keyinroq urinib ko'ring.");
         return;
       }
@@ -1361,6 +1419,43 @@
         return;
       }
 
+      if(postPayMethod === 'balance'){
+        var neededCents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
+        if(neededCents != null && myBalanceCents() < neededCents){
+          alert("Balansingizda yetarli mablag' yo'q. Iltimos, balansni to'ldiring yoki karta orqali to'lang.");
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = 'Joylanmoqda...';
+        fetch(LISTING_FROM_BALANCE_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({tier: postTier, profile_id: currentProfile.id, listing: payload})
+        }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
+          .then(function(res){
+            if(res.status === 200 && res.data.ok && res.data.listing){
+              if(res.data.profile) applyProfile(res.data.profile);
+              loadListings(function(){
+                renderPublic();
+                toast("Balansdan to'landi, e'lon joylandi!");
+                openDetail(res.data.listing.id, false);
+              });
+            } else {
+              alert((res.data && res.data.error) || "To'lovda xato yuz berdi.");
+              btn.disabled = false;
+              btn.textContent = "Balansdan to'lash va joylash";
+            }
+          })
+          .catch(function(err){
+            console.error('balance post xato:', err);
+            alert("To'lovda xato yuz berdi.");
+            btn.disabled = false;
+            btn.textContent = "Balansdan to'lash va joylash";
+          });
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = "Yo'naltirilmoqda...";
       fetch(CHECKOUT_SESSION_API, {
@@ -1414,6 +1509,34 @@
               toast("To'lov hali tasdiqlanmadi. Bir ozdan so'ng qayta urinib ko'ring.");
             }
           }).catch(function(err){ console.error('confirm payment xato:', err); toast("To'lovni tasdiqlashda xato yuz berdi."); });
+      }
+    })();
+
+    // Same idea, but for a balance top-up instead of a listing purchase.
+    (function handleBalanceTopupReturn(){
+      var params = new URLSearchParams(window.location.search);
+      var outcome = params.get('balance_payment');
+      if(!outcome) return;
+      var sessionId = params.get('session_id');
+      history.replaceState(null, '', window.location.pathname);
+
+      if(outcome === 'cancelled'){
+        toast("To'lov bekor qilindi.");
+        return;
+      }
+      if(outcome === 'success' && sessionId){
+        toast("To'lov tasdiqlanmoqda...");
+        fetch(CONFIRM_BALANCE_API + '?session_id=' + encodeURIComponent(sessionId))
+          .then(function(r){ return r.json(); })
+          .then(function(res){
+            if(res.ok && res.profile){
+              applyProfile(res.profile);
+              saveLoginToStorage(res.profile);
+              toast('Balans to\'ldirildi!');
+            } else {
+              toast("To'lov hali tasdiqlanmadi. Bir ozdan so'ng qayta urinib ko'ring.");
+            }
+          }).catch(function(err){ console.error('confirm balance xato:', err); toast("To'lovni tasdiqlashda xato yuz berdi."); });
       }
     })();
 
