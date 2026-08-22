@@ -1261,8 +1261,8 @@
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
       var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
-      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorValCheck > floorsTotalCheck){
-        alert("Qavat raqami (" + floorValCheck + ") uyning umumiy qavatlar sonidan (" + floorsTotalCheck + ") oshmasligi kerak.");
+      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorsTotalCheck >= floorValCheck){
+        alert("Uyning qavatlari soni (" + floorsTotalCheck + ") qavat raqamidan (" + floorValCheck + ") kichik bo'lishi kerak.");
         return;
       }
       if(!editingListingId && isPaidTier() && !paymentInfo.configured){
