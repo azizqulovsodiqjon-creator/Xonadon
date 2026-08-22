@@ -943,6 +943,13 @@
     document.getElementById('mapBtn').addEventListener('click', openMapFull);
     document.getElementById('mapSearchBtn').addEventListener('click', doMapSearch);
     document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
+    document.getElementById('openYandexMapBtn').addEventListener('click', function(){
+      var center = fullMap ? fullMap.getCenter() : {lat: JIZZAX_CENTER[0], lng: JIZZAX_CENTER[1]};
+      var zoom = fullMap ? fullMap.getZoom() : 10;
+      // Yandex Maps takes ll as "longitude,latitude" (reversed from Leaflet's lat/lng).
+      var url = 'https://yandex.com/maps/?ll=' + center.lng + ',' + center.lat + '&z=' + zoom;
+      window.open(url, '_blank', 'noopener');
+    });
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       stopLiveLocationIfUnused();
@@ -1461,14 +1468,15 @@
           .then(function(r){ return r.json(); })
           .then(function(existing){
             if(existing.length){
+              // Reuse the EXISTING profile as-is (id, username, full_name,
+              // everything) - never regenerate/overwrite the username from
+              // whatever they typed this time. The username is the stable
+              // identity every listing and message is tied to; silently
+              // changing it here is exactly what fragmented one person
+              // into multiple disconnected "accounts" before.
               var p = existing[0];
               applyProfile(p);
               saveLoginToStorage(p);
-              fetch(PROFILE_API + p.id + '/', {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ full_name: fullName, username: usernameGenerated })
-              }).catch(function(err){ console.error('profile patch xato:', err); });
             } else {
               var newProfile = { phone: phone, username: usernameGenerated, full_name: fullName, role: 'Uy egasi' };
               applyProfile(newProfile);

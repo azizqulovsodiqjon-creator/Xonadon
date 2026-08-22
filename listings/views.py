@@ -11,7 +11,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q
-from .models import Listing, Profile, PendingListingPayment, Message
+from .models import Listing, Profile, PendingListingPayment, Message, normalize_phone
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
 
@@ -67,8 +67,9 @@ class ProfileViewSet(viewsets.ModelViewSet):
         phone = self.request.query_params.get('phone')
         if phone:
             # Looking up a single profile by exact phone number is needed
-            # for the login flow and is not a bulk data leak.
-            return qs.filter(phone=phone)
+            # for the login flow and is not a bulk data leak. Normalize so
+            # '+998 90 123 45 67' and '998901234567' find the same row.
+            return qs.filter(phone=normalize_phone(phone))
         user = self.request.user
         if user and user.is_authenticated and user.is_staff:
             return qs

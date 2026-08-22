@@ -1,4 +1,21 @@
+import re
+
 from django.db import models
+
+
+def normalize_phone(raw):
+    """
+    Collapse any way a phone number might be typed/formatted
+    ('+998 90 123 45 67', '998901234567', '901234567', ...) down to one
+    canonical 9-digit local form, so the same person always maps to the
+    same Profile/username instead of silently forking into a new
+    "account" every time they type their number slightly differently.
+    """
+    digits = re.sub(r'\D', '', str(raw or ''))
+    if digits.startswith('998') and len(digits) > 9:
+        digits = digits[-9:]
+    return digits
+
 
 class Listing(models.Model):
     DEAL_CHOICES = [
@@ -46,6 +63,13 @@ class Profile(models.Model):
     full_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=100, default="Uy egasi")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        # Always store the canonical form so two different-looking phone
+        # numbers can never create two separate identities for the same
+        # person.
+        self.phone = normalize_phone(self.phone)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username or self.phone
