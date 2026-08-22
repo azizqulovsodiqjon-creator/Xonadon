@@ -444,7 +444,8 @@
     if(!text || !currentThreadWith) return;
     fetch(SEND_MESSAGE_API, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      credentials: 'same-origin',
+      headers: csrfHeaders({'Content-Type': 'application/json'}),
       body: JSON.stringify({sender: myUsername(), receiver: currentThreadWith, text: text})
     }).then(function(r){ return r.json(); }).then(function(){
       input.value = '';
@@ -1108,7 +1109,8 @@
           if(!confirm("E'lonni o'chirishni tasdiqlaysizmi?")) return;
           fetch(API_BASE + id + '/', {
             method: 'DELETE',
-            headers: {'Content-Type': 'application/json'},
+            credentials: 'same-origin',
+            headers: csrfHeaders({'Content-Type': 'application/json'}),
             body: JSON.stringify({seller: username})
           }).then(function(r){
             if(r.status === 403){ toast("Bu e'lonni o'chirishga ruxsatingiz yo'q."); return; }
@@ -1145,7 +1147,8 @@
       saveBtn.disabled = true;
       fetch(PROFILE_API + currentProfile.id + '/', {
         method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
         body: JSON.stringify({full_name: fullName, username: username, phone: phone})
       }).then(function(r){ return r.json(); }).then(function(updated){
         // Persist for real - this used to only touch the DOM, so a page
@@ -1314,7 +1317,8 @@
         btn.textContent = 'Saqlanmoqda...';
         fetch(API_BASE + editingListingId + '/', {
           method: 'PATCH',
-          headers: {'Content-Type': 'application/json'},
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
           body: JSON.stringify(payload)
         }).then(function(r){ return r.json(); }).then(function(updated){
           var savedId = editingListingId;
@@ -1339,7 +1343,8 @@
         btn.textContent = 'Joylanmoqda...';
         fetch(API_BASE, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
           body: JSON.stringify(payload)
         }).then(function(r){ return r.json(); }).then(function(newListing){
           loadListings(function(){
@@ -1360,7 +1365,8 @@
       btn.textContent = "Yo'naltirilmoqda...";
       fetch(CHECKOUT_SESSION_API, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
         body: JSON.stringify({tier: postTier, listing: payload})
       }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
         .then(function(res){
@@ -1486,7 +1492,8 @@
               applyProfile(newProfile);
               fetch(PROFILE_API, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                credentials: 'same-origin',
+                headers: csrfHeaders({'Content-Type': 'application/json'}),
                 body: JSON.stringify(newProfile)
               }).then(function(r){ return r.json(); }).then(function(created){
                 applyProfile(created); // pick up the real id, not just the local draft
