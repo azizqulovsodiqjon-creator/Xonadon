@@ -352,7 +352,7 @@
       if(!mapEl) return;
       if(typeof L === 'undefined'){ mapEl.innerHTML = '<div class="map-fallback">Xarita kutubxonasi yuklanmadi.</div>'; return; }
       try{
-        currentMap = L.map(mapEl, {scrollWheelZoom:false}).setView([l.lat,l.lng],13);
+        currentMap = L.map(mapEl, {scrollWheelZoom:false, minZoom:8, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView([l.lat,l.lng],13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(currentMap);
         L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(l.title+'<br>'+l.district).openPopup();
         setTimeout(function(){ if(currentMap) currentMap.invalidateSize(); },200);
@@ -581,7 +581,7 @@
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       var el = document.getElementById('mapFull');
       if(!el || typeof L === 'undefined') return;
-      fullMap = L.map(el).setView([40.1158, 67.8422], 10);
+      fullMap = L.map(el, {minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, 10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(fullMap);
       var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
       visible.forEach(function(l){
@@ -733,6 +733,10 @@
   var postPhotos = [];
   var postLocationMap = null, postLocationMarker = null;
   var JIZZAX_CENTER = [40.1158, 67.8422];
+  // Roughly the Jizzax viloyati bounding box (with a little padding), used
+  // to keep every map on the site locked to the region instead of letting
+  // people zoom/pan out to see the whole of Uzbekistan.
+  var JIZZAX_BOUNDS = [[39.55, 66.25], [40.75, 68.95]];
   var postTier = 'regular';
   var editingListingId = null; // set while editing an existing listing (Saqlash instead of pay+post)
 
@@ -821,7 +825,7 @@
     setTimeout(function(){
       var el = document.getElementById('postLocationMap');
       if(!el || typeof L === 'undefined') return;
-      postLocationMap = L.map(el, {scrollWheelZoom:false}).setView(JIZZAX_CENTER, 12);
+      postLocationMap = L.map(el, {scrollWheelZoom:false, minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, 12);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(postLocationMap);
       postLocationMarker = L.marker(JIZZAX_CENTER, {draggable:true}).addTo(postLocationMap);
       postLocationMap.on('click', function(e){ postLocationMarker.setLatLng(e.latlng); });

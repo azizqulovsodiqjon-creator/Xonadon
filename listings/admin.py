@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import PendingListingPayment
+from .models import PendingListingPayment, Message
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('sender', 'receiver', 'text', 'read', 'created_at')
+    list_filter = ('read',)
+    search_fields = ('sender', 'receiver', 'text')
 
 
 @admin.register(PendingListingPayment)
