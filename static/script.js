@@ -17,6 +17,13 @@
   var currentLang = "UZ";
   var isLoggedIn = false, pendingAction = null;
   var currentProfile = null; // the full Profile record (id/phone/username/...) for the logged-in user
+  var TELEGRAM_START_API = '/api/telegram/start/';
+  var TELEGRAM_STATUS_API = '/api/telegram/status/';
+  var TELEGRAM_VERIFY_API = '/api/telegram/verify/';
+  var telegramVerifyToken = null, telegramDeepLink = null, telegramPollTimer = null;
+  function stopTelegramPoll(){
+    if(telegramPollTimer){ clearInterval(telegramPollTimer); telegramPollTimer = null; }
+  }
   var sellerProfileFromAdmin = false;
 
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null, district:null};
@@ -903,6 +910,16 @@
     document.getElementById('authPhoneScreen').classList.add('hidden');
     document.getElementById('otpMethodModal').classList.add('hidden');
     document.getElementById('authCodeScreen').classList.add('hidden');
+    stopTelegramPoll();
+    resetOtpMethodModalUI();
+  }
+  function resetOtpMethodModalUI(){
+    var introText = document.getElementById('otpIntroText');
+    var waitingText = document.getElementById('otpWaitingText');
+    var tgBtn = document.getElementById('otpTelegramBtn');
+    if(introText) introText.classList.remove('hidden');
+    if(waitingText) waitingText.classList.add('hidden');
+    if(tgBtn){ tgBtn.classList.remove('hidden'); tgBtn.disabled = false; }
   }
 
   /* =========================================================
@@ -1563,20 +1580,60 @@
     });
 
     document.getElementById('otpEditBtn').addEventListener('click', function(){
+      stopTelegramPoll();
+      resetOtpMethodModalUI();
       document.getElementById('otpMethodModal').classList.add('hidden');
       document.getElementById('authPhoneScreen').classList.remove('hidden');
     });
-    function goToCodeScreen(via){
+    function showCodeScreen(){
       document.getElementById('otpMethodModal').classList.add('hidden');
       var phone = document.getElementById('phoneInput').value.trim();
-      document.getElementById('codeSubLabel').textContent = phone + ' raqamiga ' + via + ' orqali yuborilgan 6 xonali kod (demo)';
+      document.getElementById('codeSubLabel').textContent = phone + " raqamiga Telegram orqali yuborilgan 6 xonali kod";
       document.getElementById('authCodeScreen').classList.remove('hidden');
       var boxes = document.querySelectorAll('#codeBoxes input');
       boxes.forEach(function(b){ b.value=''; });
       boxes[0].focus();
     }
-    document.getElementById('otpTelegramBtn').addEventListener('click', function(){ goToCodeScreen('Telegram'); });
-    document.getElementById('otpSmsBtn').addEventListener('click', function(){ goToCodeScreen('SMS'); });
+    document.getElementById('otpTelegramBtn').addEventListener('click', function(){
+      var phone = document.getElementById('phoneInput').value.trim();
+      var btn = this;
+      btn.disabled = true;
+      fetch(TELEGRAM_START_API, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({phone: phone})
+      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+        .then(function(res){
+          if(res.status !== 200 || !res.data.ok){
+            alert((res.data && res.data.error) || "Telegram orqali yuborishda xato yuz berdi.");
+            btn.disabled = false;
+            return;
+          }
+          telegramVerifyToken = res.data.token;
+          telegramDeepLink = res.data.deepLink;
+          window.open(telegramDeepLink, '_blank');
+          document.getElementById('otpIntroText').classList.add('hidden');
+          document.getElementById('otpWaitingText').classList.remove('hidden');
+          btn.classList.add('hidden');
+          stopTelegramPoll();
+          telegramPollTimer = setInterval(function(){
+            fetch(TELEGRAM_STATUS_API + '?token=' + encodeURIComponent(telegramVerifyToken))
+              .then(function(r){ return r.json(); })
+              .then(function(d){
+                if(d.ok && d.codeSent){
+                  stopTelegramPoll();
+                  resetOtpMethodModalUI();
+                  showCodeScreen();
+                }
+              }).catch(function(err){ console.error('telegram status xato:', err); });
+          }, 2000);
+        }).catch(function(err){
+          console.error('telegram start xato:', err);
+          alert("Telegram orqali yuborishda xato yuz berdi.");
+          btn.disabled = false;
+        });
+    });
     var codeBoxes = document.querySelectorAll('#codeBoxes input');
     codeBoxes.forEach(function(box,i){
       box.addEventListener('input', function(){
@@ -1586,15 +1643,46 @@
       box.addEventListener('keydown', function(e){ if(e.key==='Backspace' && !this.value && i>0) codeBoxes[i-1].focus(); });
     });
     document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
-    document.getElementById('resendLink').addEventListener('click', function(){ toast('Kod qayta yuborildi (demo).'); });
+    document.getElementById('resendLink').addEventListener('click', function(){
+      if(!telegramDeepLink){ toast("Qaytadan urinib ko'ring."); return; }
+      window.open(telegramDeepLink, '_blank');
+      toast("Telegram botni qayta oching - kod o'sha yerda.");
+    });
     document.getElementById('codeConfirmBtn').addEventListener('click', function(ev){
       if(ev && ev.preventDefault) ev.preventDefault();
       try{
         var code = Array.from(codeBoxes).map(function(b){ return b.value; }).join('');
         if(code.length < 6){ alert("Iltimos, 6 xonali kodni to'liq kiriting."); return; }
+        if(!telegramVerifyToken){ alert("Tasdiqlash seansi topilmadi. Qaytadan urinib ko'ring."); return; }
+
+        var confirmBtn = this;
+        confirmBtn.disabled = true;
+        fetch(TELEGRAM_VERIFY_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({token: telegramVerifyToken, code: code})
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
+            confirmBtn.disabled = false;
+            if(res.status !== 200 || !res.data.ok){
+              alert((res.data && res.data.error) || "Kod noto'g'ri. Qaytadan urinib ko'ring.");
+              return;
+            }
+            finishTelegramLogin(res.data.phone);
+          }).catch(function(err){
+            confirmBtn.disabled = false;
+            console.error('telegram verify xato:', err);
+            alert("Kodni tekshirishda xato yuz berdi.");
+          });
+      }catch(err){ console.error('codeConfirmBtn xato:', err); }
+      return false;
+    });
+    function finishTelegramLogin(verifiedPhone){
+      try{
         isLoggedIn = true;
         var fullName = document.getElementById('fullNameInput').value.trim();
-        var phone = document.getElementById('phoneInput').value.trim();
+        var phone = verifiedPhone || document.getElementById('phoneInput').value.trim();
         var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
 
         fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
@@ -1626,11 +1714,12 @@
             }
           }).catch(function(err){ console.error('profile fetch xato:', err); });
 
+        telegramVerifyToken = null;
+        telegramDeepLink = null;
         closeAllAuth();
         if(pendingAction){ pendingAction(); pendingAction=null; }
-      }catch(err){ console.error('codeConfirmBtn xato:', err); }
-      return false;
-    });
+      }catch(err){ console.error('finishTelegramLogin xato:', err); }
+    }
 
     }catch(initErr){
       console.error('INIT XATO:', initErr);

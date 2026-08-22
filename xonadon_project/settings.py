@@ -53,6 +53,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         # Rate-limit admin login attempts per IP to blunt password guessing.
         'admin_login': '5/min',
+        # Rate-limit how often one IP can trigger a new Telegram deep
+        # link/verification row, to blunt spamming the bot.
+        'telegram_start': '10/min',
     },
 }
 
@@ -73,6 +76,15 @@ LISTING_PRICE_CENTS = {
     'top': int(os.environ.get('PRICE_TOP_CENTS', '800')),           # ~$8.00  (100 000 so'm)
     'vip': int(os.environ.get('PRICE_VIP_CENTS', '1600')),          # ~$16.00 (200 000 so'm)
 }
+
+# --- Telegram bot (replaces SMS for the signup verification code) ----
+# Same "not configured until the env var is set" story as Stripe above.
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', 'J_joymee_bot')
+# Public base URL Telegram needs to reach for the webhook. Render sets
+# RENDER_EXTERNAL_URL automatically; SITE_BASE_URL is a manual override/
+# fallback for other hosts.
+SITE_BASE_URL = os.environ.get('RENDER_EXTERNAL_URL') or os.environ.get('SITE_BASE_URL', '')
 
 
 # Application definition

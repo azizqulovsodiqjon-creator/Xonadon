@@ -1,3 +1,7 @@
+import json
+import random
+import urllib.request
+
 import stripe
 from django.conf import settings
 from django.http import JsonResponse
@@ -11,7 +15,10 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q
-from .models import Listing, Profile, PendingListingPayment, PendingBalanceTopup, Message, normalize_phone
+from .models import (
+    Listing, Profile, PendingListingPayment, PendingBalanceTopup, Message,
+    TelegramVerification, normalize_phone,
+)
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
 
@@ -466,5 +473,122 @@ def stripe_webhook(request):
                 _finalize_balance_topup(topup)
             except PendingBalanceTopup.DoesNotExist:
                 pass
+
+    return JsonResponse({'ok': True})
+
+
+# =========================================================
+# TELEGRAM (replaces SMS for the signup verification code)
+# =========================================================
+
+def _telegram_api(method, **params):
+    """Best-effort call to the Telegram Bot API. Returns the parsed JSON
+    response, or None if the bot isn't configured or the call failed -
+    callers should treat None as 'could not send, try again later' and
+    never let it raise into the request/response cycle."""
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return None
+    url = f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/{method}'
+    data = json.dumps(params).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except Exception as exc:
+        print(f"[_telegram_api] {method} failed: {exc}")
+        return None
+
+
+class TelegramStartThrottle(AnonRateThrottle):
+    scope = 'telegram_start'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([TelegramStartThrottle])
+def telegram_start(request):
+    if not settings.TELEGRAM_BOT_TOKEN or not settings.TELEGRAM_BOT_USERNAME:
+        return Response({'ok': False, 'error': "Telegram bot hali sozlanmagan."}, status=503)
+    phone = normalize_phone(request.data.get('phone', ''))
+    if not phone:
+        return Response({'ok': False, 'error': "Telefon raqami kerak."}, status=400)
+
+    verification = TelegramVerification.objects.create(phone=phone)
+    deep_link = f'https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start={verification.token}'
+    return Response({'ok': True, 'token': verification.token, 'deepLink': deep_link})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def telegram_status(request):
+    token = request.query_params.get('token', '')
+    try:
+        v = TelegramVerification.objects.get(token=token)
+    except TelegramVerification.DoesNotExist:
+        return Response({'ok': False, 'error': "Topilmadi."}, status=404)
+    return Response({'ok': True, 'codeSent': bool(v.chat_id and v.code), 'verified': v.verified})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def telegram_verify(request):
+    token = str(request.data.get('token', ''))
+    code = str(request.data.get('code', '')).strip()
+    try:
+        v = TelegramVerification.objects.get(token=token)
+    except TelegramVerification.DoesNotExist:
+        return Response({'ok': False, 'error': "Topilmadi."}, status=404)
+    if v.verified:
+        return Response({'ok': True, 'phone': v.phone})
+    if not v.chat_id or not v.code:
+        return Response({'ok': False, 'error': "Kod hali yuborilmagan."}, status=400)
+    if code != v.code:
+        return Response({'ok': False, 'error': "Kod noto'g'ri."}, status=400)
+    v.verified = True
+    v.save(update_fields=['verified'])
+    return Response({'ok': True, 'phone': v.phone})
+
+
+@csrf_exempt
+def telegram_webhook(request):
+    # Plain Django view, not DRF - this is called by Telegram's servers
+    # directly, no CSRF/session context applies.
+    if request.method != 'POST':
+        return JsonResponse({'error': 'method not allowed'}, status=405)
+    try:
+        update = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'ok': True})
+
+    message = update.get('message') or {}
+    text = str(message.get('text', ''))
+    chat = message.get('chat') or {}
+    chat_id = chat.get('id')
+
+    if chat_id and text.startswith('/start'):
+        parts = text.split(maxsplit=1)
+        token = parts[1].strip() if len(parts) == 2 else ''
+        if token:
+            try:
+                v = TelegramVerification.objects.get(token=token)
+            except TelegramVerification.DoesNotExist:
+                v = None
+            if v and not v.chat_id:
+                code = f"{random.randint(0, 999999):06d}"
+                v.chat_id = str(chat_id)
+                v.code = code
+                v.save(update_fields=['chat_id', 'code'])
+                _telegram_api(
+                    'sendMessage', chat_id=chat_id,
+                    text=f"Joymee Jizzax tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
+                )
+            elif v:
+                # Already linked/sent once for this token - resend the
+                # same code rather than silently doing nothing if they
+                # tap Start again.
+                _telegram_api(
+                    'sendMessage', chat_id=chat_id,
+                    text=f"Joymee Jizzax tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
+                )
 
     return JsonResponse({'ok': True})

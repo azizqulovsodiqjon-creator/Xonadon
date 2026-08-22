@@ -1,4 +1,5 @@
 import re
+import secrets
 
 from django.db import models
 
@@ -138,3 +139,28 @@ class PendingBalanceTopup(models.Model):
 
     def __str__(self):
         return f"topup {self.amount_cents}c for {self.profile} ({'paid' if self.paid else 'pending'})"
+
+
+def _new_telegram_token():
+    return secrets.token_urlsafe(16)
+
+
+class TelegramVerification(models.Model):
+    """
+    Bridges the site's phone signup flow to a Telegram bot in place of
+    SMS: the site creates one of these with a random `token` and opens
+    t.me/<bot>?start=<token>; the user taps Start in Telegram; our
+    webhook receives that /start command, records their `chat_id`, and
+    sends them a 6-digit `code` via the bot. The site polls to know
+    when the code has gone out, then checks what the user types back
+    against `code`.
+    """
+    token = models.CharField(max_length=40, unique=True, default=_new_telegram_token)
+    phone = models.CharField(max_length=30)
+    chat_id = models.CharField(max_length=40, blank=True)
+    code = models.CharField(max_length=6, blank=True)
+    verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"telegram verify {self.phone} ({'verified' if self.verified else 'pending'})"

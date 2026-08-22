@@ -26,6 +26,29 @@ class ListingsConfig(AppConfig):
             # Never let this break app startup (e.g. DB not reachable yet,
             # tables not migrated yet on first boot).
             pass
+        try:
+            self._ensure_telegram_webhook()
+        except Exception:
+            pass
+
+    def _ensure_telegram_webhook(self):
+        # Same self-healing idea as _ensure_admin: point Telegram's
+        # webhook at this deployment every time the app boots, so a
+        # freshly-set TELEGRAM_BOT_TOKEN (or a new Render URL) takes
+        # effect without any manual setWebhook call.
+        import json
+        import urllib.request
+        from django.conf import settings
+
+        token = settings.TELEGRAM_BOT_TOKEN
+        base_url = settings.SITE_BASE_URL
+        if not token or not base_url:
+            return
+        webhook_url = base_url.rstrip('/') + '/api/telegram/webhook/'
+        api_url = f'https://api.telegram.org/bot{token}/setWebhook'
+        data = json.dumps({'url': webhook_url}).encode('utf-8')
+        req = urllib.request.Request(api_url, data=data, headers={'Content-Type': 'application/json'})
+        urllib.request.urlopen(req, timeout=10)
 
     def _ensure_admin(self):
         from django.contrib.auth import get_user_model
