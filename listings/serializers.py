@@ -17,8 +17,13 @@ class ListingSerializer(serializers.ModelSerializer):
             'id', 'title', 'desc', 'price', 'district', 'lat', 'lng',
             'rooms', 'area', 'floor', 'type', 'type_key', 'repair',
             'condition', 'phone', 'seller', 'owner_role', 'owner',
-            'mortgage', 'deal', 'vip', 'top', 'created_at', 'images',
+            'mortgage', 'deal', 'vip', 'top', 'sold', 'views_count',
+            'likes_count', 'created_at', 'images',
         ]
+        # sold/views_count/likes_count only ever change through their own
+        # dedicated endpoints (view/like counters, admin sold-toggle) -
+        # never writable via a plain listing PATCH.
+        read_only_fields = ['sold', 'views_count', 'likes_count']
 
 from .models import Profile
 

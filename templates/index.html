@@ -220,6 +220,14 @@
   </div>
 </div>
 
+<!-- ============ PAGE 3b: STATS-ONLY ADMIN DASHBOARD ============ -->
+<div class="page" id="pageAdminStats">
+  <div class="navy-block"><header class="nav"><div class="logo"><span class="logo-mark">📊</span> Statistika</div><button class="pill-btn ghost" id="statsAdminLogoutBtn">Chiqish</button></header></div>
+  <div class="admin-body">
+    <div id="statsAdminContent"></div>
+  </div>
+</div>
+
 <!-- ============ PAGE 4: MY PROFILE ============ -->
 <div class="page" id="pageMyProfile">
   <div class="navy-block"><header class="nav"><button class="back-btn" id="myProfileBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark">🏠</span> Joymee Jizzax</div></header></div>
@@ -321,13 +329,9 @@
     <div class="field"><label>Holati</label>
       <div class="toggle-row" id="condToggle"><button data-c="Ikkinchi qo'l">Ikkinchi qo'l</button><button class="sel" data-c="Yangi bino">Yangi bino</button></div>
     </div>
-    <div class="field"><label>E'lon turi</label>
-  <div class="toggle-row" id="tierToggle">
-    <button class="sel" data-tier="regular">Oddiy</button>
-    <button data-tier="top">TOP</button>
-    <button data-tier="vip">VIP</button>
-  </div>
-</div>
+    <div class="field"><label>Ipoteka</label>
+      <div class="toggle-row" id="mortgageToggle"><button data-m="0" class="sel">Yo'q</button><button data-m="1">Ipotekaga mumkin</button></div>
+    </div>
 
     <div class="two-col">
       <div>
@@ -370,6 +374,13 @@
       <div class="loc-hint">Xaritadan uyingiz joylashgan nuqtani belgilang (bosing yoki belgini suring).</div>
     </div>
 
+    <div class="field"><label>E'lon turini tanlang</label>
+      <div class="toggle-row" id="tierToggle">
+        <button class="sel" data-tier="regular">Oddiy — Tekin</button>
+        <button data-tier="top">TOP — 35 000 so'm</button>
+        <button data-tier="vip">VIP — 100 000 so'm</button>
+      </div>
+    </div>
     <div class="payment-summary" id="paymentSummary">
       <div class="payment-summary-row"><span>To'lov summasi</span><span class="payment-amount" id="paymentAmount">$4.00</span></div>
       <div class="toggle-row" id="postPayMethodToggle" style="margin:12px 0;">

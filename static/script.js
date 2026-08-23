@@ -28,6 +28,14 @@
 
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null, district:null};
   var API_BASE = '/api/listings/';
+  function recordListingView(id){
+    fetch(API_BASE + id + '/view_hit/', {method:'POST'}).catch(function(err){ console.error('view_hit xato:', err); });
+  }
+  function likeListing(id, cb){
+    fetch(API_BASE + id + '/like/', {method:'POST'}).then(function(r){ return r.json(); }).then(function(data){
+      if(cb) cb(data.likes_count);
+    }).catch(function(err){ console.error('like xato:', err); });
+  }
   var PROFILE_API = '/api/profiles/';
   var PROFILES_DIRECTORY_API = '/api/profiles/directory/';
   var ADMIN_LOGIN_API = '/api/admin/login/';
@@ -74,6 +82,7 @@
       repair: item.repair, condition: item.condition, phone: item.phone,
       seller: item.seller, ownerRole: item.owner_role, owner: item.owner,
       mortgage: item.mortgage, daysAgo: 0, deal: item.deal, vip: item.vip, top: item.top,
+      sold: item.sold, viewsCount: item.views_count || 0, likesCount: item.likes_count || 0,
       photos: imgs, img: imgs.length ? imgs[0] : ''
     };
   }
@@ -176,6 +185,7 @@
       regWrap.innerHTML = regular.map(function(l){
         return '<button class="listing" data-id="' + l.id + '">' +
           '<div class="thumb"><img src="' + l.img + '" alt="">' +
+            (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
             (l.top ? '<div class="top-badge">▲ TOP</div>' : '') +
             '<div class="type-badge">' + l.type + '</div>' +
           '</div>' +
@@ -217,11 +227,13 @@
     lastPage = fromAdmin ? 'pageAdmin' : 'pageHome';
     galleryPhotos = getPhotos(l);
     galleryIndex = 0;
+    l.viewsCount++; // reflect this open immediately, before rendering
     var roomsRow = l.rooms ? '<div class="info-row"><span class="il">Xonalar soni</span><span class="iv">' + l.rooms + '</span></div>' : '';
 
     document.getElementById('detailContent').innerHTML =
       '<div class="detail-top-row">' +
-        '<div>' +
+        '<div style="position:relative;">' +
+          (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
           '<div class="gallery-main"><img id="galleryMainImg" src="' + galleryPhotos[0] + '" alt="">' +
             (galleryPhotos.length > 1 ? '<button class="gallery-arrow prev" id="galleryPrev">‹</button><button class="gallery-arrow next" id="galleryNext">›</button><div class="gallery-counter" id="galleryCounter">1/' + galleryPhotos.length + '</div>' : '') +
           '</div>' +
@@ -233,6 +245,7 @@
             (l.top ? '<span class="detail-tag top">▲ TOP</span>' : '') +
             '<span class="detail-tag">' + l.type + '</span>' +
           '</div>' +
+          '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn">🤍 <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
           '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>' +
         '</div>' +
       '</div>' +
@@ -267,6 +280,21 @@
     initDetailMap(l);
     initGallery();
     renderSimilarListings(l);
+    recordListingView(l.id);
+
+    var likeBtn = document.getElementById('detailLikeBtn');
+    if(likeBtn){
+      likeBtn.addEventListener('click', function(){
+        if(likeBtn.disabled) return;
+        likeBtn.disabled = true;
+        likeBtn.innerHTML = '❤️ <span id="detailLikeCount">' + (l.likesCount + 1) + '</span>';
+        likeListing(l.id, function(newCount){
+          l.likesCount = (newCount != null) ? newCount : l.likesCount + 1;
+          document.getElementById('detailLikeCount').textContent = l.likesCount;
+        });
+      });
+    }
+
     var vBtn = document.getElementById('viewSellerProfileBtn');
     if(vBtn){ vBtn.addEventListener('click', function(){ openSellerProfile(l.seller, fromAdmin); }); }
 
@@ -634,7 +662,11 @@
         if(res.status === 200 && res.data.ok){
           errBox.style.display='none'; closeModal('adminLoginModal');
           document.getElementById('adminLoginForm').reset();
-          showPage('pageAdmin'); renderAdmin();
+          if(res.data.isSuperAdmin){
+            showPage('pageAdmin'); renderAdmin();
+          } else {
+            showPage('pageAdminStats'); renderAdminStatsOnly();
+          }
         } else {
           errBox.textContent = (res.data && res.data.error) || "Login yoki parol noto'g'ri.";
           errBox.style.display='block';
@@ -647,6 +679,34 @@
     fetch(ADMIN_LOGOUT_API, {method:'POST', credentials:'same-origin', headers: csrfHeaders()})
       .catch(function(err){ console.error('logoutAdmin xato:', err); })
       .finally(function(){ showPage('pageHome'); renderPublic(); });
+  }
+  function renderAdminStatsOnly(){
+    var wrap = document.getElementById('statsAdminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(s){
+      var sellerRows = (s.sellers || []).map(function(row){
+        return '<div class="queue-row"><div class="queue-info">' +
+          '<div class="qdesc">' + displayName(row.seller) + '</div>' +
+          '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk</div>' +
+          '</div></div>';
+      }).join('') || '<div class="empty-admin">Hozircha sotuvchi yo\'q.</div>';
+      wrap.innerHTML =
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + s.totalListings + '</div><div class="l">Jami e\'lonlar</div></div>' +
+          '<div class="astat"><div class="n">' + s.soldListings + '</div><div class="l">Sotilgan uylar</div></div>' +
+          '<div class="astat"><div class="n">' + s.paidListingsBought + '</div><div class="l">Pullik (TOP/VIP) sotib olingan</div></div>' +
+        '</div>' +
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsToday) + '</div><div class="l">Kunlik daromad</div></div>' +
+          '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsWeek) + '</div><div class="l">Haftalik daromad</div></div>' +
+          '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsMonth) + '</div><div class="l">Oylik daromad</div></div>' +
+          '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsAllTime) + '</div><div class="l">Jami daromad</div></div>' +
+        '</div>' +
+        '<h3 style="margin:18px 0 10px;">Sotuvchilar bo\'yicha</h3>' + sellerRows;
+    }).catch(function(err){
+      console.error('admin stats xato:', err);
+      wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';
+    });
   }
   function setAdminTab(tab){
     adminTab = tab;
@@ -685,16 +745,27 @@
     if(!listings.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha e\'lon yo\'q.</div>'; return; }
     wrap.innerHTML = listings.map(function(l){
       return '<div class="queue-row" data-open="'+l.id+'"><img src="'+l.img+'" alt="">' +
-        '<div class="queue-info"><div class="qprice">'+l.price+' у.е</div>' +
+        '<div class="queue-info"><div class="qprice">'+l.price+' у.е'+(l.sold?' · <span style="color:var(--red);">SOTILDI</span>':'')+'</div>' +
         '<div class="qdesc">'+l.title+' · '+l.district+' · '+l.type+'</div>' +
-        '<div class="qseller">'+l.seller+'</div></div>' +
-        '<div class="queue-actions"><button class="qbtn del" data-action="delete" data-id="'+l.id+'">O\'chirish</button></div></div>';
+        '<div class="qseller">'+l.seller+' · 👁 '+l.viewsCount+' · 🤍 '+l.likesCount+'</div></div>' +
+        '<div class="queue-actions">' +
+          '<button class="qbtn" data-action="sold" data-id="'+l.id+'" data-sold="'+(l.sold?'1':'0')+'">'+(l.sold?'Sotilmagan deb belgilash':'Sotildi deb belgilash')+'</button>' +
+          '<button class="qbtn del" data-action="delete" data-id="'+l.id+'">O\'chirish</button>' +
+        '</div></div>';
     }).join('');
     wrap.querySelectorAll('[data-open]').forEach(function(row){ row.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-open')), true); }); });
-    wrap.querySelectorAll('[data-action]').forEach(function(btn){
+    wrap.querySelectorAll('[data-action="delete"]').forEach(function(btn){
       btn.addEventListener('click', function(e){
         e.stopPropagation();
         deleteListing(Number(this.getAttribute('data-id')));
+      });
+    });
+    wrap.querySelectorAll('[data-action="sold"]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = Number(this.getAttribute('data-id'));
+        var nextSold = this.getAttribute('data-sold') !== '1';
+        toggleListingSold(id, nextSold);
       });
     });
   }
@@ -706,6 +777,17 @@
         toast("E'lon o'chirildi.");
       })
       .catch(function(err){ console.error('deleteListing xato:', err); toast("O'chirishda xato yuz berdi."); });
+  }
+  function toggleListingSold(id, sold){
+    fetch(API_BASE + id + '/mark-sold/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: csrfHeaders({'Content-Type': 'application/json'}),
+      body: JSON.stringify({sold: sold})
+    }).then(function(r){
+      if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+      loadListings(function(){ renderAdmin(); });
+      toast(sold ? "E'lon sotilgan deb belgilandi." : "E'lon sotilmagan deb belgilandi.");
+    }).catch(function(err){ console.error('toggleListingSold xato:', err); toast("Xato yuz berdi."); });
   }
 
   /* =========================================================
@@ -737,7 +819,7 @@
   /* =========================================================
      E'LON JOYLASH VIZARDI
   ==========================================================*/
-  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = "Yangi bino";
+  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = "Yangi bino", postMortgage = false;
   var postPhotos = [];
   var postLocationMap = null, postLocationMarker = null;
   var JIZZAX_CENTER = [40.1158, 67.8422];
@@ -756,6 +838,7 @@
     postRepair = l.repair || "Ta'mirni tanlang";
     postCondition = l.condition || "Yangi bino";
     postTier = l.vip ? 'vip' : (l.top ? 'top' : 'regular');
+    postMortgage = !!l.mortgage;
     postPhotos = (l.photos || []).slice();
 
     showPage('pagePost');
@@ -772,6 +855,7 @@
     document.getElementById('postRepair').value = postRepair;
     document.getElementById('postDistrict').value = l.district || '';
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
+    document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', (b.getAttribute('data-m')==='1')===postMortgage); });
     document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
     document.getElementById('paymentSummary').classList.add('hidden');
     var editBtn = document.getElementById('finishPostBtn');
@@ -1091,6 +1175,7 @@
     document.getElementById('loginCloseBtn').addEventListener('click', function(){ closeModal('adminLoginModal'); });
     document.getElementById('homeAdminBtn').addEventListener('click', function(){ openModal('adminLoginModal'); });
     document.getElementById('adminLogoutBtn').addEventListener('click', logoutAdmin);
+    document.getElementById('statsAdminLogoutBtn').addEventListener('click', logoutAdmin);
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.addEventListener('click', function(){ setAdminTab(this.getAttribute('data-tab')); }); });
     document.querySelectorAll('.overlay').forEach(function(ov){ ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); }); });
 
@@ -1264,7 +1349,8 @@
         var finishBtn = document.getElementById('finishPostBtn');
         finishBtn.textContent = "E'lon joylash";
         finishBtn.disabled = false;
-        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino";
+        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino"; postMortgage=false;
+        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
         postPhotos = [];
         renderUploadThumbs();
         document.getElementById('uploadCount').textContent = '0/10';
@@ -1316,6 +1402,13 @@
         document.getElementById('condToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
         this.classList.add('sel');
         postCondition = this.getAttribute('data-c');
+      });
+    });
+    document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        postMortgage = this.getAttribute('data-m') === '1';
       });
     });
     document.getElementById('postRepair').addEventListener('change', function(){ postRepair = this.value; });
@@ -1379,7 +1472,7 @@
         desc: document.getElementById('postDesc').value.trim() || (title + '.'),
         seller: seller,
         owner_role: 'Uy egasi',
-        owner: true, mortgage: false,
+        owner: true, mortgage: postMortgage,
         deal: postDeal,
         vip: postTier === 'vip',
         top: postTier === 'top'

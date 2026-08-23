@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/admin/login/', views.admin_login, name='admin-login'),
     path('api/admin/logout/', views.admin_logout, name='admin-logout'),
     path('api/admin/status/', views.admin_status, name='admin-status'),
+    path('api/admin/stats/', views.admin_stats, name='admin-stats'),
     path('api/profiles/directory/', views.profiles_directory, name='profiles-directory'),
     path('api/payments/config/', views.payment_config, name='payment-config'),
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),

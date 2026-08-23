@@ -11,11 +11,11 @@ from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
-from django.db.models import Q
+from django.db.models import Q, F, Sum, Count
 from .models import (
     Listing, Profile, PendingListingPayment, PendingBalanceTopup, Message,
     TelegramVerification, normalize_phone,
@@ -36,9 +36,11 @@ class ListingViewSet(viewsets.ModelViewSet):
     serializer_class = ListingSerializer
 
     def get_permissions(self):
-        # Anyone can browse, post, or edit a listing (that's the public
-        # site flow - there's no real per-request auth to lock editing
-        # down further). destroy() below does its own check.
+        if self.action == 'mark_sold':
+            return [IsAdminUser()]
+        # Anyone can browse, post, edit, view, or like a listing (that's
+        # the public site flow - there's no real per-request auth to lock
+        # editing down further). destroy() below does its own check.
         return [AllowAny()]
 
     def destroy(self, request, *args, **kwargs):
@@ -52,6 +54,29 @@ class ListingViewSet(viewsets.ModelViewSet):
         if not is_admin and claimed_seller != instance.seller:
             return Response({'detail': "Bu e'lonni o'chirishga ruxsatingiz yo'q."}, status=403)
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny])
+    def view_hit(self, request, pk=None):
+        # Every open counts, even repeats from the same visitor - there's
+        # no real visitor identity to dedupe against here, and that's
+        # explicitly what was asked for.
+        Listing.objects.filter(pk=pk).update(views_count=F('views_count') + 1)
+        listing = self.get_object()
+        return Response({'ok': True, 'views_count': listing.views_count})
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny])
+    def like(self, request, pk=None):
+        Listing.objects.filter(pk=pk).update(likes_count=F('likes_count') + 1)
+        listing = self.get_object()
+        return Response({'ok': True, 'likes_count': listing.likes_count})
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='mark-sold')
+    def mark_sold(self, request, pk=None):
+        sold = bool(request.data.get('sold', True))
+        listing = self.get_object()
+        listing.sold = sold
+        listing.save(update_fields=['sold'])
+        return Response({'ok': True, 'sold': listing.sold})
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -100,7 +125,7 @@ def admin_login(request):
     user = authenticate(request, username=username, password=password)
     if user is not None and user.is_active and user.is_staff:
         login(request, user)
-        return Response({'ok': True})
+        return Response({'ok': True, 'isSuperAdmin': user.is_superuser})
     return Response({'ok': False, 'error': "Login yoki parol noto'g'ri."}, status=401)
 
 
@@ -115,7 +140,52 @@ def admin_logout(request):
 @permission_classes([AllowAny])
 def admin_status(request):
     u = request.user
-    return Response({'isAdmin': bool(u and u.is_authenticated and u.is_staff)})
+    is_admin = bool(u and u.is_authenticated and u.is_staff)
+    return Response({
+        'isAdmin': is_admin,
+        # The full admin (988912) manages listings/profiles; the stats
+        # account (admin/statistika123) is staff but not superuser, so it
+        # only ever sees the read-only statistics dashboard.
+        'isSuperAdmin': bool(is_admin and u.is_superuser),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_stats(request):
+    from django.utils import timezone
+    import datetime
+
+    now = timezone.now()
+    day_ago = now - datetime.timedelta(days=1)
+    week_ago = now - datetime.timedelta(days=7)
+    month_ago = now - datetime.timedelta(days=30)
+
+    def revenue_since(since):
+        total = PendingListingPayment.objects.filter(paid=True, created_at__gte=since).aggregate(s=Sum('amount_cents'))['s'] or 0
+        total += PendingBalanceTopup.objects.filter(paid=True, created_at__gte=since).aggregate(s=Sum('amount_cents'))['s'] or 0
+        return total
+
+    by_seller = (
+        Listing.objects.values('seller')
+        .annotate(
+            listing_count=Count('id'),
+            total_views=Sum('views_count'),
+            total_likes=Sum('likes_count'),
+        )
+        .order_by('-listing_count')
+    )
+
+    return Response({
+        'sellers': list(by_seller),
+        'totalListings': Listing.objects.count(),
+        'soldListings': Listing.objects.filter(sold=True).count(),
+        'paidListingsBought': PendingListingPayment.objects.filter(paid=True).count(),
+        'revenueCentsToday': revenue_since(day_ago),
+        'revenueCentsWeek': revenue_since(week_ago),
+        'revenueCentsMonth': revenue_since(month_ago),
+        'revenueCentsAllTime': revenue_since(datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)),
+    })
 
 
 @api_view(['POST'])

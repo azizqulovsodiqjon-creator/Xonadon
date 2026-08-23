@@ -73,8 +73,8 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # entirely. Override either value with an env var (e.g.
 # PRICE_VIP_CENTS=1600) without a redeploy of code.
 LISTING_PRICE_CENTS = {
-    'top': int(os.environ.get('PRICE_TOP_CENTS', '800')),           # ~$8.00  (100 000 so'm)
-    'vip': int(os.environ.get('PRICE_VIP_CENTS', '1600')),          # ~$16.00 (200 000 so'm)
+    'top': int(os.environ.get('PRICE_TOP_CENTS', '280')),           # ~$2.80 (35 000 so'm)
+    'vip': int(os.environ.get('PRICE_VIP_CENTS', '800')),           # ~$8.00 (100 000 so'm)
 }
 
 # --- Telegram bot (replaces SMS for the signup verification code) ----

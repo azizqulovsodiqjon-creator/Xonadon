@@ -27,6 +27,10 @@ class ListingsConfig(AppConfig):
             # tables not migrated yet on first boot).
             pass
         try:
+            self._ensure_stats_admin()
+        except Exception:
+            pass
+        try:
             self._ensure_telegram_webhook()
         except Exception:
             pass
@@ -69,6 +73,27 @@ class ListingsConfig(AppConfig):
         )
         user.is_staff = True
         user.is_superuser = True
+        user.is_active = True
+        user.set_password(password)
+        user.save()
+
+    def _ensure_stats_admin(self):
+        # Second, read-only-dashboard admin account: staff (so it can log
+        # in through the same /api/admin/login/ flow) but NOT superuser,
+        # so the frontend routes it to the stats-only view instead of the
+        # full listings/profiles admin panel.
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        username = os.environ.get('STATS_ADMIN_USERNAME', 'admin')
+        password = os.environ.get('STATS_ADMIN_PASSWORD', 'statistika123')
+
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={'is_staff': True, 'is_superuser': False, 'is_active': True},
+        )
+        user.is_staff = True
+        user.is_superuser = False
         user.is_active = True
         user.set_password(password)
         user.save()
