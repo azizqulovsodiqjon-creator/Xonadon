@@ -592,3 +592,21 @@ def telegram_webhook(request):
                 )
 
     return JsonResponse({'ok': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def telegram_diagnostics(request):
+    """Admin-only: ask Telegram directly what it thinks our webhook is,
+    so we can tell 'never registered' apart from 'registered but not
+    receiving updates' without ever exposing the bot token itself."""
+    if not settings.TELEGRAM_BOT_TOKEN:
+        return Response({'ok': False, 'error': 'TELEGRAM_BOT_TOKEN not set'}, status=503)
+    info = _telegram_api('getWebhookInfo')
+    expected_url = settings.SITE_BASE_URL.rstrip('/') + '/api/telegram/webhook/'
+    return Response({
+        'ok': info is not None,
+        'expectedWebhookUrl': expected_url,
+        'siteBaseUrl': settings.SITE_BASE_URL,
+        'telegramResponse': info,
+    })

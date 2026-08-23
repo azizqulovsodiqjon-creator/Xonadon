@@ -26,5 +26,6 @@ urlpatterns = [
     path('api/telegram/status/', views.telegram_status, name='telegram-status'),
     path('api/telegram/verify/', views.telegram_verify, name='telegram-verify'),
     path('api/telegram/webhook/', views.telegram_webhook, name='telegram-webhook'),
+    path('api/telegram/diagnostics/', views.telegram_diagnostics, name='telegram-diagnostics'),
     path('api/', include(router.urls)),
 ]
