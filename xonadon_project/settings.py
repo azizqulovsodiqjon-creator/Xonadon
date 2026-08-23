@@ -81,10 +81,14 @@ LISTING_PRICE_CENTS = {
 # Same "not configured until the env var is set" story as Stripe above.
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', 'J_joymee_bot')
-# Public base URL Telegram needs to reach for the webhook. Render sets
-# RENDER_EXTERNAL_URL automatically; SITE_BASE_URL is a manual override/
-# fallback for other hosts.
-SITE_BASE_URL = os.environ.get('RENDER_EXTERNAL_URL') or os.environ.get('SITE_BASE_URL', '')
+# Public base URL Telegram needs to reach for the webhook. RENDER_EXTERNAL_URL
+# isn't reliably present, so fall back to the known production domain
+# (matches CSRF_TRUSTED_ORIGINS above) instead of silently doing nothing.
+SITE_BASE_URL = (
+    os.environ.get('RENDER_EXTERNAL_URL')
+    or os.environ.get('SITE_BASE_URL')
+    or 'https://xonadon.onrender.com'
+)
 
 
 # Application definition

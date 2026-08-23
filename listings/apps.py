@@ -43,12 +43,18 @@ class ListingsConfig(AppConfig):
         token = settings.TELEGRAM_BOT_TOKEN
         base_url = settings.SITE_BASE_URL
         if not token or not base_url:
+            print('[telegram webhook] skipped: TELEGRAM_BOT_TOKEN or SITE_BASE_URL not set')
             return
         webhook_url = base_url.rstrip('/') + '/api/telegram/webhook/'
         api_url = f'https://api.telegram.org/bot{token}/setWebhook'
         data = json.dumps({'url': webhook_url}).encode('utf-8')
         req = urllib.request.Request(api_url, data=data, headers={'Content-Type': 'application/json'})
-        urllib.request.urlopen(req, timeout=10)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                body = resp.read().decode('utf-8')
+                print(f'[telegram webhook] setWebhook({webhook_url}) -> {body}')
+        except Exception as exc:
+            print(f'[telegram webhook] setWebhook({webhook_url}) FAILED: {exc}')
 
     def _ensure_admin(self):
         from django.contrib.auth import get_user_model
