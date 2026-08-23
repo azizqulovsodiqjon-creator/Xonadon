@@ -1,5 +1,6 @@
 import json
 import random
+import urllib.error
 import urllib.request
 
 import stripe
@@ -603,9 +604,23 @@ def telegram_diagnostics(request):
     if not settings.TELEGRAM_BOT_TOKEN:
         return Response({'ok': False, 'error': 'TELEGRAM_BOT_TOKEN not set'}, status=503)
     info = _telegram_api('getWebhookInfo')
+    raw_error = None
+    if info is None:
+        # _telegram_api swallows the exception - redo the call here just
+        # to surface what actually went wrong (401 invalid token vs a
+        # network failure look completely different).
+        url = f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/getWebhookInfo'
+        req = urllib.request.Request(url, data=b'{}', headers={'Content-Type': 'application/json'})
+        try:
+            urllib.request.urlopen(req, timeout=10)
+        except urllib.error.HTTPError as exc:
+            raw_error = f'HTTP {exc.code}: {exc.read().decode("utf-8", "replace")}'
+        except Exception as exc:
+            raw_error = f'{type(exc).__name__}: {exc}'
     expected_url = settings.SITE_BASE_URL.rstrip('/') + '/api/telegram/webhook/'
     return Response({
         'ok': info is not None,
+        'rawError': raw_error,
         'expectedWebhookUrl': expected_url,
         'siteBaseUrl': settings.SITE_BASE_URL,
         'telegramResponse': info,
