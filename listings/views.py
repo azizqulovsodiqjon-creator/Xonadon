@@ -679,7 +679,7 @@ def create_balance_topup_session(request):
                 'price_data': {
                     'currency': 'usd',
                     'unit_amount': amount,
-                    'product_data': {'name': "Joymee Jizzax - balansni to'ldirish"},
+                    'product_data': {'name': "Jizzax UyJoy - balansni to'ldirish"},
                 },
                 'quantity': 1,
             }],
@@ -915,7 +915,7 @@ def telegram_webhook(request):
                 v.save(update_fields=['chat_id', 'code'])
                 _telegram_api(
                     'sendMessage', chat_id=chat_id,
-                    text=f"Joymee Jizzax tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
+                    text=f"Jizzax UyJoy tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
                 )
             elif v:
                 # Already linked/sent once for this token - resend the
@@ -923,7 +923,7 @@ def telegram_webhook(request):
                 # tap Start again.
                 _telegram_api(
                     'sendMessage', chat_id=chat_id,
-                    text=f"Joymee Jizzax tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
+                    text=f"Jizzax UyJoy tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
                 )
 
     return JsonResponse({'ok': True})
