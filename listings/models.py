@@ -214,3 +214,19 @@ class TelegramVerification(models.Model):
 
     def __str__(self):
         return f"telegram verify {self.phone} ({'verified' if self.verified else 'pending'})"
+
+
+class Like(models.Model):
+    """One (listing, username) like - unique together so the same person
+    can't like the same listing twice, and so we can list 'my liked
+    listings' reliably from the server (not just a local toggle that
+    resets on reload/relogin)."""
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, related_name='likes')
+    username = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('listing', 'username')
+
+    def __str__(self):
+        return f"{self.username} likes {self.listing_id}"

@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/admin/status/', views.admin_status, name='admin-status'),
     path('api/admin/stats/', views.admin_stats, name='admin-stats'),
     path('api/profiles/directory/', views.profiles_directory, name='profiles-directory'),
+    path('api/likes/mine/', views.my_likes, name='my-likes'),
     path('api/listing-images/', views.upload_listing_images, name='upload-listing-images'),
     path('api/payments/config/', views.payment_config, name='payment-config'),
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),

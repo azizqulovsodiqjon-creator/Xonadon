@@ -33,11 +33,24 @@
     fetch(API_BASE + id + '/view_hit/', {method:'POST'}).catch(function(err){ console.error('view_hit xato:', err); });
   }
   function likeListing(id, cb){
-    fetch(API_BASE + id + '/like/', {method:'POST'}).then(function(r){ return r.json(); }).then(function(data){
-      if(cb) cb(data.likes_count);
+    fetch(API_BASE + id + '/like/', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username: myUsername()})
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data.ok && !data.alreadyLiked) myLikedIds.push(id);
+      if(cb) cb(data.likes_count, data.alreadyLiked);
     }).catch(function(err){ console.error('like xato:', err); });
   }
+  var myLikedIds = [];
+  function loadMyLikes(cb){
+    if(!isLoggedIn){ myLikedIds = []; if(cb) cb(); return; }
+    fetch(MY_LIKES_API + '?username=' + encodeURIComponent(myUsername()))
+      .then(function(r){ return r.json(); })
+      .then(function(data){ myLikedIds = (data.listingIds || []); if(cb) cb(); })
+      .catch(function(err){ console.error('my likes xato:', err); if(cb) cb(); });
+  }
   var PROFILE_API = '/api/profiles/';
+  var MY_LIKES_API = '/api/likes/mine/';
   var PROFILES_DIRECTORY_API = '/api/profiles/directory/';
   var ADMIN_LOGIN_API = '/api/admin/login/';
   var ADMIN_LOGOUT_API = '/api/admin/logout/';
@@ -250,7 +263,7 @@
             (l.top ? '<span class="detail-tag top">▲ TOP</span>' : '') +
             '<span class="detail-tag">' + l.type + '</span>' +
           '</div>' +
-          '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn">🤍 <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
+          '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
           '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>' +
         '</div>' +
       '</div>' +
@@ -291,11 +304,13 @@
     if(likeBtn){
       likeBtn.addEventListener('click', function(){
         if(likeBtn.disabled) return;
-        likeBtn.disabled = true;
-        likeBtn.innerHTML = '❤️ <span id="detailLikeCount">' + (l.likesCount + 1) + '</span>';
-        likeListing(l.id, function(newCount){
-          l.likesCount = (newCount != null) ? newCount : l.likesCount + 1;
-          document.getElementById('detailLikeCount').textContent = l.likesCount;
+        requireAuth(function(){
+          likeBtn.disabled = true;
+          likeBtn.innerHTML = '❤️ <span id="detailLikeCount">' + (l.likesCount + 1) + '</span>';
+          likeListing(l.id, function(newCount){
+            l.likesCount = (newCount != null) ? newCount : l.likesCount + 1;
+            document.getElementById('detailLikeCount').textContent = l.likesCount;
+          });
         });
       });
     }
@@ -1032,6 +1047,7 @@
     av.textContent = (p.full_name || p.username || 'M').charAt(0).toUpperCase();
     updateNotifBadge();
     updatePaymentSummary();
+    loadMyLikes();
   }
   function saveLoginToStorage(p){
     try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
@@ -1180,7 +1196,7 @@
     });
 
     var backdrop = document.getElementById('backdrop');
-    var panels = ['profileSearchPanel','notifPanel','filtersPanel','editProfilePanel','messageThreadPanel'];
+    var panels = ['profileSearchPanel','notifPanel','filtersPanel','editProfilePanel','messageThreadPanel','myLikesPanel'];
     function openPanel(id){ closeAllPanels(); document.getElementById(id).classList.add('open'); backdrop.classList.add('open'); }
     function closeAllPanels(){ panels.forEach(function(p){ document.getElementById(p).classList.remove('open'); }); backdrop.classList.remove('open'); }
     backdrop.addEventListener('click', closeAllPanels);
@@ -1208,6 +1224,30 @@
       requireAuth(function(){
         renderConversationsList('notifMessagesList');
         openPanel('notifPanel');
+      });
+    });
+
+    function renderMyLikesPanel(){
+      var wrap = document.getElementById('myLikesList');
+      var mine = listings.filter(function(l){ return myLikedIds.indexOf(l.id) !== -1; });
+      if(!mine.length){
+        wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">🤍</div><p>Hali hech qanday e\'longa layk bosmagansiz</p></div>';
+        return;
+      }
+      wrap.innerHTML = mine.map(function(l){
+        return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
+          '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+', '+l.district+'</div></div></div>';
+      }).join('');
+      wrap.querySelectorAll('[data-id]').forEach(function(el){
+        el.addEventListener('click', function(){ closeAllPanels(); openDetail(Number(this.getAttribute('data-id')), false); });
+      });
+    }
+    document.getElementById('myLikesBtn').addEventListener('click', function(){
+      requireAuth(function(){
+        loadMyLikes(function(){
+          renderMyLikesPanel();
+          openPanel('myLikesPanel');
+        });
       });
     });
 
@@ -1482,8 +1522,8 @@
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
       var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
-      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorsTotalCheck >= floorValCheck){
-        alert("Uyning qavatlari soni (" + floorsTotalCheck + ") qavat raqamidan (" + floorValCheck + ") kichik bo'lishi kerak.");
+      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorValCheck > floorsTotalCheck){
+        alert("Qavat raqami (" + floorValCheck + ") uyning umumiy qavatlar sonidan (" + floorsTotalCheck + ") oshmasligi kerak.");
         return;
       }
       showPostStep(4);
@@ -1540,8 +1580,8 @@
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
       var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
-      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorsTotalCheck >= floorValCheck){
-        alert("Uyning qavatlari soni (" + floorsTotalCheck + ") qavat raqamidan (" + floorValCheck + ") kichik bo'lishi kerak.");
+      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorValCheck > floorsTotalCheck){
+        alert("Qavat raqami (" + floorValCheck + ") uyning umumiy qavatlar sonidan (" + floorsTotalCheck + ") oshmasligi kerak.");
         return;
       }
       if(!editingListingId && isPaidTier() && postPayMethod === 'card' && !paymentInfo.configured){

@@ -20,7 +20,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
 from .models import (
-    Listing, ListingImage, Profile, PendingListingPayment, PendingBalanceTopup,
+    Listing, ListingImage, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
@@ -151,9 +151,15 @@ class ListingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
     def like(self, request, pk=None):
-        Listing.objects.filter(pk=pk).update(likes_count=F('likes_count') + 1)
+        username = str(request.data.get('username', '')).strip()
+        if not username:
+            return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
         listing = self.get_object()
-        return Response({'ok': True, 'likes_count': listing.likes_count})
+        _like, created = Like.objects.get_or_create(listing=listing, username=username)
+        if created:
+            Listing.objects.filter(pk=listing.pk).update(likes_count=F('likes_count') + 1)
+            listing.refresh_from_db(fields=['likes_count'])
+        return Response({'ok': True, 'likes_count': listing.likes_count, 'alreadyLiked': not created})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='mark-sold')
     def mark_sold(self, request, pk=None):
@@ -441,6 +447,20 @@ def profiles_directory(request):
     # without exposing phone numbers the way the full Profile list does.
     data = Profile.objects.order_by('username').values('username', 'full_name', 'role')
     return Response(list(data))
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def my_likes(request):
+    """Which listing ids this username has liked - drives both the
+    detail page's already-liked state and the 'liked listings' view,
+    and (being server-tracked, not local storage) survives a reload or
+    logging back in on another device."""
+    username = str(request.query_params.get('username', '')).strip()
+    if not username:
+        return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
+    listing_ids = list(Like.objects.filter(username=username).values_list('listing_id', flat=True))
+    return Response({'ok': True, 'listingIds': listing_ids})
 
 
 # =========================================================
