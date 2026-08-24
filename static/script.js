@@ -690,6 +690,12 @@
           '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk</div>' +
           '</div></div>';
       }).join('') || '<div class="empty-admin">Hozircha sotuvchi yo\'q.</div>';
+      var soldRows = (s.soldListingsDetail || []).map(function(row){
+        return '<div class="queue-row"><div class="queue-info">' +
+          '<div class="qdesc">' + row.title + ' · ' + row.district + '</div>' +
+          '<div class="qseller">' + displayName(row.seller) + ' · ' + row.price + '</div>' +
+          '</div></div>';
+      }).join('') || '<div class="empty-admin">Hozircha sotilgan uy yo\'q.</div>';
       wrap.innerHTML =
         '<div class="admin-stats">' +
           '<div class="astat"><div class="n">' + s.totalListings + '</div><div class="l">Jami e\'lonlar</div></div>' +
@@ -702,6 +708,7 @@
           '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsMonth) + '</div><div class="l">Oylik daromad</div></div>' +
           '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsAllTime) + '</div><div class="l">Jami daromad</div></div>' +
         '</div>' +
+        '<h3 style="margin:18px 0 10px;">Sotilgan uylar (jami narx: ' + (s.soldListingsTotalPriceNumber||0).toLocaleString('ru-RU') + ')</h3>' + soldRows +
         '<h3 style="margin:18px 0 10px;">Sotuvchilar bo\'yicha</h3>' + sellerRows;
     }).catch(function(err){
       console.error('admin stats xato:', err);
@@ -950,8 +957,9 @@
     }, 60);
   }
   function showPostStep(n){
-    [1,2,3].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
-    if(n===3){ initPostLocationMap(); updatePaymentSummary(); }
+    [1,2,3,4].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
+    if(n===3){ initPostLocationMap(); }
+    if(n===4){ updatePaymentSummary(); }
   }
 
   /* =========================================================
@@ -1392,9 +1400,32 @@
         showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings();
         return;
       }
+      if(!document.getElementById('postStep4').classList.contains('hidden')){ showPostStep(3); return; }
       if(!document.getElementById('postStep3').classList.contains('hidden')){ showPostStep(2); return; }
       if(!document.getElementById('postStep2').classList.contains('hidden')){ showPostStep(1); return; }
       showPage('pageHome'); renderPublic();
+    });
+
+    document.getElementById('postContinueBtn').addEventListener('click', function(){
+      var title = document.getElementById('postTitle').value.trim();
+      var price = document.getElementById('postPrice').value.trim();
+      var area = document.getElementById('postArea').value.trim();
+      var district = document.getElementById('postDistrict').value;
+      if(!title || !price || !area || !district){
+        alert("Iltimos, sarlavha, narx, maydon va tumanni to'ldiring.");
+        return;
+      }
+      if(!postPhotos.length && !editingListingId){
+        alert("Iltimos, kamida bitta rasm qo'shing.");
+        return;
+      }
+      var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
+      var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
+      if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorsTotalCheck >= floorValCheck){
+        alert("Uyning qavatlari soni (" + floorsTotalCheck + ") qavat raqamidan (" + floorValCheck + ") kichik bo'lishi kerak.");
+        return;
+      }
+      showPostStep(4);
     });
 
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){

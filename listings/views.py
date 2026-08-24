@@ -1,5 +1,6 @@
 import json
 import random
+import re
 import urllib.error
 import urllib.request
 
@@ -176,10 +177,22 @@ def admin_stats(request):
         .order_by('-listing_count')
     )
 
+    sold_qs = Listing.objects.filter(sold=True).order_by('-created_at')
+    sold_detail = [
+        {'id': l.id, 'title': l.title, 'price': l.price, 'seller': l.seller, 'district': l.district}
+        for l in sold_qs
+    ]
+    # price is a free-text field (mixes '$', so'm, spaces) - best-effort
+    # numeric total by stripping everything but digits, same approach the
+    # frontend's own priceNum() helper uses for filtering.
+    sold_total_number = sum(int(re.sub(r'\D', '', l.price) or 0) for l in sold_qs)
+
     return Response({
         'sellers': list(by_seller),
         'totalListings': Listing.objects.count(),
         'soldListings': Listing.objects.filter(sold=True).count(),
+        'soldListingsDetail': sold_detail,
+        'soldListingsTotalPriceNumber': sold_total_number,
         'paidListingsBought': PendingListingPayment.objects.filter(paid=True).count(),
         'revenueCentsToday': revenue_since(day_ago),
         'revenueCentsWeek': revenue_since(week_ago),
