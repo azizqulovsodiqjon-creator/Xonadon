@@ -904,10 +904,25 @@
   function formatUsd(cents){ return '$' + (cents/100).toFixed(2); }
   function isPaidTier(){ return postTier === 'top' || postTier === 'vip'; }
   function myBalanceCents(){ return (currentProfile && currentProfile.balance_cents) || 0; }
+  function tierInfoText(tier){
+    var lifecycle = paymentInfo.lifecycle ? paymentInfo.lifecycle[tier] : null;
+    var counts = paymentInfo.activeCounts || {};
+    var stageLabels = {vip:'VIP', top:'TOP', regular:'oddiy'};
+    var lifecycleText = '';
+    if(lifecycle && lifecycle.length){
+      var parts = lifecycle.map(function(pair){ return pair[1] + ' kun ' + stageLabels[pair[0]]; });
+      var totalDays = lifecycle.reduce(function(sum,pair){ return sum + pair[1]; }, 0);
+      lifecycleText = 'Muddat: ' + parts.join(' → ') + ' (jami ' + totalDays + ' kun), keyin avtomatik o\'chadi.';
+    }
+    var countText = 'Hozir ' + (counts[tier] != null ? counts[tier] : 0) + ' ta e\'lon ' + stageLabels[tier] + ' holatda.';
+    return lifecycleText + ' ' + countText;
+  }
   function updatePaymentSummary(){
     var amountEl = document.getElementById('paymentAmount');
     var finishBtn = document.getElementById('finishPostBtn');
     var methodToggle = document.getElementById('postPayMethodToggle');
+    var tierInfoEl = document.getElementById('tierInfo');
+    if(tierInfoEl) tierInfoEl.textContent = tierInfoText(postTier);
     if(!amountEl || !finishBtn) return;
     if(!isPaidTier()){
       amountEl.textContent = 'Bepul';

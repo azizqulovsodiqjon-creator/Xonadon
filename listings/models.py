@@ -2,6 +2,7 @@ import re
 import secrets
 
 from django.db import models
+from django.utils import timezone
 
 
 def normalize_phone(raw):
@@ -18,12 +19,24 @@ def normalize_phone(raw):
     return digits
 
 
+# Per-originating-tier lifecycle: an ordered list of (stage, days) the
+# listing steps through before it's deleted. TOP started listings never
+# pass through VIP, and the final "regular" stage's length depends on
+# which tier it started as (paid tiers get a shorter regular tail).
+TIER_LIFECYCLE = {
+    'vip': [('vip', 10), ('top', 5), ('regular', 2)],
+    'top': [('top', 7), ('regular', 5)],
+    'regular': [('regular', 7)],
+}
+
+
 class Listing(models.Model):
     DEAL_CHOICES = [
         ('sotuv', 'Sotuv'),
         ('ijara', 'Ijara'),
         ('kunlik', 'Kunlik'),
     ]
+    POSTED_TIER_CHOICES = [('regular', 'Oddiy'), ('top', 'Top'), ('vip', 'Vip')]
 
     title = models.CharField(max_length=255)
     desc = models.TextField(blank=True)
@@ -49,7 +62,30 @@ class Listing(models.Model):
     sold = models.BooleanField(default=False)
     views_count = models.PositiveIntegerField(default=0)
     likes_count = models.PositiveIntegerField(default=0)
+    # Which tier this listing was ORIGINALLY posted/paid as - decides which
+    # lifecycle (TIER_LIFECYCLE above) it steps down through as it ages.
+    posted_tier = models.CharField(max_length=20, choices=POSTED_TIER_CHOICES, default='regular')
+    # When the CURRENT stage (vip/top/regular) began - reset every time
+    # the listing steps down a stage. Used to compute when it's next due
+    # to downgrade or (at the final stage) be deleted.
+    stage_started_at = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            # First save: lock in which lifecycle this listing follows,
+            # from whatever vip/top flags it was created with.
+            self.posted_tier = 'vip' if self.vip else ('top' if self.top else 'regular')
+            if not self.stage_started_at:
+                self.stage_started_at = timezone.now()
+        super().save(*args, **kwargs)
+
+    def current_stage(self):
+        if self.vip:
+            return 'vip'
+        if self.top:
+            return 'top'
+        return 'regular'
 
     def __str__(self):
         return self.title

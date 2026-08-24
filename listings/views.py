@@ -1,3 +1,4 @@
+import datetime
 import json
 import os
 import random
@@ -20,16 +21,54 @@ from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
 from .models import (
     Listing, ListingImage, Profile, PendingListingPayment, PendingBalanceTopup,
-    Message, TelegramVerification, normalize_phone,
+    Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
+
+
+def sweep_expired_listings():
+    """
+    Steps every listing through its tier lifecycle (see TIER_LIFECYCLE):
+    once the current stage's day count has elapsed, either drop it to
+    the next stage (vip->top->regular) or, at the final stage, delete it
+    outright. No background worker exists on this host, so this is
+    called opportunistically from cheap, frequently-hit endpoints
+    (the homepage and the listings list) instead - correctness doesn't
+    depend on exact timing, only on it running at least every few
+    minutes, which the keep-alive ping already guarantees.
+    """
+    from django.utils import timezone
+    now = timezone.now()
+    for listing in Listing.objects.all():
+        stages = TIER_LIFECYCLE.get(listing.posted_tier, TIER_LIFECYCLE['regular'])
+        stage = listing.current_stage()
+        stage_index = next((i for i, (s, _d) in enumerate(stages) if s == stage), None)
+        if stage_index is None:
+            continue
+        _stage_name, duration_days = stages[stage_index]
+        if now < listing.stage_started_at + datetime.timedelta(days=duration_days):
+            continue  # this stage hasn't run its course yet
+        if stage_index + 1 < len(stages):
+            next_stage, _ = stages[stage_index + 1]
+            listing.vip = (next_stage == 'vip')
+            listing.top = (next_stage == 'top')
+            listing.stage_started_at = now
+            listing.save(update_fields=['vip', 'top', 'stage_started_at'])
+        else:
+            listing.delete()
 
 
 @ensure_csrf_cookie
 def index(request):
     # ensure_csrf_cookie guarantees the csrftoken cookie is set on first
     # page load, so the admin login/logout/delete requests below can send
-    # a valid X-CSRFToken header.
+    # a valid X-CSRFToken header. Also doubles as the periodic trigger for
+    # sweep_expired_listings() - the keep-alive ping hits this every few
+    # minutes, which is all the timing precision that needs.
+    try:
+        sweep_expired_listings()
+    except Exception as exc:
+        print(f'[sweep_expired_listings] failed: {exc}')
     return render(request, 'index.html')
 
 
@@ -50,6 +89,14 @@ def _link_images_to_listing(image_ids, listing):
 class ListingViewSet(viewsets.ModelViewSet):
     queryset = Listing.objects.all().order_by('-created_at')
     serializer_class = ListingSerializer
+
+    def get_queryset(self):
+        if self.action == 'list':
+            try:
+                sweep_expired_listings()
+            except Exception as exc:
+                print(f'[sweep_expired_listings] failed: {exc}')
+        return super().get_queryset()
 
     def get_permissions(self):
         if self.action == 'mark_sold':
@@ -385,6 +432,17 @@ def payment_config(request):
         'publishableKey': settings.STRIPE_PUBLISHABLE_KEY,
         'currency': 'usd',
         'prices': settings.LISTING_PRICE_CENTS,
+        # How many listings are CURRENTLY sitting in each tier right now
+        # (not lifetime totals) - shown on the tier-picker so a poster can
+        # see "N ta uy hozir TOP'da" the way the reference pricing page does.
+        'activeCounts': {
+            'regular': Listing.objects.filter(vip=False, top=False).count(),
+            'top': Listing.objects.filter(top=True).count(),
+            'vip': Listing.objects.filter(vip=True).count(),
+        },
+        # Day-by-day lifecycle each tier steps through before expiring,
+        # for the "necha kun turadi" text under each price.
+        'lifecycle': TIER_LIFECYCLE,
     })
 
 
