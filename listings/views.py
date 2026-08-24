@@ -278,6 +278,17 @@ def admin_stats(request):
     # frontend's own priceNum() helper uses for filtering.
     sold_total_number = sum(int(re.sub(r'\D', '', l.price) or 0) for l in sold_qs)
 
+    # Revenue broken down by paid tier (top/vip), all-time - so the admin
+    # can see not just "how many TOP/VIP were bought" but how much money
+    # each tier actually brought in.
+    tier_breakdown = {}
+    for tier_key in ('top', 'vip'):
+        qs = PendingListingPayment.objects.filter(paid=True, tier=tier_key)
+        tier_breakdown[tier_key] = {
+            'count': qs.count(),
+            'revenueCents': qs.aggregate(s=Sum('amount_cents'))['s'] or 0,
+        }
+
     return Response({
         'sellers': list(by_seller),
         'totalListings': Listing.objects.count(),
@@ -285,6 +296,7 @@ def admin_stats(request):
         'soldListingsDetail': sold_detail,
         'soldListingsTotalPriceNumber': sold_total_number,
         'paidListingsBought': PendingListingPayment.objects.filter(paid=True).count(),
+        'tierBreakdown': tier_breakdown,
         'revenueCentsToday': revenue_since(day_ago),
         'revenueCentsWeek': revenue_since(week_ago),
         'revenueCentsMonth': revenue_since(month_ago),

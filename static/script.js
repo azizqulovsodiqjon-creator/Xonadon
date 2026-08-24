@@ -169,6 +169,10 @@
     var filtered = listings.filter(function(l){ return matchesFilters(l, filterState); });
     var vip = filtered.filter(function(l){ return l.vip; });
     var regular = filtered.filter(function(l){ return !l.vip; });
+    // TOP listings always show ahead of plain ones in the grid, even if
+    // they were posted more recently than a TOP one (recency within each
+    // group is preserved since sort() is stable).
+    regular.sort(function(a,b){ return (b.top?1:0) - (a.top?1:0); });
 
     vipWrap.innerHTML = vip.length ? vip.map(function(l){
       return '<button class="vip-card" data-id="' + l.id + '">' +
@@ -702,6 +706,10 @@
           '<div class="astat"><div class="n">' + s.totalListings + '</div><div class="l">Jami e\'lonlar</div></div>' +
           '<div class="astat"><div class="n">' + s.soldListings + '</div><div class="l">Sotilgan uylar</div></div>' +
           '<div class="astat"><div class="n">' + s.paidListingsBought + '</div><div class="l">Pullik (TOP/VIP) sotib olingan</div></div>' +
+        '</div>' +
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + ((s.tierBreakdown&&s.tierBreakdown.top) ? s.tierBreakdown.top.count : 0) + '</div><div class="l">TOP sotib olingan (' + formatUsd((s.tierBreakdown&&s.tierBreakdown.top) ? s.tierBreakdown.top.revenueCents : 0) + ')</div></div>' +
+          '<div class="astat"><div class="n">' + ((s.tierBreakdown&&s.tierBreakdown.vip) ? s.tierBreakdown.vip.count : 0) + '</div><div class="l">VIP sotib olingan (' + formatUsd((s.tierBreakdown&&s.tierBreakdown.vip) ? s.tierBreakdown.vip.revenueCents : 0) + ')</div></div>' +
         '</div>' +
         '<div class="admin-stats">' +
           '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsToday) + '</div><div class="l">Kunlik daromad</div></div>' +
