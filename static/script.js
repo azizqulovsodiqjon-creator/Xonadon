@@ -700,8 +700,8 @@
       .catch(function(err){ console.error('logoutAdmin xato:', err); })
       .finally(function(){ showPage('pageHome'); renderPublic(); });
   }
-  function renderAdminStatsOnly(){
-    var wrap = document.getElementById('statsAdminContent');
+  function renderAdminStatsOnly(targetId){
+    var wrap = document.getElementById(targetId || 'statsAdminContent');
     wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
     fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(s){
       var sellerRows = (s.sellers || []).map(function(row){
@@ -753,6 +753,12 @@
   function renderAdmin(){
     renderAdminStats();
     var wrap = document.getElementById('adminContent');
+    if(adminTab==='stats'){
+      // Same rich statistics the stats-only admin sees - the full admin
+      // (988912) shouldn't need a separate login to see them too.
+      renderAdminStatsOnly('adminContent');
+      return;
+    }
     if(adminTab==='profiles'){
       fetch(PROFILE_API).then(function(r){ return r.json(); }).then(function(profiles){
         if(!profiles.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha ro\'yxatdan o\'tgan foydalanuvchi yo\'q.</div>'; return; }
