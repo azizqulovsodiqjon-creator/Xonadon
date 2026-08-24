@@ -111,10 +111,6 @@
     for(var i=0;i<pages.length;i++){ pages[i].classList.remove('show'); }
     document.getElementById(id).classList.add('show');
     window.scrollTo(0,0);
-    // The admin FAB (shield icon) is a floating, always-in-DOM button, so
-    // it must be explicitly hidden on every page except the home page.
-    var adminFab = document.getElementById('homeAdminBtn');
-    if(adminFab) adminFab.classList.toggle('hidden', id !== 'pageHome');
   }
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
@@ -1282,7 +1278,9 @@
 
     document.getElementById('adminLoginForm').addEventListener('submit', loginAdmin);
     document.getElementById('loginCloseBtn').addEventListener('click', function(){ closeModal('adminLoginModal'); });
-    document.getElementById('homeAdminBtn').addEventListener('click', function(){ openModal('adminLoginModal'); });
+    // No admin button anywhere on the site anymore - the only way in is
+    // knowing the hidden /panel/ URL, which opens this same login modal.
+    if(location.pathname.replace(/\/+$/,'') === '/panel'){ openModal('adminLoginModal'); }
     document.getElementById('adminLogoutBtn').addEventListener('click', logoutAdmin);
     document.getElementById('statsAdminLogoutBtn').addEventListener('click', logoutAdmin);
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.addEventListener('click', function(){ setAdminTab(this.getAttribute('data-tab')); }); });

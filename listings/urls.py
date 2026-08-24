@@ -8,6 +8,10 @@ router.register(r'listings', ListingViewSet)
 router.register(r'profiles', ProfileViewSet)
 urlpatterns = [
     path('', views.index, name='index'),
+    # Hidden admin entry point - not linked anywhere on the site. Same
+    # SPA page as '/', but static/script.js detects this path on load
+    # and auto-opens the admin login modal.
+    path('panel/', views.index, name='admin-panel'),
     path('api/admin/login/', views.admin_login, name='admin-login'),
     path('api/admin/logout/', views.admin_logout, name='admin-logout'),
     path('api/admin/status/', views.admin_status, name='admin-status'),
