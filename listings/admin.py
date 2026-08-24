@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PendingListingPayment, Message, TelegramVerification
+from .models import PendingListingPayment, Message, TelegramVerification, SoldListingRecord
 
 
 @admin.register(Message)
@@ -22,3 +22,10 @@ class TelegramVerificationAdmin(admin.ModelAdmin):
     list_display = ('phone', 'chat_id', 'verified', 'created_at')
     list_filter = ('verified',)
     readonly_fields = ('token', 'phone', 'chat_id', 'code', 'verified', 'created_at')
+
+
+@admin.register(SoldListingRecord)
+class SoldListingRecordAdmin(admin.ModelAdmin):
+    list_display = ('title', 'price', 'seller', 'district', 'tier', 'created_at')
+    list_filter = ('tier',)
+    search_fields = ('title', 'seller', 'district')
