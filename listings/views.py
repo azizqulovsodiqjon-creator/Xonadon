@@ -1,4 +1,5 @@
 import json
+import os
 import random
 import re
 import urllib.error
@@ -110,9 +111,17 @@ MAX_UPLOAD_IMAGES = 10
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB per file, before compression
 
 
-def _compress_to_data_url(uploaded_file, max_dim=1280, quality=80):
+def _compress_to_data_url(uploaded_file, max_dim=None, quality=None):
     from io import BytesIO
     from PIL import Image
+
+    # Storage is paid for (Postgres, not free disk), so keep these fairly
+    # aggressive by default - 900px/q70 is still perfectly sharp for a
+    # listing photo viewed on a phone/browser, at a fraction of the size.
+    # Tunable without a redeploy via env vars if the tradeoff ever needs
+    # revisiting.
+    max_dim = max_dim or int(os.environ.get('IMAGE_MAX_DIM', '900'))
+    quality = quality or int(os.environ.get('IMAGE_QUALITY', '70'))
 
     img = Image.open(uploaded_file)
     img = img.convert('RGB')  # normalizes any format/mode, drops alpha
