@@ -35,6 +35,14 @@
   var API_BASE = '/api/listings/';
   var LISTING_IMAGES_API = '/api/listing-images/';
   function recordListingView(id){
+    // Only count once per browser tab session - without this, simply
+    // going back and re-opening the same listing kept incrementing the
+    // view count again on every re-entry.
+    var seen;
+    try{ seen = JSON.parse(sessionStorage.getItem('xonadonViewedIds') || '[]'); }catch(e){ seen = []; }
+    if(seen.indexOf(id) !== -1) return;
+    seen.push(id);
+    try{ sessionStorage.setItem('xonadonViewedIds', JSON.stringify(seen)); }catch(e){}
     fetch(API_BASE + id + '/view_hit/', {method:'POST'}).catch(function(err){ console.error('view_hit xato:', err); });
   }
   function likeListing(id, cb){
@@ -1397,13 +1405,30 @@
         });
       });
     }
+    function renderTanlanganTab(){
+      var box = document.getElementById('myProfileTabContent');
+      box.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+      loadMyLikes(function(){
+        var mine = listings.filter(function(l){ return myLikedIds.indexOf(l.id) !== -1; });
+        if(!mine.length){
+          box.innerHTML = '<div class="empty-state"><div class="emoji-box">⭐</div><p>Sevimlilar ro\'yxati bo\'sh</p></div>';
+          return;
+        }
+        box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
+          return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
+            '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+'</div></div></div>';
+        }).join('') + '</div>';
+        box.querySelectorAll('[data-id]').forEach(function(el){
+          el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), false); });
+        });
+      });
+    }
     document.querySelectorAll('.profile-tab').forEach(function(tab){
       tab.addEventListener('click', function(){
         document.querySelectorAll('.profile-tab').forEach(function(t){ t.classList.remove('active'); });
         this.classList.add('active');
-        var box = document.getElementById('myProfileTabContent');
         if(this.getAttribute('data-ptab')==='elonlar'){ renderMyListings(); }
-        else { box.innerHTML = '<div class="empty-state"><div class="emoji-box">⭐</div><p>Sevimlilar ro\'yxati bo\'sh</p></div>'; }
+        else { renderTanlanganTab(); }
       });
     });
 

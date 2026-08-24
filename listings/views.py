@@ -261,6 +261,26 @@ class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all().order_by('-created_at')
     serializer_class = ProfileSerializer
 
+    def update(self, request, *args, **kwargs):
+        # username is the de-facto identity every Listing/Message/Like
+        # is stored against (there's no real per-request auth here to
+        # link them by id instead) - so renaming it must cascade
+        # everywhere the OLD username was recorded, or a renamed user's
+        # existing listings and message threads silently orphan: buyers
+        # keep messaging the old name, which no longer matches anyone,
+        # so the messages just vanish for the (now renamed) seller.
+        instance = self.get_object()
+        old_username = instance.username
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == 200:
+            new_username = response.data.get('username')
+            if new_username and old_username and new_username != old_username:
+                Listing.objects.filter(seller=old_username).update(seller=new_username)
+                Message.objects.filter(sender=old_username).update(sender=new_username)
+                Message.objects.filter(receiver=old_username).update(receiver=new_username)
+                Like.objects.filter(username=old_username).update(username=new_username)
+        return response
+
     def get_permissions(self):
         # Same idea: reading/creating your own profile stays open (needed
         # for the phone+OTP signup flow), only admin can delete profiles.
