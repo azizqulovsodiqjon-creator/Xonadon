@@ -125,6 +125,19 @@ class ListingViewSet(viewsets.ModelViewSet):
             response.data = ListingSerializer(listing).data
         return response
 
+    def update(self, request, *args, **kwargs):
+        # Covers both PUT and PATCH (partial_update() delegates here) -
+        # editing a listing to add NEW photos uploads them the same
+        # pre-upload way as creation, so the same image_ids linking step
+        # is needed here too, or newly-added photos on an edit would
+        # upload successfully but never actually attach to the listing.
+        response = super().update(request, *args, **kwargs)
+        if response.status_code == 200:
+            listing = Listing.objects.get(pk=response.data['id'])
+            _link_images_to_listing(request.data.get('image_ids'), listing)
+            response.data = ListingSerializer(listing).data
+        return response
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         user = request.user

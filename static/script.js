@@ -16,6 +16,11 @@
   var currentMap = null, mapInitToken = 0;
   var currentLang = "UZ";
   var isLoggedIn = false, pendingAction = null;
+  // /panel/ is the hidden admin-only entry point: it must NEVER reveal
+  // the public site (not behind the login modal, not after closing it,
+  // not after logging out) - only the login form, or the admin panel
+  // once actually logged in.
+  var PANEL_ROUTE = location.pathname.replace(/\/+$/, '') === '/panel';
   var currentProfile = null; // the full Profile record (id/phone/username/...) for the logged-in user
   var TELEGRAM_START_API = '/api/telegram/start/';
   var TELEGRAM_STATUS_API = '/api/telegram/status/';
@@ -694,7 +699,17 @@
   function logoutAdmin(){
     fetch(ADMIN_LOGOUT_API, {method:'POST', credentials:'same-origin', headers: csrfHeaders()})
       .catch(function(err){ console.error('logoutAdmin xato:', err); })
-      .finally(function(){ showPage('pageHome'); renderPublic(); });
+      .finally(function(){
+        if(PANEL_ROUTE){
+          // Logging out on /panel/ must land back on the login form, not
+          // the public site - this URL never shows the site, logged in
+          // or not.
+          document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('show'); });
+          openModal('adminLoginModal');
+          return;
+        }
+        showPage('pageHome'); renderPublic();
+      });
   }
   function renderAdminStatsOnly(targetId){
     var wrap = document.getElementById(targetId || 'statsAdminContent');
@@ -1277,14 +1292,31 @@
     });
 
     document.getElementById('adminLoginForm').addEventListener('submit', loginAdmin);
-    document.getElementById('loginCloseBtn').addEventListener('click', function(){ closeModal('adminLoginModal'); });
+    document.getElementById('loginCloseBtn').addEventListener('click', function(){
+      // On /panel/, the login modal is the only thing on screen - closing
+      // it must not fall through to the public site underneath.
+      if(PANEL_ROUTE) return;
+      closeModal('adminLoginModal');
+    });
     // No admin button anywhere on the site anymore - the only way in is
-    // knowing the hidden /panel/ URL, which opens this same login modal.
-    if(location.pathname.replace(/\/+$/,'') === '/panel'){ openModal('adminLoginModal'); }
+    // knowing the hidden /panel/ URL. That route shows ONLY the login
+    // modal - the public homepage underneath is hidden, not just covered.
+    if(PANEL_ROUTE){
+      document.getElementById('pageHome').classList.remove('show');
+      openModal('adminLoginModal');
+    }
     document.getElementById('adminLogoutBtn').addEventListener('click', logoutAdmin);
     document.getElementById('statsAdminLogoutBtn').addEventListener('click', logoutAdmin);
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.addEventListener('click', function(){ setAdminTab(this.getAttribute('data-tab')); }); });
-    document.querySelectorAll('.overlay').forEach(function(ov){ ov.addEventListener('click', function(e){ if(e.target===ov) ov.classList.remove('show'); }); });
+    document.querySelectorAll('.overlay').forEach(function(ov){
+      ov.addEventListener('click', function(e){
+        if(e.target!==ov) return;
+        // Same rule as the close-x: on /panel/, clicking the backdrop of
+        // the login modal must not reveal the public site.
+        if(PANEL_ROUTE && ov.id==='adminLoginModal') return;
+        ov.classList.remove('show');
+      });
+    });
 
     document.getElementById('detailBackBtn').addEventListener('click', returnFromDetail);
     document.getElementById('sellerProfileBackBtn').addEventListener('click', returnFromSellerProfile);
