@@ -122,8 +122,6 @@
         <h4>Ijtimoiy tarmoqlar</h4>
         <div class="footer-social">
           <a href="#" title="Telegram">✈️</a>
-          <a href="#" title="Instagram">📷</a>
-          <a href="#" title="YouTube">▶️</a>
         </div>
       </div>
     </div>
@@ -510,8 +508,6 @@
   <div class="auth-full-form">
     <button class="close-x auth-close" id="authPhoneClose">✕</button>
     <h2>Kirish</h2>
-    <label>Ism familiya</label>
-    <input type="text" id="fullNameInput" placeholder="Ism familiyangizni kiriting">
     <label>Telefon raqam</label>
     <input type="text" id="phoneInput" value="+998">
     <div class="auth-terms">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
@@ -561,6 +557,18 @@
     </div>
     <button class="btn-full-black" id="codeConfirmBtn">Tasdiqlash</button>
     <div class="auth-terms">Kodni olmadingizmi? <span id="resendLink" style="color:#2F6FED;font-weight:700;cursor:pointer;">Qayta yuborish</span></div>
+  </div>
+</div>
+
+<div class="auth-gate hidden" id="authProfileScreen">
+  <div class="auth-gate-box" style="max-width:400px;text-align:left;">
+    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#2F6FED,#1B3A8C);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;">👤</div>
+    <h3 style="text-align:center;">Deyarli tayyor!</h3>
+    <p style="text-align:center;color:rgba(23,27,42,0.6);font-size:13.5px;margin-bottom:20px;">Raqamingiz tasdiqlandi. Endi profilingizni to'ldiring.</p>
+    <input type="hidden" id="newProfilePhone">
+    <div class="field"><label>Ism familiya</label><input type="text" id="profileFullNameInput" placeholder="Ism familiyangizni kiriting"></div>
+    <div class="field"><label>Saytdagi profil nomi</label><input type="text" id="profileUsernameInput" placeholder="Masalan: sodiqjon_a"></div>
+    <button class="btn-black" id="authProfileSubmitBtn" style="width:100%;margin-top:8px;">Tugatish</button>
   </div>
 </div>
 

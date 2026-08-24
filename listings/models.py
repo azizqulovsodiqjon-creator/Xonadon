@@ -216,6 +216,26 @@ class TelegramVerification(models.Model):
         return f"telegram verify {self.phone} ({'verified' if self.verified else 'pending'})"
 
 
+class SoldListingRecord(models.Model):
+    """
+    A lightweight snapshot taken right before a sold Listing is deleted.
+    Listings now disappear from the site the instant they're marked sold
+    (no grace period), so nothing about the sale survives in the Listing
+    table itself - this keeps just enough (title/price/seller/district/
+    tier) for admin stats to still show sold-listing history/totals.
+    """
+    title = models.CharField(max_length=255)
+    price = models.CharField(max_length=50)
+    seller = models.CharField(max_length=100)
+    district = models.CharField(max_length=100)
+    tier = models.CharField(max_length=20, default='regular')
+    original_listing_id = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"sold: {self.title} ({self.price})"
+
+
 class Like(models.Model):
     """One (listing, username) like - unique together so the same person
     can't like the same listing twice, and so we can list 'my liked

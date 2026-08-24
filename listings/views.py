@@ -21,7 +21,7 @@ from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
 from .models import (
     Listing, ListingImage, Like, Profile, PendingListingPayment, PendingBalanceTopup,
-    Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone,
+    Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
@@ -41,13 +41,10 @@ def sweep_expired_listings():
     now = timezone.now()
     for listing in Listing.objects.all():
         if listing.sold:
-            # mark_sold() already deletes a listing on the spot if it was
-            # already 'regular' when marked sold; anything still here was
-            # TOP/VIP, got dropped straight to 'regular', and just needs
-            # exactly 1 day before removal - not the normal posted_tier
-            # regular-stage duration.
-            if now >= listing.stage_started_at + datetime.timedelta(days=1):
-                listing.delete()
+            # mark_sold() deletes a listing on the spot now, so this
+            # should never actually be hit - kept as a safety net in case
+            # a listing ever ends up sold=True without being deleted.
+            listing.delete()
             continue
 
         stages = TIER_LIFECYCLE.get(listing.posted_tier, TIER_LIFECYCLE['regular'])
@@ -171,21 +168,16 @@ class ListingViewSet(viewsets.ModelViewSet):
             listing.save(update_fields=['sold'])
             return Response({'ok': True, 'sold': False})
 
-        if listing.current_stage() == 'regular':
-            # Already at the bottom tier when marked sold - remove right
-            # now, no grace period.
-            listing.delete()
-            return Response({'ok': True, 'sold': True, 'deleted': True})
-
-        # Was TOP or VIP - drop straight to regular (skipping any
-        # in-between stage) and give it exactly 1 day before sweep_expired_listings() removes it.
-        from django.utils import timezone
-        listing.sold = True
-        listing.vip = False
-        listing.top = False
-        listing.stage_started_at = timezone.now()
-        listing.save(update_fields=['sold', 'vip', 'top', 'stage_started_at'])
-        return Response({'ok': True, 'sold': True, 'deleted': False})
+        # Sold listings (any tier - regular/top/vip) are removed
+        # immediately, no grace period. Snapshot it first so admin stats
+        # can still show sold-listing history/totals afterward.
+        SoldListingRecord.objects.create(
+            title=listing.title, price=listing.price, seller=listing.seller,
+            district=listing.district, tier=listing.posted_tier,
+            original_listing_id=listing.id,
+        )
+        listing.delete()
+        return Response({'ok': True, 'sold': True, 'deleted': True})
 
 
 MAX_UPLOAD_IMAGES = 10
@@ -324,6 +316,18 @@ def admin_status(request):
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def my_sold_count(request):
+    # Sold listings are deleted the instant they're marked sold, so a
+    # seller's own "nechta uyim sotilgan" count can't come from the
+    # listings list anymore - it comes from the sold-snapshot history.
+    seller = str(request.GET.get('seller', '')).strip()
+    if not seller:
+        return Response({'soldCount': 0})
+    return Response({'soldCount': SoldListingRecord.objects.filter(seller=seller).count()})
+
+
+@api_view(['GET'])
 @permission_classes([IsAdminUser])
 def admin_stats(request):
     from django.utils import timezone
@@ -349,15 +353,18 @@ def admin_stats(request):
         .order_by('-listing_count')
     )
 
-    sold_qs = Listing.objects.filter(sold=True).order_by('-created_at')
+    # Sold listings are deleted from Listing the instant they're marked
+    # sold (see mark_sold), so history comes from the snapshot taken
+    # right before deletion instead.
+    sold_qs = SoldListingRecord.objects.all().order_by('-created_at')
     sold_detail = [
-        {'id': l.id, 'title': l.title, 'price': l.price, 'seller': l.seller, 'district': l.district}
-        for l in sold_qs
+        {'id': r.original_listing_id, 'title': r.title, 'price': r.price, 'seller': r.seller, 'district': r.district}
+        for r in sold_qs
     ]
     # price is a free-text field (mixes '$', so'm, spaces) - best-effort
     # numeric total by stripping everything but digits, same approach the
     # frontend's own priceNum() helper uses for filtering.
-    sold_total_number = sum(int(re.sub(r'\D', '', l.price) or 0) for l in sold_qs)
+    sold_total_number = sum(int(re.sub(r'\D', '', r.price) or 0) for r in sold_qs)
 
     # Revenue broken down by paid tier (top/vip), all-time - so the admin
     # can see not just "how many TOP/VIP were bought" but how much money
@@ -373,7 +380,7 @@ def admin_stats(request):
     return Response({
         'sellers': list(by_seller),
         'totalListings': Listing.objects.count(),
-        'soldListings': Listing.objects.filter(sold=True).count(),
+        'soldListings': sold_qs.count(),
         'soldListingsDetail': sold_detail,
         'soldListingsTotalPriceNumber': sold_total_number,
         'paidListingsBought': PendingListingPayment.objects.filter(paid=True).count(),

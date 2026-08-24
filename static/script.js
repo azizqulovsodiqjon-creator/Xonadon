@@ -281,7 +281,7 @@
         '<div class="info-row"><span class="il">Ta\'mir</span><span class="iv">' + l.repair + '</span></div>' +
       '</div></div>' +
       '<div class="detail-section">' +
-        '<div class="section-head-row"><h3 style="margin:0;">Joylashuv</h3><button class="report-pill">Shikoyat qilish</button></div>' +
+        '<div class="section-head-row"><h3 style="margin:0;">Joylashuv</h3></div>' +
         '<div class="location-row2"><span class="pin">📍</span>' + l.district + '</div>' +
         '<div class="map-box" id="detailMap"></div>' +
         '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
@@ -1072,6 +1072,7 @@
     document.getElementById('authPhoneScreen').classList.add('hidden');
     document.getElementById('otpMethodModal').classList.add('hidden');
     document.getElementById('authCodeScreen').classList.add('hidden');
+    document.getElementById('authProfileScreen').classList.add('hidden');
     stopTelegramPoll();
     resetOtpMethodModalUI();
   }
@@ -1317,7 +1318,13 @@
       document.getElementById('myAdsCount').textContent = mine.length;
       document.getElementById('myViewsCount').textContent = mine.reduce(function(sum,l){ return sum + (l.viewsCount||0); }, 0);
       document.getElementById('myLikesCount').textContent = mine.reduce(function(sum,l){ return sum + (l.likesCount||0); }, 0);
-      document.getElementById('mySoldCount').textContent = mine.filter(function(l){ return l.sold; }).length;
+      // Sold listings vanish from `listings` the instant they're marked
+      // sold (no grace period), so the count comes from the server's
+      // sold-snapshot history instead of filtering `mine` locally.
+      fetch('/api/listings/my-sold-count/?seller=' + encodeURIComponent(username))
+        .then(function(r){ return r.json(); })
+        .then(function(d){ document.getElementById('mySoldCount').textContent = d.soldCount || 0; })
+        .catch(function(){ document.getElementById('mySoldCount').textContent = 0; });
       var box = document.getElementById('myProfileTabContent');
       if(!mine.length){
         box.innerHTML = '<div class="empty-state"><div class="emoji-box">🏠</div><p>Sizda hali e\'lonlar yo\'q</p></div>';
@@ -1803,9 +1810,7 @@
     document.getElementById('phoneNextBtn').addEventListener('click', function(ev){
       if(ev && ev.preventDefault) ev.preventDefault();
       try{
-        var fullName = document.getElementById('fullNameInput').value.trim();
         var phone = document.getElementById('phoneInput').value.trim();
-        if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
         if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
         document.getElementById('otpPhoneDisplay').textContent = phone;
         document.getElementById('authPhoneScreen').classList.add('hidden');
@@ -1915,10 +1920,9 @@
     });
     function finishTelegramLogin(verifiedPhone){
       try{
-        isLoggedIn = true;
-        var fullName = document.getElementById('fullNameInput').value.trim();
         var phone = verifiedPhone || document.getElementById('phoneInput').value.trim();
-        var usernameGenerated = fullName.toLowerCase().replace(/\s+/g,'_') || 'foydalanuvchi';
+        telegramVerifyToken = null;
+        telegramDeepLink = null;
 
         fetch(PROFILE_API + '?phone=' + encodeURIComponent(phone))
           .then(function(r){ return r.json(); })
@@ -1930,31 +1934,63 @@
               // identity every listing and message is tied to; silently
               // changing it here is exactly what fragmented one person
               // into multiple disconnected "accounts" before.
+              isLoggedIn = true;
               var p = existing[0];
               applyProfile(p);
               saveLoginToStorage(p);
+              closeAllAuth();
+              if(pendingAction){ pendingAction(); pendingAction=null; }
             } else {
-              var newProfile = { phone: phone, username: usernameGenerated, full_name: fullName, role: 'Uy egasi' };
-              applyProfile(newProfile);
-              fetch(PROFILE_API, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: csrfHeaders({'Content-Type': 'application/json'}),
-                body: JSON.stringify(newProfile)
-              }).then(function(r){ return r.json(); }).then(function(created){
-                applyProfile(created); // pick up the real id, not just the local draft
-                saveLoginToStorage(created);
-                loadProfilesDirectory();
-              }).catch(function(err){ console.error('profile post xato:', err); saveLoginToStorage(newProfile); });
+              // Brand-new phone: only NOW ask for full name + site
+              // username, after the phone itself is already verified.
+              document.getElementById('authCodeScreen').classList.add('hidden');
+              document.getElementById('newProfilePhone').value = phone;
+              document.getElementById('profileFullNameInput').value = '';
+              document.getElementById('profileUsernameInput').value = '';
+              document.getElementById('authProfileScreen').classList.remove('hidden');
             }
           }).catch(function(err){ console.error('profile fetch xato:', err); });
-
-        telegramVerifyToken = null;
-        telegramDeepLink = null;
-        closeAllAuth();
-        if(pendingAction){ pendingAction(); pendingAction=null; }
       }catch(err){ console.error('finishTelegramLogin xato:', err); }
     }
+
+    document.getElementById('authProfileSubmitBtn').addEventListener('click', function(ev){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{
+        var fullName = document.getElementById('profileFullNameInput').value.trim();
+        var username = document.getElementById('profileUsernameInput').value.trim().toLowerCase().replace(/\s+/g,'_');
+        var phone = document.getElementById('newProfilePhone').value;
+        if(!fullName){ alert("Iltimos, ism familiyangizni kiriting."); return; }
+        if(!username){ alert("Iltimos, saytdagi profil nomingizni kiriting."); return; }
+
+        var btn = this;
+        btn.disabled = true;
+        var newProfile = { phone: phone, username: username, full_name: fullName, role: 'Uy egasi' };
+        fetch(PROFILE_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify(newProfile)
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
+            btn.disabled = false;
+            if(res.status !== 201 && res.status !== 200){
+              alert("Profil nomi band bo'lishi mumkin, boshqasini sinab ko'ring.");
+              return;
+            }
+            isLoggedIn = true;
+            applyProfile(res.data);
+            saveLoginToStorage(res.data);
+            loadProfilesDirectory();
+            closeAllAuth();
+            if(pendingAction){ pendingAction(); pendingAction=null; }
+          }).catch(function(err){
+            btn.disabled = false;
+            console.error('profile post xato:', err);
+            alert("Profilni yaratishda xato yuz berdi.");
+          });
+      }catch(err){ console.error('authProfileSubmitBtn xato:', err); }
+      return false;
+    });
 
     }catch(initErr){
       console.error('INIT XATO:', initErr);

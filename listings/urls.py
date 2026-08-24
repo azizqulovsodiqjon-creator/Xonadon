@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/admin/stats/', views.admin_stats, name='admin-stats'),
     path('api/profiles/directory/', views.profiles_directory, name='profiles-directory'),
     path('api/likes/mine/', views.my_likes, name='my-likes'),
+    path('api/listings/my-sold-count/', views.my_sold_count, name='my-sold-count'),
     path('api/listing-images/', views.upload_listing_images, name='upload-listing-images'),
     path('api/payments/config/', views.payment_config, name='payment-config'),
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),
