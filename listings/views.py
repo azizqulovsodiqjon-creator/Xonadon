@@ -18,8 +18,8 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
 from .models import (
-    Listing, Profile, PendingListingPayment, PendingBalanceTopup, Message,
-    TelegramVerification, normalize_phone,
+    Listing, ListingImage, Profile, PendingListingPayment, PendingBalanceTopup,
+    Message, TelegramVerification, normalize_phone,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
@@ -30,6 +30,20 @@ def index(request):
     # page load, so the admin login/logout/delete requests below can send
     # a valid X-CSRFToken header.
     return render(request, 'index.html')
+
+
+def _link_images_to_listing(image_ids, listing):
+    """Attach previously-uploaded (still unlinked) ListingImage rows to a
+    listing that was just created. Ignores ids that don't exist or are
+    already linked to something else - never lets a bad id list break
+    listing creation."""
+    if not image_ids:
+        return
+    try:
+        ids = [int(i) for i in image_ids][:10]
+    except (TypeError, ValueError):
+        return
+    ListingImage.objects.filter(id__in=ids, listing__isnull=True).update(listing=listing)
 
 
 class ListingViewSet(viewsets.ModelViewSet):
@@ -43,6 +57,18 @@ class ListingViewSet(viewsets.ModelViewSet):
         # the public site flow - there's no real per-request auth to lock
         # editing down further). destroy() below does its own check.
         return [AllowAny()]
+
+    def create(self, request, *args, **kwargs):
+        # Free ('regular') listings are created directly here (paid tiers
+        # go through Stripe/balance and get linked in
+        # _finalize_pending_payment instead) - photos were already
+        # uploaded separately before this call, so just attach them now.
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == 201:
+            listing = Listing.objects.get(pk=response.data['id'])
+            _link_images_to_listing(request.data.get('image_ids'), listing)
+            response.data = ListingSerializer(listing).data
+        return response
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -78,6 +104,62 @@ class ListingViewSet(viewsets.ModelViewSet):
         listing.sold = sold
         listing.save(update_fields=['sold'])
         return Response({'ok': True, 'sold': listing.sold})
+
+
+MAX_UPLOAD_IMAGES = 10
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB per file, before compression
+
+
+def _compress_to_data_url(uploaded_file, max_dim=1280, quality=80):
+    from io import BytesIO
+    from PIL import Image
+
+    img = Image.open(uploaded_file)
+    img = img.convert('RGB')  # normalizes any format/mode, drops alpha
+    img.thumbnail((max_dim, max_dim))
+    buf = BytesIO()
+    img.save(buf, format='JPEG', quality=quality, optimize=True)
+    import base64
+    b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+    return f'data:image/jpeg;base64,{b64}'
+
+
+class ListingImageThrottle(AnonRateThrottle):
+    scope = 'listing_images'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([ListingImageThrottle])
+def upload_listing_images(request):
+    """
+    Uploads photos BEFORE the listing they belong to necessarily exists
+    yet (paid tiers only create the real Listing once Stripe confirms,
+    well after the file picker's in-browser File objects are gone).
+    Compresses + stores each as a data: URI directly in Postgres (not
+    local disk - Render wipes that on every deploy) and hands back their
+    ids, which the client folds into the listing payload as `image_ids`
+    for whichever endpoint actually creates the Listing to link up.
+    """
+    files = request.FILES.getlist('images')[:MAX_UPLOAD_IMAGES]
+    if not files:
+        return Response({'ok': False, 'error': "Rasm topilmadi."}, status=400)
+
+    created_ids = []
+    for f in files:
+        if f.size > MAX_UPLOAD_BYTES:
+            continue
+        try:
+            data_url = _compress_to_data_url(f)
+        except Exception as exc:
+            print(f'[upload_listing_images] skipped unreadable file: {exc}')
+            continue
+        img = ListingImage.objects.create(listing=None, image=data_url)
+        created_ids.append(img.id)
+
+    if not created_ids:
+        return Response({'ok': False, 'error': "Hech qanday rasm yuklanmadi."}, status=400)
+    return Response({'ok': True, 'imageIds': created_ids})
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
@@ -355,6 +437,7 @@ def _finalize_pending_payment(pending):
     serializer = ListingSerializer(data=pending.payload)
     serializer.is_valid(raise_exception=True)
     listing = serializer.save()
+    _link_images_to_listing(pending.payload.get('image_ids'), listing)
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])
@@ -525,6 +608,7 @@ def create_listing_from_balance(request):
     profile.balance_cents = (profile.balance_cents or 0) - amount
     profile.save(update_fields=['balance_cents'])
     listing = serializer.save()
+    _link_images_to_listing(listing_payload.get('image_ids'), listing)
     return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
 
 

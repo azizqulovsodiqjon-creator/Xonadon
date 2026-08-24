@@ -28,6 +28,7 @@
 
   var filterState = {type:'all', owner:false, mortgage:false, lastWeek:false, lastMonth:false, deal:null, search:'', priceMin:null, priceMax:null, rooms:null, district:null};
   var API_BASE = '/api/listings/';
+  var LISTING_IMAGES_API = '/api/listing-images/';
   function recordListingView(id){
     fetch(API_BASE + id + '/view_hit/', {method:'POST'}).catch(function(err){ console.error('view_hit xato:', err); });
   }
@@ -846,7 +847,9 @@
     postCondition = l.condition || "Yangi bino";
     postTier = l.vip ? 'vip' : (l.top ? 'top' : 'regular');
     postMortgage = !!l.mortgage;
-    postPhotos = (l.photos || []).slice();
+    // Existing photos are already linked to this listing in the DB -
+    // only NEW ones added during this edit need an imageId to link.
+    postPhotos = (l.photos || []).map(function(url){ return {url: url, imageId: null, uploading: false, existing: true}; });
 
     showPage('pagePost');
     renderUploadThumbs();
@@ -921,8 +924,12 @@
 
   function renderUploadThumbs(){
     var wrap = document.getElementById('uploadThumbs');
-    wrap.innerHTML = postPhotos.map(function(url, i){
-      return '<div class="upload-thumb"><img src="'+url+'" alt=""><button type="button" class="rm" data-i="'+i+'">✕</button></div>';
+    wrap.innerHTML = postPhotos.map(function(p, i){
+      var state = p.uploading ? ' uploading' : (p.failed ? ' upload-failed' : '');
+      return '<div class="upload-thumb'+state+'"><img src="'+p.url+'" alt="">' +
+        (p.uploading ? '<span class="upload-spinner">⏳</span>' : '') +
+        (p.failed ? '<span class="upload-spinner" title="Yuklanmadi">⚠️</span>' : '') +
+        '<button type="button" class="rm" data-i="'+i+'">✕</button></div>';
     }).join('');
     wrap.querySelectorAll('.rm').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -933,6 +940,30 @@
       });
     });
     document.getElementById('uploadTile').style.display = postPhotos.length >= 10 ? 'none' : 'flex';
+  }
+  function uploadPhotoFile(file, entry){
+    var fd = new FormData();
+    fd.append('images', file);
+    fetch(LISTING_IMAGES_API, {method:'POST', body: fd})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data.ok && data.imageIds && data.imageIds.length){
+          entry.imageId = data.imageIds[0];
+        } else {
+          entry.failed = true;
+        }
+        entry.uploading = false;
+        renderUploadThumbs();
+      })
+      .catch(function(err){
+        console.error('rasm yuklashda xato:', err);
+        entry.uploading = false;
+        entry.failed = true;
+        renderUploadThumbs();
+      });
+  }
+  function newlyUploadedImageIds(){
+    return postPhotos.filter(function(p){ return p.imageId && !p.existing; }).map(function(p){ return p.imageId; });
   }
 
   function initPostLocationMap(){
@@ -1419,6 +1450,10 @@
         alert("Iltimos, kamida bitta rasm qo'shing.");
         return;
       }
+      if(postPhotos.some(function(p){ return p.uploading; })){
+        alert("Rasmlar hali yuklanmoqda, biroz kuting.");
+        return;
+      }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
       var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
       if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorsTotalCheck >= floorValCheck){
@@ -1451,8 +1486,9 @@
       files.forEach(function(file){
         if(postPhotos.length >= 10) return;
         if(!file.type || file.type.indexOf('image/') !== 0) return;
-        var url = URL.createObjectURL(file);
-        postPhotos.push(url);
+        var entry = {url: URL.createObjectURL(file), imageId: null, uploading: true, failed: false, existing: false};
+        postPhotos.push(entry);
+        uploadPhotoFile(file, entry); // uploads immediately - the actual bug being fixed
       });
       renderUploadThumbs();
       document.getElementById('uploadCount').textContent = postPhotos.length + '/10';
@@ -1470,6 +1506,10 @@
       }
       if(!postPhotos.length && !editingListingId){
         alert("Iltimos, kamida bitta rasm qo'shing.");
+        return;
+      }
+      if(postPhotos.some(function(p){ return p.uploading; })){
+        alert("Rasmlar hali yuklanmoqda, biroz kuting.");
         return;
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
@@ -1506,7 +1546,12 @@
         owner: true, mortgage: postMortgage,
         deal: postDeal,
         vip: postTier === 'vip',
-        top: postTier === 'top'
+        top: postTier === 'top',
+        // Photos were already uploaded (compressed, stored server-side)
+        // the moment they were picked - this just tells whichever
+        // endpoint ends up creating/updating the Listing which
+        // already-uploaded images to attach to it.
+        image_ids: newlyUploadedImageIds()
       };
 
       var btn = this;

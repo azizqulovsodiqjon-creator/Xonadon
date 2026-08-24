@@ -56,11 +56,22 @@ class Listing(models.Model):
 
 
 class ListingImage(models.Model):
-    listing = models.ForeignKey(Listing, related_name='images', on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='listings/')
+    # Nullable so a photo can be uploaded (and compressed) BEFORE the
+    # listing it belongs to exists - needed for paid tiers, where the
+    # real Listing isn't created until Stripe confirms payment, well
+    # after the file picker in the browser (and the in-memory File
+    # objects) are gone. The uploader gets an id back immediately and
+    # the id travels along in the listing payload; whichever code path
+    # actually creates the Listing links these rows to it afterward.
+    listing = models.ForeignKey(Listing, related_name='images', on_delete=models.CASCADE, null=True, blank=True)
+    # Stored as a data: URI (base64) directly in Postgres rather than on
+    # local disk - Render's free-tier filesystem is wiped on every
+    # deploy/restart, which silently discarded every photo before.
+    image = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.listing.title} - image"
+        return f"{self.listing_id or 'unlinked'} - image"
 class Profile(models.Model):
     phone = models.CharField(max_length=30, unique=True)
     username = models.CharField(max_length=100, blank=True)

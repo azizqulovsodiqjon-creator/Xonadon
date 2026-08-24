@@ -56,6 +56,8 @@ REST_FRAMEWORK = {
         # Rate-limit how often one IP can trigger a new Telegram deep
         # link/verification row, to blunt spamming the bot.
         'telegram_start': '10/min',
+        # Rate-limit listing-photo uploads per IP.
+        'listing_images': '30/min',
     },
 }
 
