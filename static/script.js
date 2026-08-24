@@ -722,7 +722,14 @@
   function renderAdminStatsOnly(targetId){
     var wrap = document.getElementById(targetId || 'statsAdminContent');
     wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
-    fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(s){
+    fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){
+      // A non-200 (e.g. a session/permission hiccup) still has a JSON
+      // body, just not the stats shape - without this check it used to
+      // render straight through as "undefined" / "$NaN" everywhere
+      // instead of a clear error.
+      if(!r.ok){ throw new Error('admin stats HTTP ' + r.status); }
+      return r.json();
+    }).then(function(s){
       var sellerRows = (s.sellers || []).map(function(row){
         return '<div class="queue-row"><div class="queue-info">' +
           '<div class="qdesc">' + displayName(row.seller) + '</div>' +
