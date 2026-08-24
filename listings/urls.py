@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/likes/mine/', views.my_likes, name='my-likes'),
     path('api/listings/my-sold-count/', views.my_sold_count, name='my-sold-count'),
     path('api/listing-images/', views.upload_listing_images, name='upload-listing-images'),
+    path('api/listing-images/<int:image_id>/', views.delete_listing_image, name='delete-listing-image'),
     path('api/payments/config/', views.payment_config, name='payment-config'),
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),
     path('api/payments/confirm/', views.confirm_payment, name='confirm-payment'),

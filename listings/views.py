@@ -257,6 +257,16 @@ def upload_listing_images(request):
     return Response({'ok': True, 'imageIds': created_ids})
 
 
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_listing_image(request, image_id):
+    # Admin-only: lets a bad/placeholder photo be removed from a listing
+    # without deleting the whole listing. Idempotent - deleting an id
+    # that's already gone is not an error.
+    ListingImage.objects.filter(id=image_id).delete()
+    return Response({'ok': True})
+
+
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all().order_by('-created_at')
     serializer_class = ProfileSerializer
