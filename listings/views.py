@@ -40,6 +40,16 @@ def sweep_expired_listings():
     from django.utils import timezone
     now = timezone.now()
     for listing in Listing.objects.all():
+        if listing.sold:
+            # mark_sold() already deletes a listing on the spot if it was
+            # already 'regular' when marked sold; anything still here was
+            # TOP/VIP, got dropped straight to 'regular', and just needs
+            # exactly 1 day before removal - not the normal posted_tier
+            # regular-stage duration.
+            if now >= listing.stage_started_at + datetime.timedelta(days=1):
+                listing.delete()
+            continue
+
         stages = TIER_LIFECYCLE.get(listing.posted_tier, TIER_LIFECYCLE['regular'])
         stage = listing.current_stage()
         stage_index = next((i for i, (s, _d) in enumerate(stages) if s == stage), None)
@@ -149,9 +159,27 @@ class ListingViewSet(viewsets.ModelViewSet):
     def mark_sold(self, request, pk=None):
         sold = bool(request.data.get('sold', True))
         listing = self.get_object()
-        listing.sold = sold
-        listing.save(update_fields=['sold'])
-        return Response({'ok': True, 'sold': listing.sold})
+
+        if not sold:
+            listing.sold = False
+            listing.save(update_fields=['sold'])
+            return Response({'ok': True, 'sold': False})
+
+        if listing.current_stage() == 'regular':
+            # Already at the bottom tier when marked sold - remove right
+            # now, no grace period.
+            listing.delete()
+            return Response({'ok': True, 'sold': True, 'deleted': True})
+
+        # Was TOP or VIP - drop straight to regular (skipping any
+        # in-between stage) and give it exactly 1 day before sweep_expired_listings() removes it.
+        from django.utils import timezone
+        listing.sold = True
+        listing.vip = False
+        listing.top = False
+        listing.stage_started_at = timezone.now()
+        listing.save(update_fields=['sold', 'vip', 'top', 'stage_started_at'])
+        return Response({'ok': True, 'sold': True, 'deleted': False})
 
 
 MAX_UPLOAD_IMAGES = 10
