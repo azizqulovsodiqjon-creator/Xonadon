@@ -1252,6 +1252,9 @@
       var username = document.getElementById('profileUsername').textContent.trim();
       var mine = listings.filter(function(l){ return l.seller === username; });
       document.getElementById('myAdsCount').textContent = mine.length;
+      document.getElementById('myViewsCount').textContent = mine.reduce(function(sum,l){ return sum + (l.viewsCount||0); }, 0);
+      document.getElementById('myLikesCount').textContent = mine.reduce(function(sum,l){ return sum + (l.likesCount||0); }, 0);
+      document.getElementById('mySoldCount').textContent = mine.filter(function(l){ return l.sold; }).length;
       var box = document.getElementById('myProfileTabContent');
       if(!mine.length){
         box.innerHTML = '<div class="empty-state"><div class="emoji-box">🏠</div><p>Sizda hali e\'lonlar yo\'q</p></div>';
