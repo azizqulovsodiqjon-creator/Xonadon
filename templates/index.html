@@ -211,6 +211,7 @@
       <button class="tab-btn active" data-tab="listings">E'lonlar</button>
       <button class="tab-btn" data-tab="profiles">Profillar</button>
       <button class="tab-btn" data-tab="stats">Statistika</button>
+      <button class="tab-btn" data-tab="verification">Tasdiqlash</button>
     </div>
     <div id="adminContent"></div>
   </div>
@@ -270,17 +271,7 @@
         <div id="xabarlarList"><div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo'q</p></div></div>
       </div>
       <div id="sub-tasdiqlash" class="hidden">
-        <div class="verify-box">
-          <div class="badge">✓</div>
-          <h3>Profilingizni tasdiqlang</h3>
-          <p style="color:rgba(23,27,42,0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo'ladi — foydalanuvchilar sizga ko'proq ishonadi.</p>
-          <div class="verify-list">
-            <div style="font-weight:800;font-size:13.5px;margin-bottom:12px;">Nima kerak bo'ladi:</div>
-            <div class="verify-item">📄 Pasport yoki ID karta rasmi</div>
-            <div class="verify-item">🤳 Hujjatni ushlab turgan selfie</div>
-          </div>
-          <button class="btn-full-black" id="verifyBtn">Telegram orqali yuborish</button>
-        </div>
+        <div class="verify-box" id="verifyBoxContent"></div>
       </div>
     </div>
   </div>

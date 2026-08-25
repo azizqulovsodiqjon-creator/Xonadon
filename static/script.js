@@ -70,6 +70,9 @@
   var SEND_MESSAGE_API = '/api/messages/send/';
   var MESSAGE_THREAD_API = '/api/messages/thread/';
   var MESSAGE_CONVERSATIONS_API = '/api/messages/conversations/';
+  var SUBMIT_VERIFICATION_API = '/api/verification/submit/';
+  var VERIFICATION_STATUS_API = '/api/verification/status/';
+  var ADMIN_VERIFICATION_REQUESTS_API = '/api/admin/verification-requests/';
   var viewMode = 'grid';
   var allProfilesDirectory = []; // every registered user (username/full_name/role) - no phone
   var currentThreadWith = null;
@@ -128,6 +131,11 @@
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
   function displayName(handle){ return handle.replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
+  var VERIFIED_TICK_HTML = ' <span class="verified-tick" title="Tasdiqlangan">✓</span>';
+  function isSellerVerified(username){
+    var meta = allProfilesDirectory.filter(function(p){ return p.username===username; })[0];
+    return !!(meta && meta.verified);
+  }
 
   function sellersSummary(){
     var map = {};
@@ -303,7 +311,7 @@
       '</div>' +
       '<div class="owner-card">' +
         '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
-        '<div><div class="owner-name">' + l.seller + '</div><div class="owner-role">' + l.ownerRole + '</div></div>' +
+        '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + l.ownerRole + '</div></div>' +
         '<button class="owner-contact-btn" id="viewSellerProfileBtn">Profilni ko\'rish</button>' +
       '</div>' +
       '<div class="similar-section" id="similarSection"></div>';
@@ -450,7 +458,7 @@
 
     document.getElementById('sellerProfileContent').innerHTML =
       '<div class="seller-head-card"><div class="owner-avatar">'+sellerName.charAt(0).toUpperCase()+'</div>' +
-      '<div><div class="owner-name" style="font-size:19px;">'+sellerName+'</div><div class="owner-role">'+role+'</div></div></div>' +
+      '<div><div class="owner-name" style="font-size:19px;">'+sellerName+((meta && meta.verified) ? VERIFIED_TICK_HTML : '')+'</div><div class="owner-role">'+role+'</div></div></div>' +
       '<div class="seller-stats">' +
         '<div class="sstat"><div class="n">'+mine.length+'</div><div class="l">Jami e\'lonlar</div></div>' +
         '<div class="sstat"><div class="n">'+regularCount+'</div><div class="l">Oddiy e\'lonlar</div></div>' +
@@ -796,6 +804,42 @@
       renderAdminStatsOnly('adminContent');
       return;
     }
+    if(adminTab==='verification'){
+      fetch(ADMIN_VERIFICATION_REQUESTS_API, {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(reqs){
+        if(!reqs.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha kutilayotgan so\'rov yo\'q.</div>'; return; }
+        wrap.innerHTML = reqs.map(function(r){
+          return '<div class="queue-row" data-vr="'+r.id+'" style="cursor:default;flex-wrap:wrap;">' +
+            '<div style="display:flex;gap:8px;">' +
+              '<img src="'+r.idPhoto+'" alt="ID" style="width:90px;height:70px;border-radius:10px;object-fit:cover;">' +
+              '<img src="'+r.selfiePhoto+'" alt="Selfie" style="width:90px;height:70px;border-radius:10px;object-fit:cover;">' +
+            '</div>' +
+            '<div class="queue-info">' +
+              '<div class="qprice">'+(r.fullName || r.username)+'</div>' +
+              '<div class="qdesc">@'+r.username+' · '+r.phone+'</div>' +
+            '</div>' +
+            '<div class="queue-actions">' +
+              '<button class="qbtn" data-decide="approve" data-id="'+r.id+'">Tasdiqlash</button>' +
+              '<button class="qbtn del" data-decide="reject" data-id="'+r.id+'">Rad etish</button>' +
+            '</div></div>';
+        }).join('');
+        wrap.querySelectorAll('[data-decide]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var id = this.getAttribute('data-id');
+            var decision = this.getAttribute('data-decide');
+            fetch(ADMIN_VERIFICATION_REQUESTS_API + id + '/decide/', {
+              method: 'POST', credentials: 'same-origin',
+              headers: csrfHeaders({'Content-Type': 'application/json'}),
+              body: JSON.stringify({decision: decision})
+            }).then(function(r){
+              if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+              renderAdmin();
+              toast(decision === 'approve' ? "Profil tasdiqlandi." : "So'rov rad etildi.");
+            }).catch(function(err){ console.error('verification decide xato:', err); toast("Xato yuz berdi."); });
+          });
+        });
+      }).catch(function(err){ console.error('verification requests xato:', err); wrap.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>'; });
+      return;
+    }
     if(adminTab==='profiles'){
       fetch(PROFILE_API).then(function(r){ return r.json(); }).then(function(profiles){
         if(!profiles.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha ro\'yxatdan o\'tgan foydalanuvchi yo\'q.</div>'; return; }
@@ -803,7 +847,7 @@
           var listingCount = listings.filter(function(l){ return l.seller === p.username; }).length;
           return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;">' +
             '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
-            '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+'</div><div class="profile-meta">'+p.phone+' · '+p.role+'</div></div>' +
+            '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div><div class="profile-meta">'+p.phone+' · '+p.role+'</div></div>' +
             '<div class="profile-count">'+listingCount+' ta e\'lon</div></div>';
         }).join('');
         wrap.querySelectorAll('[data-seller]').forEach(function(row){
@@ -1081,7 +1125,7 @@
   function applyProfile(p){
     if(!p || !p.username){ console.error('applyProfile: invalid profile', p); return; }
     currentProfile = p;
-    document.getElementById('profileFullName').textContent = p.full_name || '';
+    document.getElementById('profileFullName').innerHTML = escapeHtml(p.full_name || '') + (p.verified ? VERIFIED_TICK_HTML : '');
     document.getElementById('profileUsername').textContent = p.username;
     document.getElementById('profilePhoneDisplay').textContent = p.phone || '';
     document.getElementById('balancePhone').textContent = p.phone || '';
@@ -1370,6 +1414,89 @@
     function switchProfileSub(sub){
       ['profil','balans','xabarlar','tasdiqlash'].forEach(function(s){ document.getElementById('sub-'+s).classList.toggle('hidden', s!==sub); });
       if(sub === 'xabarlar'){ renderConversationsList(); }
+      if(sub === 'tasdiqlash'){ renderVerifyBox(); }
+    }
+    function renderVerifyBox(){
+      var box = document.getElementById('verifyBoxContent');
+      var username = myUsername();
+      box.innerHTML = '<div class="empty-note">Yuklanmoqda...</div>';
+      fetch(VERIFICATION_STATUS_API + '?username=' + encodeURIComponent(username))
+        .then(function(r){ return r.json(); })
+        .then(function(s){
+          if(s.verified){
+            box.innerHTML = '<div class="badge">✓</div><h3>Profilingiz tasdiqlangan</h3>' +
+              '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;">Ismingiz yonida tasdiqlash belgisi ko\'rinadi.</p>';
+            return;
+          }
+          if(s.pending){
+            box.innerHTML = '<div class="badge">⏳</div><h3>Ko\'rib chiqilmoqda</h3>' +
+              '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;">Hujjatlaringiz yuborildi, admin tez orada ko\'rib chiqadi.</p>';
+            return;
+          }
+          box.innerHTML =
+            '<div class="badge">✓</div>' +
+            '<h3>Profilingizni tasdiqlang</h3>' +
+            '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo\'ladi — foydalanuvchilar sizga ko\'proq ishonadi.</p>' +
+            '<div style="display:flex;gap:14px;text-align:left;">' +
+              '<div style="flex:1;">' +
+                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📄 Pasport/ID rasmi</div>' +
+                '<div class="upload-tile" id="verifyIdTile" style="width:100%;height:110px;font-size:26px;">📄</div>' +
+                '<input type="file" id="verifyIdInput" accept="image/*" class="hidden">' +
+              '</div>' +
+              '<div style="flex:1;">' +
+                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">🤳 Hujjatli selfie</div>' +
+                '<div class="upload-tile" id="verifySelfieTile" style="width:100%;height:110px;font-size:26px;">🤳</div>' +
+                '<input type="file" id="verifySelfieInput" accept="image/*" class="hidden">' +
+              '</div>' +
+            '</div>' +
+            '<button class="btn-full-black" id="verifySubmitBtn" style="margin-top:18px;">Yuborish</button>';
+
+          var idFile = null, selfieFile = null;
+          function wireTile(tileId, inputId, onPick){
+            var tile = document.getElementById(tileId);
+            var input = document.getElementById(inputId);
+            tile.addEventListener('click', function(){ input.click(); });
+            input.addEventListener('change', function(e){
+              var f = e.target.files[0];
+              if(!f) return;
+              onPick(f);
+              tile.style.backgroundImage = 'url(' + URL.createObjectURL(f) + ')';
+              tile.style.backgroundSize = 'cover';
+              tile.style.backgroundPosition = 'center';
+              tile.textContent = '';
+            });
+          }
+          wireTile('verifyIdTile', 'verifyIdInput', function(f){ idFile = f; });
+          wireTile('verifySelfieTile', 'verifySelfieInput', function(f){ selfieFile = f; });
+
+          document.getElementById('verifySubmitBtn').addEventListener('click', function(){
+            if(!idFile || !selfieFile){ toast("Iltimos, ikkala rasmni ham tanlang."); return; }
+            var btn = this;
+            btn.disabled = true; btn.textContent = 'Yuborilmoqda...';
+            var fd = new FormData();
+            fd.append('username', username);
+            fd.append('id_photo', idFile);
+            fd.append('selfie_photo', selfieFile);
+            fetch(SUBMIT_VERIFICATION_API, {method:'POST', body: fd})
+              .then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+              .then(function(res){
+                if(res.status !== 200 || !res.data.ok){
+                  toast((res.data && res.data.error) || "Yuborishda xato yuz berdi.");
+                  btn.disabled = false; btn.textContent = 'Yuborish';
+                  return;
+                }
+                toast("Yuborildi! Admin ko'rib chiqadi.");
+                renderVerifyBox();
+              }).catch(function(err){
+                console.error('verify submit xato:', err);
+                toast("Yuborishda xato yuz berdi.");
+                btn.disabled = false; btn.textContent = 'Yuborish';
+              });
+          });
+        }).catch(function(err){
+          console.error('verify status xato:', err);
+          box.innerHTML = '<div class="empty-note">Yuklashda xato yuz berdi.</div>';
+        });
     }
     document.getElementById('threadSendBtn').addEventListener('click', sendThreadMessage);
     document.getElementById('threadInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendThreadMessage(); } });
@@ -1527,8 +1654,6 @@
           btn.textContent = "Stripe orqali to'ldirish";
         });
     });
-    document.getElementById('verifyBtn').addEventListener('click', function(){ toast('Telegram bot ochilmoqda (demo).'); });
-
     document.getElementById('postAdBtn').addEventListener('click', function(){
       requireAuth(function(){
         showPage('pagePost');

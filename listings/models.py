@@ -114,6 +114,9 @@ class Profile(models.Model):
     full_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=100, default="Uy egasi")
     balance_cents = models.IntegerField(default=0)  # USD cents, topped up via Stripe
+    # True once an admin approves a VerificationRequest for this profile -
+    # drives the checkmark shown next to their name across the site.
+    verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -234,6 +237,28 @@ class SoldListingRecord(models.Model):
 
     def __str__(self):
         return f"sold: {self.title} ({self.price})"
+
+
+class VerificationRequest(models.Model):
+    """
+    One 'tasdiqlash' (verified badge) attempt: the user submits a photo
+    of their ID and a selfie holding it, an admin reviews the two images
+    in the admin panel and approves or rejects. Approving flips
+    Profile.verified, which is what actually drives the checkmark shown
+    next to their name everywhere. Images stored as data: URIs, same
+    reasoning as ListingImage - Render's disk is wiped every deploy.
+    """
+    STATUS_CHOICES = [('pending', 'Kutilmoqda'), ('approved', 'Tasdiqlangan'), ('rejected', 'Rad etilgan')]
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='verification_requests')
+    id_photo = models.TextField()
+    selfie_photo = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"verification for {self.profile} ({self.status})"
 
 
 class Like(models.Model):

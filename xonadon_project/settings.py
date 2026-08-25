@@ -58,6 +58,8 @@ REST_FRAMEWORK = {
         'telegram_start': '10/min',
         # Rate-limit listing-photo uploads per IP.
         'listing_images': '30/min',
+        # Rate-limit profile-verification submissions per IP.
+        'verification_submit': '10/min',
     },
 }
 

@@ -22,6 +22,7 @@ from django.db.models import Q, F, Sum, Count
 from .models import (
     Listing, ListingImage, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
+    VerificationRequest,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
@@ -264,6 +265,103 @@ def delete_listing_image(request, image_id):
     # without deleting the whole listing. Idempotent - deleting an id
     # that's already gone is not an error.
     ListingImage.objects.filter(id=image_id).delete()
+    return Response({'ok': True})
+
+
+class VerificationThrottle(AnonRateThrottle):
+    scope = 'verification_submit'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([VerificationThrottle])
+def submit_verification(request):
+    """
+    User sends an ID photo + a selfie holding it. Creates a pending
+    VerificationRequest for an admin to review in the panel; approving it
+    is what actually flips Profile.verified. One pending request at a
+    time per profile - resubmitting while one is still pending just
+    replaces it rather than piling up duplicates.
+    """
+    username = str(request.data.get('username', '')).strip()
+    if not username:
+        return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
+    try:
+        profile = Profile.objects.get(username=username)
+    except Profile.DoesNotExist:
+        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+
+    if profile.verified:
+        return Response({'ok': False, 'error': "Profilingiz allaqachon tasdiqlangan."}, status=400)
+
+    id_photo = request.FILES.get('id_photo')
+    selfie_photo = request.FILES.get('selfie_photo')
+    if not id_photo or not selfie_photo:
+        return Response({'ok': False, 'error': "Hujjat rasmi va selfie ikkalasi ham kerak."}, status=400)
+    for f in (id_photo, selfie_photo):
+        if f.size > MAX_UPLOAD_BYTES:
+            return Response({'ok': False, 'error': "Rasm hajmi juda katta."}, status=400)
+
+    try:
+        id_photo_url = _compress_to_data_url(id_photo)
+        selfie_photo_url = _compress_to_data_url(selfie_photo)
+    except Exception:
+        return Response({'ok': False, 'error': "Rasmni o'qib bo'lmadi."}, status=400)
+
+    # Replace any earlier pending/rejected attempt rather than stacking up.
+    VerificationRequest.objects.filter(profile=profile, status__in=['pending', 'rejected']).delete()
+    VerificationRequest.objects.create(profile=profile, id_photo=id_photo_url, selfie_photo=selfie_photo_url)
+    return Response({'ok': True})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def verification_status(request):
+    username = str(request.query_params.get('username', '')).strip()
+    if not username:
+        return Response({'verified': False, 'pending': False})
+    try:
+        profile = Profile.objects.get(username=username)
+    except Profile.DoesNotExist:
+        return Response({'verified': False, 'pending': False})
+    pending = profile.verification_requests.filter(status='pending').exists()
+    return Response({'verified': profile.verified, 'pending': pending})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_verification_requests(request):
+    reqs = VerificationRequest.objects.filter(status='pending').select_related('profile').order_by('created_at')
+    data = [{
+        'id': r.id,
+        'username': r.profile.username,
+        'fullName': r.profile.full_name,
+        'phone': r.profile.phone,
+        'idPhoto': r.id_photo,
+        'selfiePhoto': r.selfie_photo,
+        'createdAt': r.created_at.isoformat(),
+    } for r in reqs]
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_verification_decide(request, request_id):
+    decision = request.data.get('decision')
+    if decision not in ('approve', 'reject'):
+        return Response({'ok': False, 'error': "decision 'approve' yoki 'reject' bo'lishi kerak."}, status=400)
+    try:
+        vr = VerificationRequest.objects.select_related('profile').get(id=request_id, status='pending')
+    except VerificationRequest.DoesNotExist:
+        return Response({'ok': False, 'error': "So'rov topilmadi yoki allaqachon ko'rib chiqilgan."}, status=404)
+
+    from django.utils import timezone
+    vr.status = 'approved' if decision == 'approve' else 'rejected'
+    vr.reviewed_at = timezone.now()
+    vr.save(update_fields=['status', 'reviewed_at'])
+    if decision == 'approve':
+        vr.profile.verified = True
+        vr.profile.save(update_fields=['verified'])
     return Response({'ok': True})
 
 
@@ -522,7 +620,7 @@ def profiles_directory(request):
     # A public, privacy-safe listing of every registered user - just
     # enough (username/name/role) to power the "Profil qidirish" search,
     # without exposing phone numbers the way the full Profile list does.
-    data = Profile.objects.order_by('username').values('username', 'full_name', 'role')
+    data = Profile.objects.order_by('username').values('username', 'full_name', 'role', 'verified')
     return Response(list(data))
 
 

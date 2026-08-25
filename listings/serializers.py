@@ -31,11 +31,11 @@ from .models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'phone', 'username', 'full_name', 'role', 'balance_cents', 'created_at']
-        # balance_cents is only ever changed server-side (Stripe top-up
-        # confirmation or a balance-funded listing purchase) - never
-        # writable directly through a profile PATCH.
-        read_only_fields = ['balance_cents']
+        fields = ['id', 'phone', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']
+        # balance_cents/verified are only ever changed server-side (Stripe
+        # top-up confirmation, or an admin approving a VerificationRequest)
+        # - never writable directly through a profile PATCH.
+        read_only_fields = ['balance_cents', 'verified']
 
 
 class MessageSerializer(serializers.ModelSerializer):
