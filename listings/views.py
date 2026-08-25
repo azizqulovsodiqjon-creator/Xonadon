@@ -286,13 +286,18 @@ def submit_verification(request):
     username = str(request.data.get('username', '')).strip()
     if not username:
         return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
-    try:
-        profile = Profile.objects.get(username=username)
-    except Profile.DoesNotExist:
+    # username isn't a unique column (a leftover phone-format bug once let
+    # the same person end up with more than one Profile row sharing a
+    # username, before normalize_phone() fixed that) - .get() would raise
+    # MultipleObjectsReturned for those accounts, so this has to tolerate
+    # more than one match instead of assuming exactly one.
+    profiles = Profile.objects.filter(username=username)
+    if not profiles.exists():
         return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
 
-    if profile.verified:
+    if profiles.filter(verified=True).exists():
         return Response({'ok': False, 'error': "Profilingiz allaqachon tasdiqlangan."}, status=400)
+    profile = profiles.order_by('-created_at').first()
 
     id_photo = request.FILES.get('id_photo')
     selfie_photo = request.FILES.get('selfie_photo')
@@ -309,7 +314,7 @@ def submit_verification(request):
         return Response({'ok': False, 'error': "Rasmni o'qib bo'lmadi."}, status=400)
 
     # Replace any earlier pending/rejected attempt rather than stacking up.
-    VerificationRequest.objects.filter(profile=profile, status__in=['pending', 'rejected']).delete()
+    VerificationRequest.objects.filter(profile__in=profiles, status__in=['pending', 'rejected']).delete()
     VerificationRequest.objects.create(profile=profile, id_photo=id_photo_url, selfie_photo=selfie_photo_url)
     return Response({'ok': True})
 
@@ -320,12 +325,15 @@ def verification_status(request):
     username = str(request.query_params.get('username', '')).strip()
     if not username:
         return Response({'verified': False, 'pending': False})
-    try:
-        profile = Profile.objects.get(username=username)
-    except Profile.DoesNotExist:
+    # See the comment in submit_verification - username can match more
+    # than one Profile row, so this checks across all of them rather than
+    # assuming a single match.
+    profiles = Profile.objects.filter(username=username)
+    if not profiles.exists():
         return Response({'verified': False, 'pending': False})
-    pending = profile.verification_requests.filter(status='pending').exists()
-    return Response({'verified': profile.verified, 'pending': pending})
+    verified = profiles.filter(verified=True).exists()
+    pending = VerificationRequest.objects.filter(profile__in=profiles, status='pending').exists()
+    return Response({'verified': verified, 'pending': pending})
 
 
 @api_view(['GET'])
@@ -620,8 +628,23 @@ def profiles_directory(request):
     # A public, privacy-safe listing of every registered user - just
     # enough (username/name/role) to power the "Profil qidirish" search,
     # without exposing phone numbers the way the full Profile list does.
-    data = Profile.objects.order_by('username').values('username', 'full_name', 'role', 'verified')
-    return Response(list(data))
+    #
+    # `verified` here is "any Profile row with this username is verified",
+    # not the raw per-row column - username isn't unique (a leftover
+    # phone-format bug once let one person end up with more than one
+    # Profile row sharing a username), so without this, whichever
+    # duplicate the frontend happens to look up first could wrongly show
+    # as unverified even after a real approval.
+    from django.db.models import Exists, OuterRef
+    verified_elsewhere = Profile.objects.filter(username=OuterRef('username'), verified=True)
+    rows = Profile.objects.order_by('username').annotate(
+        any_verified=Exists(verified_elsewhere)
+    ).values('username', 'full_name', 'role', 'any_verified')
+    data = [
+        {'username': r['username'], 'full_name': r['full_name'], 'role': r['role'], 'verified': r['any_verified']}
+        for r in rows
+    ]
+    return Response(data)
 
 
 @api_view(['GET'])
