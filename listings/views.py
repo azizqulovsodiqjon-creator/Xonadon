@@ -1057,6 +1057,8 @@ def telegram_webhook(request):
     text = str(message.get('text', ''))
     chat = message.get('chat') or {}
     chat_id = chat.get('id')
+    contact = message.get('contact')
+    from_user_id = (message.get('from') or {}).get('id')
 
     if chat_id and text.startswith('/start'):
         parts = text.split(maxsplit=1)
@@ -1066,22 +1068,53 @@ def telegram_webhook(request):
                 v = TelegramVerification.objects.get(token=token)
             except TelegramVerification.DoesNotExist:
                 v = None
-            if v and not v.chat_id:
+            if v and not v.verified:
+                if v.code:
+                    # Phone was already confirmed for this token earlier -
+                    # just resend the same code rather than making them
+                    # share their contact again.
+                    _telegram_api(
+                        'sendMessage', chat_id=chat_id,
+                        text=f"Jizzax UyJoy tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
+                    )
+                else:
+                    # Don't trust "whoever clicked the link" - the code
+                    # must only ever reach the Telegram account that
+                    # actually owns the phone number typed on the site.
+                    # request_contact makes Telegram itself hand us the
+                    # account's real verified phone number (not a
+                    # user-typable field) so it can be checked below.
+                    v.chat_id = str(chat_id)
+                    v.save(update_fields=['chat_id'])
+                    _telegram_api(
+                        'sendMessage', chat_id=chat_id,
+                        text="Davom etish uchun telefon raqamingizni ulashing - kod faqat shu raqamga tegishli Telegram hisobiga yuboriladi.",
+                        reply_markup={
+                            'keyboard': [[{'text': '📱 Telefon raqamimni ulashish', 'request_contact': True}]],
+                            'resize_keyboard': True, 'one_time_keyboard': True,
+                        },
+                    )
+    elif chat_id and contact:
+        v = TelegramVerification.objects.filter(chat_id=str(chat_id), verified=False, code='').order_by('-created_at').first()
+        if v:
+            shared_phone = normalize_phone(contact.get('phone_number', ''))
+            shared_user_id = contact.get('user_id')
+            # user_id check: must be THEIR OWN contact card, not one
+            # forwarded/shared on behalf of someone else.
+            if shared_user_id == from_user_id and shared_phone == v.phone:
                 code = f"{random.randint(0, 999999):06d}"
-                v.chat_id = str(chat_id)
                 v.code = code
-                v.save(update_fields=['chat_id', 'code'])
+                v.save(update_fields=['code'])
                 _telegram_api(
                     'sendMessage', chat_id=chat_id,
                     text=f"Jizzax UyJoy tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
+                    reply_markup={'remove_keyboard': True},
                 )
-            elif v:
-                # Already linked/sent once for this token - resend the
-                # same code rather than silently doing nothing if they
-                # tap Start again.
+            else:
                 _telegram_api(
                     'sendMessage', chat_id=chat_id,
-                    text=f"Jizzax UyJoy tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
+                    text="Bu Telegram hisobining telefon raqami saytda kiritilgan raqam bilan mos kelmadi. Saytga to'g'ri raqamni kiriting yoki shu raqamga ro'yxatdan o'tgan Telegram hisobidan urining.",
+                    reply_markup={'remove_keyboard': True},
                 )
 
     return JsonResponse({'ok': True})
