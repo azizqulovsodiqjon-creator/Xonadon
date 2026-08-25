@@ -231,7 +231,7 @@
           '</div>' +
           '<div class="body"><div class="price">' + l.price + ' у.е</div>' +
           '<div class="desc">' + l.title + ', ' + l.district + '</div>' +
-          '<div class="meta"><span>' + l.seller + '</span></div></div>' +
+          '<div class="meta"><span>' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</span></div></div>' +
         '</button>';
       }).join('');
     }
@@ -503,7 +503,7 @@
   }
   function openMessageThread(otherUsername){
     currentThreadWith = otherUsername;
-    document.getElementById('threadWithName').textContent = displayName(otherUsername);
+    document.getElementById('threadWithName').innerHTML = escapeHtml(displayName(otherUsername)) + (isSellerVerified(otherUsername) ? VERIFIED_TICK_HTML : '');
     document.getElementById('threadInput').value = '';
     document.getElementById('threadMessages').innerHTML = '<div class="empty-note">Yuklanmoqda...</div>';
     var panels = document.querySelectorAll('.side-panel.open');
@@ -539,7 +539,7 @@
         wrap.innerHTML = list.map(function(c){
           return '<div class="conv-row" data-with="' + c.username + '">' +
             '<div class="ps-avatar"></div>' +
-            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + displayName(c.username) + '</span>' +
+            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + displayName(c.username) + (isSellerVerified(c.username) ? VERIFIED_TICK_HTML : '') + '</span>' +
               (c.unread ? '<span class="conv-unread">' + c.unread + '</span>' : '') + '</div>' +
             '<div class="conv-preview">' + escapeHtml(c.lastText || '') + '</div></div></div>';
         }).join('');
@@ -1296,7 +1296,7 @@
       var sellers = combinedSellers().filter(function(s){ return s.name.toLowerCase().indexOf(filter.toLowerCase())>-1; });
       list.innerHTML = sellers.map(function(s){
         return '<div class="ps-row" data-seller="'+s.name+'"><div class="ps-avatar"></div>' +
-          '<div><div class="ps-name">'+displayName(s.name)+'</div><div class="ps-handle">@'+s.name+' · '+s.count+' e\'lon</div></div></div>';
+          '<div><div class="ps-name">'+displayName(s.name)+(isSellerVerified(s.name)?VERIFIED_TICK_HTML:'')+'</div><div class="ps-handle">@'+s.name+' · '+s.count+' e\'lon</div></div></div>';
       }).join('');
       document.getElementById('psCountNum').textContent = sellers.length;
       list.querySelectorAll('[data-seller]').forEach(function(row){
