@@ -771,10 +771,16 @@
     renderAdmin();
   }
   function renderAdminStats(){
-    var sellers = sellersSummary().length;
+    var vipCount = listings.filter(function(l){ return l.vip; }).length;
+    var topCount = listings.filter(function(l){ return l.top; }).length;
+    // Total registered profiles (allProfilesDirectory), not just sellers
+    // who've posted a listing - a "profiles" count should include
+    // everyone who signed up, listing or not.
     document.getElementById('adminStats').innerHTML =
       '<div class="astat"><div class="n">'+listings.length+'</div><div class="l">Jami e\'lonlar</div></div>' +
-      '<div class="astat"><div class="n">'+sellers+'</div><div class="l">Sotuvchi profillari</div></div>';
+      '<div class="astat"><div class="n">'+vipCount+'</div><div class="l">VIP e\'lonlar</div></div>' +
+      '<div class="astat"><div class="n">'+topCount+'</div><div class="l">TOP e\'lonlar</div></div>' +
+      '<div class="astat"><div class="n">'+allProfilesDirectory.length+'</div><div class="l">Profillar ro\'yxati</div></div>';
   }
   function renderAdmin(){
     renderAdminStats();
