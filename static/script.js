@@ -214,6 +214,10 @@
           '<div class="thumb"><img src="' + l.img + '" alt="">' +
             (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
             (l.top ? '<div class="top-badge">▲ TOP</div>' : '') +
+            // Shown only while the "Egasi" filter is on, so buyers can
+            // see at a glance whose listing each card is - stacked below
+            // the TOP badge when both apply, so they never overlap.
+            (filterState.owner ? '<div class="owner-badge" style="top:' + (l.top ? '44px' : '12px') + ';">' + displayName(l.seller) + '</div>' : '') +
             '<div class="type-badge">' + l.type + '</div>' +
           '</div>' +
           '<div class="body"><div class="price">' + l.price + ' у.е</div>' +
@@ -923,6 +927,7 @@
     document.getElementById('postFloor').value = floorParts[0] === '—' ? '' : (floorParts[0] || '');
     document.getElementById('postFloorsTotal').value = floorParts[1] || '';
     document.getElementById('postArea').value = l.area || '';
+    document.getElementById('postRooms').value = l.rooms || '';
     document.getElementById('postRepair').value = postRepair;
     document.getElementById('postDistrict').value = l.district || '';
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
@@ -1547,6 +1552,7 @@
         document.getElementById('postFloor').value='';
         document.getElementById('postFloorsTotal').value='';
         document.getElementById('postArea').value='';
+        document.getElementById('postRooms').value='';
         document.getElementById('postRepair').value="Ta'mirni tanlang";
         document.getElementById('postDistrict').value='';
         document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')==='Yangi bino'); });
@@ -1679,7 +1685,7 @@
         title: title,
         district: district,
         lat: pos.lat, lng: pos.lng,
-        rooms: null,
+        rooms: parseInt(document.getElementById('postRooms').value.trim(), 10) || null,
         area: parseInt(area,10) || 0,
         floor: floorsTotal ? (floorVal + '/' + floorsTotal) : floorVal,
         type: postCat || 'Kvartira',

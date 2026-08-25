@@ -303,7 +303,8 @@
     <div class="post-title">Qo'shish</div>
     <div class="option-row" data-cat="Kvartira" data-typekey="kvartira"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kvartira</div>
     <div class="option-row" data-cat="Hovli/dacha" data-typekey="hovli"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Hovli/dacha</div>
-    <div class="option-row" data-cat="Mehmonxona" data-typekey="mehmonxona"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Mehmonxona</div>
+    <div class="option-row" data-cat="Tijorat binolari" data-typekey="tijorat"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>Tijorat binolari</div>
+    <div class="option-row" data-cat="Yer" data-typekey="yer"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg>Yer</div>
   </div>
   <div class="post-body hidden" id="postStep3">
     <div class="breadcrumb"><span id="bcRole"></span> › <span id="bcCat"></span></div>
@@ -329,26 +330,23 @@
       <div class="toggle-row" id="mortgageToggle"><button data-m="0" class="sel">Yo'q</button><button data-m="1">Ipotekaga mumkin</button></div>
     </div>
 
+    <div class="field"><label>Telefon raqami</label><input type="text" id="postPhone" value="+998"></div>
+
     <div class="two-col">
-      <div>
-        <div class="field"><label>Telefon raqami</label><input type="text" id="postPhone" value="+998"></div>
-        <div class="field"><label>Narx</label><input type="text" id="postPrice" placeholder="Narxni kiriting"></div>
-        <div class="field"><label>Ta'mir</label>
-          <select id="postRepair"><option value="Ta'mirni tanlang">Ta'mirni tanlang</option><option value="Evroremont">Evroremont</option><option value="O'rtacha">O'rtacha</option><option value="Ta'mirsiz">Ta'mirsiz</option></select>
-        </div>
-      </div>
-      <div>
-        <div class="field"><label>Maydonni kiriting, m²</label><input type="text" id="postArea" placeholder="Maydonni kiriting, m²"></div>
+      <div class="field"><label>Narx</label><input type="text" id="postPrice" placeholder="Narxni kiriting"></div>
+      <div class="field"><label>Ta'mir</label>
+        <select id="postRepair"><option value="Ta'mirni tanlang">Ta'mirni tanlang</option><option value="Evroremont">Evroremont</option><option value="O'rtacha">O'rtacha</option><option value="Ta'mirsiz">Ta'mirsiz</option></select>
       </div>
     </div>
 
     <div class="two-col">
-      <div>
-        <div class="field"><label>Qavat</label><input type="text" id="postFloor" placeholder="Masalan: 3"></div>
-      </div>
-      <div>
-        <div class="field"><label>Uyning qavatlari soni</label><input type="text" id="postFloorsTotal" placeholder="Masalan: 9"></div>
-      </div>
+      <div class="field"><label>Maydonni kiriting, m²</label><input type="text" id="postArea" placeholder="Maydonni kiriting, m²"></div>
+      <div class="field"><label>Xonalar soni</label><input type="text" id="postRooms" placeholder="Masalan: 3"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="field"><label>Qavat</label><input type="text" id="postFloor" placeholder="Masalan: 3"></div>
+      <div class="field"><label>Uyning qavatlari soni</label><input type="text" id="postFloorsTotal" placeholder="Masalan: 9"></div>
     </div>
 
     <div class="field"><label>Tuman</label>
