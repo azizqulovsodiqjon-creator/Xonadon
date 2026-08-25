@@ -201,6 +201,7 @@
         '<img src="' + l.img + '" alt="">' +
         '<div class="grad"></div>' +
         '<div class="vip-badge">★ VIP</div>' +
+        (filterState.owner ? '<div class="owner-badge" style="top:44px;">' + displayName(l.seller) + '</div>' : '') +
         '<div class="vip-info"><div class="vip-price">' + l.price + ' у.е</div>' +
         '<div class="vip-place">' + l.title + ' · ' + l.district + '</div></div>' +
       '</button>';
