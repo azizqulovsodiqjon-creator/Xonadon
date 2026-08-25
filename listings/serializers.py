@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Listing, ListingImage, Profile, Message
+from .models import Listing, ListingImage, VoiceNote, Profile, Message
 
 
 class ListingImageSerializer(serializers.ModelSerializer):
@@ -8,17 +8,24 @@ class ListingImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image']
 
 
+class VoiceNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VoiceNote
+        fields = ['id', 'audio']
+
+
 class ListingSerializer(serializers.ModelSerializer):
     images = ListingImageSerializer(many=True, read_only=True)
+    voice_note = VoiceNoteSerializer(read_only=True)
 
     class Meta:
         model = Listing
         fields = [
-            'id', 'title', 'desc', 'price', 'district', 'lat', 'lng',
+            'id', 'title', 'desc', 'price', 'currency', 'district', 'lat', 'lng',
             'rooms', 'area', 'floor', 'type', 'type_key', 'repair',
             'condition', 'phone', 'seller', 'owner_role', 'owner',
             'mortgage', 'deal', 'vip', 'top', 'sold', 'views_count',
-            'likes_count', 'created_at', 'images',
+            'likes_count', 'created_at', 'images', 'voice_note',
         ]
         # sold/views_count/likes_count only ever change through their own
         # dedicated endpoints (view/like counters, admin sold-toggle) -

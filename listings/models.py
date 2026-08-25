@@ -37,10 +37,12 @@ class Listing(models.Model):
         ('kunlik', 'Kunlik'),
     ]
     POSTED_TIER_CHOICES = [('regular', 'Oddiy'), ('top', 'Top'), ('vip', 'Vip')]
+    CURRENCY_CHOICES = [('ye', "у.е"), ('usd', 'USD'), ('uzs', "UZS (so'm)")]
 
     title = models.CharField(max_length=255)
     desc = models.TextField(blank=True)
     price = models.CharField(max_length=50)
+    currency = models.CharField(max_length=10, choices=CURRENCY_CHOICES, default='ye')
     district = models.CharField(max_length=100)
     lat = models.FloatField()
     lng = models.FloatField()
@@ -108,6 +110,22 @@ class ListingImage(models.Model):
 
     def __str__(self):
         return f"{self.listing_id or 'unlinked'} - image"
+
+
+class VoiceNote(models.Model):
+    """An optional spoken description recorded in-browser while posting a
+    listing. Same pre-upload-then-link pattern as ListingImage (nullable
+    listing FK, base64 data: URI in Postgres) for the same reason - paid
+    tiers don't create the real Listing until Stripe confirms, well after
+    the in-browser recording exists."""
+    listing = models.OneToOneField(Listing, related_name='voice_note', on_delete=models.CASCADE, null=True, blank=True)
+    audio = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.listing_id or 'unlinked'} - voice note"
+
+
 class Profile(models.Model):
     phone = models.CharField(max_length=30, unique=True)
     username = models.CharField(max_length=100, blank=True)

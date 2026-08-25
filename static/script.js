@@ -106,14 +106,15 @@
   function mapListing(item){
     var imgs = (item.images && item.images.length) ? item.images.map(function(im){ return im.image; }) : [];
     return {
-      id: item.id, price: item.price, title: item.title, desc: item.desc,
+      id: item.id, price: item.price, currency: item.currency || 'ye', title: item.title, desc: item.desc,
       district: item.district, lat: item.lat, lng: item.lng, rooms: item.rooms,
       area: item.area, floor: item.floor, type: item.type, typeKey: item.type_key,
       repair: item.repair, condition: item.condition, phone: item.phone,
       seller: item.seller, ownerRole: item.owner_role, owner: item.owner,
       mortgage: item.mortgage, daysAgo: 0, deal: item.deal, vip: item.vip, top: item.top,
       sold: item.sold, viewsCount: item.views_count || 0, likesCount: item.likes_count || 0,
-      photos: imgs, img: imgs.length ? imgs[0] : ''
+      photos: imgs, img: imgs.length ? imgs[0] : '',
+      voiceNote: item.voice_note ? {id: item.voice_note.id, url: item.voice_note.audio} : null
     };
   }
   function loadListings(cb){
@@ -131,6 +132,12 @@
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
   function displayName(handle){ return handle.replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
+  function formatPrice(l){
+    var cur = (l && l.currency) || 'ye';
+    if(cur === 'usd') return '$' + l.price;
+    if(cur === 'uzs') return l.price + " so'm";
+    return l.price + ' у.е';
+  }
   var VERIFIED_TICK_HTML = ' <span class="verified-tick" title="Tasdiqlangan">✓</span>';
   function isSellerVerified(username){
     var meta = allProfilesDirectory.filter(function(p){ return p.username===username; })[0];
@@ -210,7 +217,7 @@
         '<div class="grad"></div>' +
         '<div class="vip-badge">★ VIP</div>' +
         (filterState.owner ? '<div class="owner-badge" style="top:44px;">' + displayName(l.seller) + '</div>' : '') +
-        '<div class="vip-info"><div class="vip-price">' + l.price + ' у.е</div>' +
+        '<div class="vip-info"><div class="vip-price">' + formatPrice(l) + '</div>' +
         '<div class="vip-place">' + l.title + ' · ' + l.district + '</div></div>' +
       '</button>';
     }).join('') : '<div class="empty-note">Hozircha VIP e\'lon yo\'q.</div>';
@@ -229,7 +236,7 @@
             (filterState.owner ? '<div class="owner-badge" style="top:' + (l.top ? '44px' : '12px') + ';">' + displayName(l.seller) + '</div>' : '') +
             '<div class="type-badge">' + l.type + '</div>' +
           '</div>' +
-          '<div class="body"><div class="price">' + l.price + ' у.е</div>' +
+          '<div class="body"><div class="price">' + formatPrice(l) + '</div>' +
           '<div class="desc">' + l.title + ', ' + l.district + '</div>' +
           '<div class="meta"><span>' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</span></div></div>' +
         '</button>';
@@ -290,11 +297,12 @@
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
-        '<div class="detail-price">' + l.price + ' у.е</div>' +
+        '<div class="detail-price">' + formatPrice(l) + '</div>' +
         '<div class="detail-title">' + l.title + '</div>' +
         '<div class="location-row"><span class="pin">📍</span>' + l.district + '</div>' +
       '</div>' +
       '<div class="detail-section"><h3>Tavsif</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
+      (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
       '<div class="detail-section"><div class="info-list">' +
         '<div class="info-row"><span class="il">Kim joylashtirdi</span><span class="iv">' + l.ownerRole + '</span></div>' +
         '<div class="info-row"><span class="il">Mulk turi</span><span class="iv">' + l.type + '</span></div>' +
@@ -411,7 +419,7 @@
     wrap.innerHTML = '<h3>Narxi va maydoniga o\'xshash uylar</h3><div class="similar-scroll">' +
       scored.map(function(o){
         return '<button class="similar-card" data-id="'+o.id+'"><div class="thumb"><img src="'+o.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+o.price+' у.е</div><div class="desc">'+o.title+', '+o.district+'</div></div></button>';
+          '<div class="body"><div class="price">'+formatPrice(o)+'</div><div class="desc">'+o.title+', '+o.district+'</div></div></button>';
       }).join('') + '</div>';
     wrap.querySelectorAll('[data-id]').forEach(function(el){
       el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), lastPage==='pageAdmin'); });
@@ -470,7 +478,7 @@
     gridWrap.innerHTML = mine.length ? mine.map(function(l){
       return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt="">' +
         (l.top ? '<div class="top-badge">▲ TOP</div>' : '') + '<div class="type-badge">'+l.type+'</div></div>' +
-        '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+', '+l.district+'</div>' +
+        '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+l.district+'</div>' +
         '<div class="meta"><span>'+(l.vip?'★ VIP':(l.top?'▲ TOP':'Oddiy'))+'</span></div></div></div>';
     }).join('') : '<div class="empty-note">Hali e\'lon joylamagan.</div>';
     gridWrap.querySelectorAll('[data-id]').forEach(function(el){
@@ -663,7 +671,7 @@
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(fullMap);
       var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
       visible.forEach(function(l){
-        var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+l.price+' у.е</div>', iconSize:[0,0]});
+        var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
         var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
         var popupEl = document.createElement('div');
         popupEl.innerHTML = '<b>'+l.title+'</b><br>'+l.district+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
@@ -863,7 +871,7 @@
     if(!listings.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha e\'lon yo\'q.</div>'; return; }
     wrap.innerHTML = listings.map(function(l){
       return '<div class="queue-row" data-open="'+l.id+'"><img src="'+l.img+'" alt="">' +
-        '<div class="queue-info"><div class="qprice">'+l.price+' у.е'+(l.sold?' · <span style="color:var(--red);">SOTILDI</span>':'')+'</div>' +
+        '<div class="queue-info"><div class="qprice">'+formatPrice(l)+(l.sold?' · <span style="color:var(--red);">SOTILDI</span>':'')+'</div>' +
         '<div class="qdesc">'+l.title+' · '+l.district+' · '+l.type+'</div>' +
         '<div class="qseller">'+l.seller+' · 👁 '+l.viewsCount+' · 🤍 '+l.likesCount+'</div></div>' +
         '<div class="queue-actions">' +
@@ -937,7 +945,11 @@
   /* =========================================================
      E'LON JOYLASH VIZARDI
   ==========================================================*/
-  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = "Yangi bino", postMortgage = false;
+  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = "Yangi bino", postMortgage = false, postCurrency = 'ye';
+  var postVoiceNoteId = null, postVoiceNoteUrl = null;
+  var VOICE_NOTES_API = '/api/voice-notes/';
+  var MAX_VOICE_NOTE_SECONDS = 60;
+  var voiceRecorder = null, voiceRecorderStream = null, voiceRecorderChunks = [], voiceRecorderTimer = null;
   var postPhotos = [];
   var postLocationMap = null, postLocationMarker = null;
   var JIZZAX_CENTER = [40.1158, 67.8422];
@@ -950,6 +962,10 @@
 
   function openEditListing(l){
     editingListingId = l.id;
+    postCurrency = l.currency || 'ye';
+    postVoiceNoteId = l.voiceNote ? l.voiceNote.id : null;
+    postVoiceNoteUrl = l.voiceNote ? l.voiceNote.url : null;
+    renderVoiceRecorder();
     postDeal = l.deal || 'sotuv';
     postTypeKey = l.typeKey || 'kvartira';
     postCat = l.type || 'Kvartira';
@@ -977,6 +993,8 @@
     document.getElementById('postDistrict').value = l.district || '';
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
     document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', (b.getAttribute('data-m')==='1')===postMortgage); });
+    updateMortgageFieldVisibility();
+    document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')===postCurrency); });
     document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
     document.getElementById('paymentSummary').classList.add('hidden');
     var editBtn = document.getElementById('finishPostBtn');
@@ -1066,6 +1084,86 @@
       });
     });
     document.getElementById('uploadTile').style.display = postPhotos.length >= 10 ? 'none' : 'flex';
+  }
+  function renderVoiceRecorder(){
+    var box = document.getElementById('voiceRecorderBox');
+    if(!box) return;
+    if(postVoiceNoteUrl){
+      box.innerHTML =
+        '<audio controls src="'+postVoiceNoteUrl+'" style="width:100%;margin-bottom:10px;"></audio>' +
+        '<div style="display:flex;gap:10px;">' +
+          '<button type="button" class="qbtn" id="voiceReRecordBtn">🔁 Qayta yozish</button>' +
+          '<button type="button" class="qbtn del" id="voiceRemoveBtn">🗑 O\'chirish</button>' +
+        '</div>';
+      document.getElementById('voiceReRecordBtn').addEventListener('click', startVoiceRecording);
+      document.getElementById('voiceRemoveBtn').addEventListener('click', function(){
+        postVoiceNoteId = null;
+        postVoiceNoteUrl = null;
+        renderVoiceRecorder();
+      });
+      return;
+    }
+    box.innerHTML = '<button type="button" class="btn-full-outline" id="voiceRecordBtn" style="margin-top:0;">🎤 Ovozli xabar yozish</button>';
+    document.getElementById('voiceRecordBtn').addEventListener('click', startVoiceRecording);
+  }
+  function startVoiceRecording(){
+    var box = document.getElementById('voiceRecorderBox');
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined'){
+      toast("Bu qurilma/brauzer ovoz yozishni qo'llamaydi.");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({audio: true}).then(function(stream){
+      voiceRecorderStream = stream;
+      voiceRecorderChunks = [];
+      var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+      voiceRecorder = mimeType ? new MediaRecorder(stream, {mimeType: mimeType}) : new MediaRecorder(stream);
+      voiceRecorder.addEventListener('dataavailable', function(e){ if(e.data && e.data.size) voiceRecorderChunks.push(e.data); });
+      voiceRecorder.addEventListener('stop', function(){
+        stream.getTracks().forEach(function(t){ t.stop(); });
+        clearInterval(voiceRecorderTimer);
+        var blob = new Blob(voiceRecorderChunks, {type: voiceRecorder.mimeType || 'audio/webm'});
+        if(!blob.size){ renderVoiceRecorder(); return; }
+        uploadVoiceNote(blob);
+      });
+      voiceRecorder.start();
+      var startedAt = Date.now();
+      box.innerHTML = '<button type="button" class="btn-full-black" id="voiceStopBtn" style="margin-top:0;background:var(--red);">⏹ To\'xtatish (<span id="voiceTimer">0:00</span>)</button>';
+      document.getElementById('voiceStopBtn').addEventListener('click', function(){ voiceRecorder.stop(); });
+      voiceRecorderTimer = setInterval(function(){
+        var secs = Math.floor((Date.now()-startedAt)/1000);
+        var label = document.getElementById('voiceTimer');
+        if(label) label.textContent = Math.floor(secs/60)+':'+String(secs%60).padStart(2,'0');
+        if(secs >= MAX_VOICE_NOTE_SECONDS){ voiceRecorder.stop(); }
+      }, 250);
+    }).catch(function(err){
+      console.error('mic xato:', err);
+      toast("Mikrofonga ruxsat berilmadi.");
+    });
+  }
+  function uploadVoiceNote(blob){
+    var box = document.getElementById('voiceRecorderBox');
+    box.innerHTML = '<div class="empty-note">Yuklanmoqda...</div>';
+    var localUrl = URL.createObjectURL(blob);
+    var fd = new FormData();
+    fd.append('audio', blob, 'voice.webm');
+    fetch(VOICE_NOTES_API, {method:'POST', body: fd})
+      .then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+      .then(function(res){
+        if(res.status !== 200 || !res.data.ok){
+          toast((res.data && res.data.error) || "Ovozli xabarni yuklashda xato yuz berdi.");
+          postVoiceNoteId = null; postVoiceNoteUrl = null;
+          renderVoiceRecorder();
+          return;
+        }
+        postVoiceNoteId = res.data.voiceNoteId;
+        postVoiceNoteUrl = localUrl;
+        renderVoiceRecorder();
+      }).catch(function(err){
+        console.error('voice note upload xato:', err);
+        toast("Ovozli xabarni yuklashda xato yuz berdi.");
+        postVoiceNoteId = null; postVoiceNoteUrl = null;
+        renderVoiceRecorder();
+      });
   }
   function uploadPhotoFile(file, entry){
     var fd = new FormData();
@@ -1325,7 +1423,7 @@
       }
       wrap.innerHTML = mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+', '+l.district+'</div></div></div>';
+          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+l.district+'</div></div></div>';
       }).join('');
       wrap.querySelectorAll('[data-id]').forEach(function(el){
         el.addEventListener('click', function(){ closeAllPanels(); openDetail(Number(this.getAttribute('data-id')), false); });
@@ -1522,7 +1620,7 @@
       }
       box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+'</div>' +
+          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+'</div>' +
           '<div class="meta" style="gap:8px;"><button type="button" class="qbtn" data-edit="'+l.id+'">Tahrirlash</button>' +
           '<button type="button" class="qbtn del" data-delmine="'+l.id+'">O\'chirish</button></div></div></div>';
       }).join('') + '</div>';
@@ -1562,7 +1660,7 @@
         }
         box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
           return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-            '<div class="body"><div class="price">'+l.price+' у.е</div><div class="desc">'+l.title+'</div></div></div>';
+            '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+'</div></div></div>';
         }).join('') + '</div>';
         box.querySelectorAll('[data-id]').forEach(function(el){
           el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), false); });
@@ -1666,11 +1764,15 @@
         var finishBtn = document.getElementById('finishPostBtn');
         finishBtn.textContent = "E'lon joylash";
         finishBtn.disabled = false;
-        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino"; postMortgage=false;
+        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino"; postMortgage=false; postCurrency='ye';
         document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
+        updateMortgageFieldVisibility();
+        document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')==='ye'); });
         postPhotos = [];
         renderUploadThumbs();
         document.getElementById('uploadCount').textContent = '0/10';
+        postVoiceNoteId = null; postVoiceNoteUrl = null;
+        renderVoiceRecorder();
         document.getElementById('postTitle').value='';
         document.getElementById('postDesc').value='';
         document.getElementById('postPhone').value='+998';
@@ -1685,10 +1787,23 @@
         showPostStep(1);
       });
     });
+    function updateMortgageFieldVisibility(){
+      // Mortgage only makes sense when buying/selling outright, not for
+      // rentals (ijara/kunlik) - hide the field entirely for those, and
+      // make sure a stale "ipotekaga mumkin" pick from before switching
+      // away from "Sotaman" never rides along in the payload.
+      var applies = postDeal === 'sotuv';
+      document.getElementById('mortgageField').classList.toggle('hidden', !applies);
+      if(!applies){
+        postMortgage = false;
+        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
+      }
+    }
     document.querySelectorAll('#postStep1 [data-role]').forEach(function(row){
       row.addEventListener('click', function(){
         postRole = this.getAttribute('data-role');
         postDeal = this.getAttribute('data-deal');
+        updateMortgageFieldVisibility();
         showPostStep(2);
       });
     });
@@ -1757,6 +1872,13 @@
       });
     });
     document.getElementById('postRepair').addEventListener('change', function(){ postRepair = this.value; });
+    document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        postCurrency = this.getAttribute('data-currency');
+      });
+    });
 
     renderUploadThumbs();
     document.getElementById('uploadTile').addEventListener('click', function(){ document.getElementById('postFileInput').click(); });
@@ -1808,6 +1930,8 @@
 
       var payload = {
         price: price,
+        currency: postCurrency,
+        voice_note_id: postVoiceNoteId,
         title: title,
         district: district,
         lat: pos.lat, lng: pos.lng,

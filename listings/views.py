@@ -20,7 +20,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
 from .models import (
-    Listing, ListingImage, Like, Profile, PendingListingPayment, PendingBalanceTopup,
+    Listing, ListingImage, VoiceNote, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
     VerificationRequest,
 )
@@ -94,6 +94,23 @@ def _link_images_to_listing(image_ids, listing):
     ListingImage.objects.filter(id__in=ids, listing__isnull=True).update(listing=listing)
 
 
+def _link_voice_note_to_listing(voice_note_id, listing):
+    """Same idea as _link_images_to_listing, but for the (at most one)
+    VoiceNote recorded while posting - it's created unlinked before the
+    real Listing necessarily exists, then attached here."""
+    if not voice_note_id:
+        return
+    try:
+        vn_id = int(voice_note_id)
+    except (TypeError, ValueError):
+        return
+    # A listing can only have one (OneToOneField) - if they re-recorded
+    # while editing, drop the old row instead of hitting a uniqueness
+    # error trying to attach a second one.
+    VoiceNote.objects.filter(listing=listing).exclude(id=vn_id).delete()
+    VoiceNote.objects.filter(id=vn_id, listing__isnull=True).update(listing=listing)
+
+
 class ListingViewSet(viewsets.ModelViewSet):
     queryset = Listing.objects.all().order_by('-created_at')
     serializer_class = ListingSerializer
@@ -123,6 +140,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         if response.status_code == 201:
             listing = Listing.objects.get(pk=response.data['id'])
             _link_images_to_listing(request.data.get('image_ids'), listing)
+            _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -136,6 +154,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         if response.status_code == 200:
             listing = Listing.objects.get(pk=response.data['id'])
             _link_images_to_listing(request.data.get('image_ids'), listing)
+            _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -256,6 +275,37 @@ def upload_listing_images(request):
     if not created_ids:
         return Response({'ok': False, 'error': "Hech qanday rasm yuklanmadi."}, status=400)
     return Response({'ok': True, 'imageIds': created_ids})
+
+
+MAX_VOICE_NOTE_BYTES = 5 * 1024 * 1024  # 5MB - opus-encoded browser recordings are small
+
+
+class VoiceNoteThrottle(AnonRateThrottle):
+    scope = 'listing_images'  # shares the photo-upload rate limit, same abuse shape
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([VoiceNoteThrottle])
+def upload_voice_note(request):
+    """
+    Same pre-upload-then-link pattern as upload_listing_images, for the
+    (at most one) spoken voice note recorded in-browser while posting a
+    listing. Stored as-is (already opus/webm-encoded by the browser's
+    MediaRecorder, no server-side re-encoding) as a data: URI in Postgres.
+    """
+    f = request.FILES.get('audio')
+    if not f:
+        return Response({'ok': False, 'error': "Audio fayl topilmadi."}, status=400)
+    if f.size > MAX_VOICE_NOTE_BYTES:
+        return Response({'ok': False, 'error': "Audio fayl hajmi juda katta."}, status=400)
+
+    import base64
+    content_type = f.content_type or 'audio/webm'
+    b64 = base64.b64encode(f.read()).decode('ascii')
+    data_url = f'data:{content_type};base64,{b64}'
+    note = VoiceNote.objects.create(listing=None, audio=data_url)
+    return Response({'ok': True, 'voiceNoteId': note.id})
 
 
 @api_view(['DELETE'])
@@ -763,6 +813,7 @@ def _finalize_pending_payment(pending):
     serializer.is_valid(raise_exception=True)
     listing = serializer.save()
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
+    _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])
@@ -934,6 +985,7 @@ def create_listing_from_balance(request):
     profile.save(update_fields=['balance_cents'])
     listing = serializer.save()
     _link_images_to_listing(listing_payload.get('image_ids'), listing)
+    _link_voice_note_to_listing(listing_payload.get('voice_note_id'), listing)
     return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
 
 

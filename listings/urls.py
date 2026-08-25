@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/listings/my-sold-count/', views.my_sold_count, name='my-sold-count'),
     path('api/listing-images/', views.upload_listing_images, name='upload-listing-images'),
     path('api/listing-images/<int:image_id>/', views.delete_listing_image, name='delete-listing-image'),
+    path('api/voice-notes/', views.upload_voice_note, name='upload-voice-note'),
     path('api/verification/submit/', views.submit_verification, name='submit-verification'),
     path('api/verification/status/', views.verification_status, name='verification-status'),
     path('api/admin/verification-requests/', views.admin_verification_requests, name='admin-verification-requests'),
