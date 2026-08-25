@@ -421,15 +421,18 @@ def admin_stats(request):
     # frontend's own priceNum() helper uses for filtering.
     sold_total_number = sum(int(re.sub(r'\D', '', r.price) or 0) for r in sold_qs)
 
-    # Revenue broken down by paid tier (top/vip), all-time - so the admin
-    # can see not just "how many TOP/VIP were bought" but how much money
-    # each tier actually brought in.
+    # Broken down by tier (top/vip) - count of listings CURRENTLY at that
+    # tier (matches the "VIP e'lonlar"/"TOP e'lonlar" counters above),
+    # with the tier's price as its notional value. Not the same as actual
+    # Stripe revenue (a listing can be at a tier without ever having gone
+    # through a real payment, e.g. admin-seeded demo listings) - real
+    # money collected is what revenueCents* below tracks separately.
     tier_breakdown = {}
     for tier_key in ('top', 'vip'):
-        qs = PendingListingPayment.objects.filter(paid=True, tier=tier_key)
+        count = Listing.objects.filter(**{tier_key: True}).count()
         tier_breakdown[tier_key] = {
-            'count': qs.count(),
-            'revenueCents': qs.aggregate(s=Sum('amount_cents'))['s'] or 0,
+            'count': count,
+            'revenueCents': count * settings.LISTING_PRICE_CENTS.get(tier_key, 0),
         }
 
     return Response({
@@ -438,7 +441,10 @@ def admin_stats(request):
         'soldListings': sold_qs.count(),
         'soldListingsDetail': sold_detail,
         'soldListingsTotalPriceNumber': sold_total_number,
-        'paidListingsBought': PendingListingPayment.objects.filter(paid=True).count(),
+        # Matches tierBreakdown below (current TOP+VIP listing counts),
+        # not raw Stripe payment history - see the comment above
+        # tier_breakdown for why those two can differ.
+        'paidListingsBought': tier_breakdown['top']['count'] + tier_breakdown['vip']['count'],
         'tierBreakdown': tier_breakdown,
         'revenueCentsToday': revenue_since(day_ago),
         'revenueCentsWeek': revenue_since(week_ago),
