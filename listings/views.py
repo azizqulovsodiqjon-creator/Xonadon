@@ -382,7 +382,16 @@ def admin_stats(request):
     month_ago = now - datetime.timedelta(days=30)
 
     def revenue_since(since):
-        total = PendingListingPayment.objects.filter(paid=True, created_at__gte=since).aggregate(s=Sum('amount_cents'))['s'] or 0
+        # TOP/VIP portion mirrors tier_breakdown below - value of
+        # listings currently at that tier, created in this window -
+        # rather than raw Stripe payment history, so it's never out of
+        # step with the "N ta TOP/VIP e'lon" counters shown elsewhere on
+        # this dashboard (a listing can be at a tier without ever having
+        # gone through a real payment, e.g. admin-seeded demo listings).
+        total = 0
+        for tier_key in ('top', 'vip'):
+            count = Listing.objects.filter(**{tier_key: True}, created_at__gte=since).count()
+            total += count * settings.LISTING_PRICE_CENTS.get(tier_key, 0)
         total += PendingBalanceTopup.objects.filter(paid=True, created_at__gte=since).aggregate(s=Sum('amount_cents'))['s'] or 0
         return total
 
