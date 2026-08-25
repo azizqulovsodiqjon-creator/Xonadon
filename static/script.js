@@ -759,7 +759,7 @@
           '<div class="astat"><div class="n">' + formatUsd(s.revenueCentsAllTime) + '</div><div class="l">Jami daromad</div></div>' +
         '</div>' +
         '<h3 style="margin:18px 0 10px;">Sotilgan uylar (jami narx: ' + (s.soldListingsTotalPriceNumber||0).toLocaleString('ru-RU') + ')</h3>' + soldRows +
-        '<h3 style="margin:18px 0 10px;">Sotuvchilar bo\'yicha</h3>' + sellerRows;
+        '<h3 style="margin:18px 0 10px;">Profillar</h3>' + sellerRows;
     }).catch(function(err){
       console.error('admin stats xato:', err);
       wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';

@@ -386,15 +386,27 @@ def admin_stats(request):
         total += PendingBalanceTopup.objects.filter(paid=True, created_at__gte=since).aggregate(s=Sum('amount_cents'))['s'] or 0
         return total
 
-    by_seller = (
-        Listing.objects.values('seller')
-        .annotate(
+    # Every registered profile, not just the ones who've posted a
+    # listing - a seller-only list used to silently drop anyone who
+    # signed up but never posted. Listing stats are 0 for those.
+    listing_stats_by_username = {
+        row['seller']: row
+        for row in Listing.objects.values('seller').annotate(
             listing_count=Count('id'),
             total_views=Sum('views_count'),
             total_likes=Sum('likes_count'),
         )
-        .order_by('-listing_count')
-    )
+    }
+    by_seller = []
+    for username in Profile.objects.order_by('username').values_list('username', flat=True):
+        stats = listing_stats_by_username.get(username)
+        by_seller.append({
+            'seller': username,
+            'listing_count': stats['listing_count'] if stats else 0,
+            'total_views': stats['total_views'] if stats else 0,
+            'total_likes': stats['total_likes'] if stats else 0,
+        })
+    by_seller.sort(key=lambda r: r['listing_count'], reverse=True)
 
     # Sold listings are deleted from Listing the instant they're marked
     # sold (see mark_sold), so history comes from the snapshot taken
