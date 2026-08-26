@@ -218,18 +218,22 @@ def _new_telegram_token():
 
 class TelegramVerification(models.Model):
     """
-    Bridges the site's phone signup flow to a Telegram bot in place of
-    SMS: the site creates one of these with a random `token` and opens
-    t.me/<bot>?start=<token>; the user taps Start in Telegram; our
-    webhook receives that /start command, records their `chat_id`, and
-    sends them a 6-digit `code` via the bot. The site polls to know
-    when the code has gone out, then checks what the user types back
-    against `code`.
+    Bridges the site's phone signup flow to Telegram's official Gateway
+    API (gatewayapi.telegram.org) in place of SMS: given just a phone
+    number, Telegram itself looks up the matching Telegram account and
+    delivers the code directly - no bot to start, no contact to share.
+    `token` is our own reference the frontend holds onto; it maps to
+    Telegram's `gateway_request_id`, which is what's actually used to
+    check the code via checkVerificationStatus.
+
+    chat_id/code are unused by this flow (kept only so older rows from
+    the previous bot-based implementation still deserialize fine).
     """
     token = models.CharField(max_length=40, unique=True, default=_new_telegram_token)
     phone = models.CharField(max_length=30)
     chat_id = models.CharField(max_length=40, blank=True)
     code = models.CharField(max_length=6, blank=True)
+    gateway_request_id = models.CharField(max_length=128, blank=True)
     verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -85,6 +85,12 @@ LISTING_PRICE_CENTS = {
 # Same "not configured until the env var is set" story as Stripe above.
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', 'J_joymee_bot')
+# Telegram's official Gateway API (core.telegram.org/gateway) - a separate,
+# paid product from the free Bot API above. Given just a phone number it
+# delivers a verification code straight to that number's Telegram account,
+# with no bot to start and no contact to share. Get a token by signing in
+# with a Telegram account at core.telegram.org/gateway.
+TELEGRAM_GATEWAY_TOKEN = os.environ.get('TELEGRAM_GATEWAY_TOKEN', '')
 # Public base URL Telegram needs to reach for the webhook. RENDER_EXTERNAL_URL
 # isn't reliably present, so fall back to the known production domain
 # (matches CSRF_TRUSTED_ORIGINS above) instead of silently doing nothing.

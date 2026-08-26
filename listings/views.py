@@ -1044,6 +1044,37 @@ def _telegram_api(method, **params):
         return None
 
 
+def _telegram_gateway_api(method, **params):
+    """Calls Telegram's official Gateway API (gatewayapi.telegram.org) -
+    a separate, paid product from the free Bot API above. Given just a
+    phone number it delivers a verification code straight to that
+    number's Telegram account - Telegram does the phone-to-account
+    lookup on their end, so there's no bot to start and no contact to
+    share. Returns the parsed JSON body (even on a 4xx - Telegram's
+    error responses are still useful JSON), or None on a real network
+    failure or if no token is configured."""
+    if not settings.TELEGRAM_GATEWAY_TOKEN:
+        return None
+    url = f'https://gatewayapi.telegram.org/{method}'
+    data = json.dumps(params).encode('utf-8')
+    req = urllib.request.Request(url, data=data, headers={
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {settings.TELEGRAM_GATEWAY_TOKEN}',
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as exc:
+        try:
+            return json.loads(exc.read().decode('utf-8'))
+        except Exception:
+            print(f'[_telegram_gateway_api] {method} HTTP {exc.code}')
+            return None
+    except Exception as exc:
+        print(f"[_telegram_gateway_api] {method} failed: {exc}")
+        return None
+
+
 class TelegramStartThrottle(AnonRateThrottle):
     scope = 'telegram_start'
 
@@ -1052,26 +1083,40 @@ class TelegramStartThrottle(AnonRateThrottle):
 @permission_classes([AllowAny])
 @throttle_classes([TelegramStartThrottle])
 def telegram_start(request):
-    if not settings.TELEGRAM_BOT_TOKEN or not settings.TELEGRAM_BOT_USERNAME:
-        return Response({'ok': False, 'error': "Telegram bot hali sozlanmagan."}, status=503)
+    if not settings.TELEGRAM_GATEWAY_TOKEN:
+        return Response({'ok': False, 'error': "Tasdiqlash xizmati hali sozlanmagan."}, status=503)
     phone = normalize_phone(request.data.get('phone', ''))
     if not phone:
         return Response({'ok': False, 'error': "Telefon raqami kerak."}, status=400)
 
-    verification = TelegramVerification.objects.create(phone=phone)
-    deep_link = f'https://t.me/{settings.TELEGRAM_BOT_USERNAME}?start={verification.token}'
-    return Response({'ok': True, 'token': verification.token, 'deepLink': deep_link})
+    e164 = phone if phone.startswith('+') else f'+998{phone}'
+    result = _telegram_gateway_api(
+        'sendVerificationMessage',
+        phone_number=e164, code_length=6, ttl=300,
+    )
+    if not result or not result.get('ok'):
+        error = (result or {}).get('error', "noma'lum xato")
+        print(f'[telegram_start] sendVerificationMessage failed: {error}')
+        return Response({'ok': False, 'error': "Kod yuborishda xato yuz berdi. Qaytadan urinib ko'ring."}, status=502)
+
+    request_id = result['result']['request_id']
+    verification = TelegramVerification.objects.create(phone=phone, gateway_request_id=request_id)
+    return Response({'ok': True, 'token': verification.token})
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def telegram_status(request):
+    # Kept for backward compatibility with the old polling-based frontend
+    # flow - the Gateway API delivers the code synchronously (by the time
+    # telegram_start returns, it's already sent), so codeSent is just
+    # "did telegram_start succeed for this token".
     token = request.query_params.get('token', '')
     try:
         v = TelegramVerification.objects.get(token=token)
     except TelegramVerification.DoesNotExist:
         return Response({'ok': False, 'error': "Topilmadi."}, status=404)
-    return Response({'ok': True, 'codeSent': bool(v.chat_id and v.code), 'verified': v.verified})
+    return Response({'ok': True, 'codeSent': bool(v.gateway_request_id), 'verified': v.verified})
 
 
 @api_view(['POST'])
@@ -1085,10 +1130,22 @@ def telegram_verify(request):
         return Response({'ok': False, 'error': "Topilmadi."}, status=404)
     if v.verified:
         return Response({'ok': True, 'phone': v.phone})
-    if not v.chat_id or not v.code:
+    if not v.gateway_request_id:
         return Response({'ok': False, 'error': "Kod hali yuborilmagan."}, status=400)
-    if code != v.code:
-        return Response({'ok': False, 'error': "Kod noto'g'ri."}, status=400)
+
+    result = _telegram_gateway_api('checkVerificationStatus', request_id=v.gateway_request_id, code=code)
+    if not result or not result.get('ok'):
+        return Response({'ok': False, 'error': "Tekshirishda xato yuz berdi. Qaytadan urinib ko'ring."}, status=502)
+
+    status_val = (result['result'].get('verification_status') or {}).get('status')
+    if status_val != 'code_valid':
+        friendly = {
+            'code_invalid': "Kod noto'g'ri.",
+            'code_max_attempts_exceeded': "Urinishlar soni tugadi. Qaytadan so'rang.",
+            'expired': "Kod muddati tugagan. Qaytadan so'rang.",
+        }.get(status_val, "Kod noto'g'ri.")
+        return Response({'ok': False, 'error': friendly}, status=400)
+
     v.verified = True
     v.save(update_fields=['verified'])
     return Response({'ok': True, 'phone': v.phone})

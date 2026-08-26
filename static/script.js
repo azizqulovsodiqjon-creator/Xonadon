@@ -2137,26 +2137,11 @@
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
 
-    document.getElementById('phoneNextBtn').addEventListener('click', function(ev){
-      if(ev && ev.preventDefault) ev.preventDefault();
-      try{
-        var phone = document.getElementById('phoneInput').value.trim();
-        if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
-        document.getElementById('otpPhoneDisplay').textContent = phone;
-        document.getElementById('authPhoneScreen').classList.add('hidden');
-        document.getElementById('otpMethodModal').classList.remove('hidden');
-      }catch(err){ console.error('phoneNextBtn xato:', err); }
-      return false;
-    });
-
-    document.getElementById('otpEditBtn').addEventListener('click', function(){
-      stopTelegramPoll();
-      resetOtpMethodModalUI();
-      document.getElementById('otpMethodModal').classList.add('hidden');
-      document.getElementById('authPhoneScreen').classList.remove('hidden');
-    });
+    // Phone -> code, no intermediate "choose method"/"open Telegram" step:
+    // Telegram's Gateway API delivers the code straight to whichever
+    // Telegram account is registered under the typed phone number, so
+    // there's nothing to open or share - just wait for the code.
     function showCodeScreen(){
-      document.getElementById('otpMethodModal').classList.add('hidden');
       var phone = document.getElementById('phoneInput').value.trim();
       document.getElementById('codeSubLabel').textContent = phone + " raqamiga Telegram orqali yuborilgan 6 xonali kod";
       document.getElementById('authCodeScreen').classList.remove('hidden');
@@ -2164,45 +2149,35 @@
       boxes.forEach(function(b){ b.value=''; });
       boxes[0].focus();
     }
-    document.getElementById('otpTelegramBtn').addEventListener('click', function(){
-      var phone = document.getElementById('phoneInput').value.trim();
-      var btn = this;
-      btn.disabled = true;
-      fetch(TELEGRAM_START_API, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: csrfHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({phone: phone})
-      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
-        .then(function(res){
-          if(res.status !== 200 || !res.data.ok){
-            alert((res.data && res.data.error) || "Telegram orqali yuborishda xato yuz berdi.");
+    document.getElementById('phoneNextBtn').addEventListener('click', function(ev){
+      if(ev && ev.preventDefault) ev.preventDefault();
+      try{
+        var phone = document.getElementById('phoneInput').value.trim();
+        if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
+        var btn = this;
+        btn.disabled = true;
+        fetch(TELEGRAM_START_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({phone: phone})
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
             btn.disabled = false;
-            return;
-          }
-          telegramVerifyToken = res.data.token;
-          telegramDeepLink = res.data.deepLink;
-          window.open(telegramDeepLink, '_blank');
-          document.getElementById('otpIntroText').classList.add('hidden');
-          document.getElementById('otpWaitingText').classList.remove('hidden');
-          btn.classList.add('hidden');
-          stopTelegramPoll();
-          telegramPollTimer = setInterval(function(){
-            fetch(TELEGRAM_STATUS_API + '?token=' + encodeURIComponent(telegramVerifyToken))
-              .then(function(r){ return r.json(); })
-              .then(function(d){
-                if(d.ok && d.codeSent){
-                  stopTelegramPoll();
-                  resetOtpMethodModalUI();
-                  showCodeScreen();
-                }
-              }).catch(function(err){ console.error('telegram status xato:', err); });
-          }, 2000);
-        }).catch(function(err){
-          console.error('telegram start xato:', err);
-          alert("Telegram orqali yuborishda xato yuz berdi.");
-          btn.disabled = false;
-        });
+            if(res.status !== 200 || !res.data.ok){
+              alert((res.data && res.data.error) || "Kod yuborishda xato yuz berdi.");
+              return;
+            }
+            telegramVerifyToken = res.data.token;
+            document.getElementById('authPhoneScreen').classList.add('hidden');
+            showCodeScreen();
+          }).catch(function(err){
+            btn.disabled = false;
+            console.error('telegram start xato:', err);
+            alert("Kod yuborishda xato yuz berdi.");
+          });
+      }catch(err){ console.error('phoneNextBtn xato:', err); }
+      return false;
     });
     var codeBoxes = document.querySelectorAll('#codeBoxes input');
     codeBoxes.forEach(function(box,i){
@@ -2214,9 +2189,18 @@
     });
     document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('resendLink').addEventListener('click', function(){
-      if(!telegramDeepLink){ toast("Qaytadan urinib ko'ring."); return; }
-      window.open(telegramDeepLink, '_blank');
-      toast("Telegram botni qayta oching - kod o'sha yerda.");
+      var phone = document.getElementById('phoneInput').value.trim();
+      if(!phone){ toast("Qaytadan urinib ko'ring."); return; }
+      fetch(TELEGRAM_START_API, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({phone: phone})
+      }).then(function(r){ return r.json(); })
+        .then(function(d){
+          if(d.ok){ telegramVerifyToken = d.token; toast("Kod qayta yuborildi."); }
+          else { toast(d.error || "Xato yuz berdi."); }
+        }).catch(function(){ toast("Xato yuz berdi."); });
     });
     document.getElementById('codeConfirmBtn').addEventListener('click', function(ev){
       if(ev && ev.preventDefault) ev.preventDefault();
