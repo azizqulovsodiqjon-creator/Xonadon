@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Nunito+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <link rel="stylesheet" href="{% static 'style.css' %}">
 </head>
 <body>
@@ -508,6 +509,9 @@
     <input type="text" id="phoneInput" value="+998">
     <div class="auth-terms">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
     <button class="btn-full-black" id="phoneNextBtn">Keyingi</button>
+    <div style="text-align:center;color:rgba(23,27,42,0.4);font-size:12.5px;margin:16px 0;">yoki</div>
+    <div id="googleClientId" data-client-id="{{ google_client_id }}" class="hidden"></div>
+    <div id="googleSignInBtn" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
     <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
   </div>
 </div>

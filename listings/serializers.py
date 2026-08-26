@@ -38,7 +38,7 @@ from .models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'phone', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']
+        fields = ['id', 'phone', 'email', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']
         # balance_cents/verified are only ever changed server-side (Stripe
         # top-up confirmation, or an admin approving a VerificationRequest)
         # - never writable directly through a profile PATCH.

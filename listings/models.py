@@ -127,7 +127,12 @@ class VoiceNote(models.Model):
 
 
 class Profile(models.Model):
-    phone = models.CharField(max_length=30, unique=True)
+    # Nullable (not blank='') so Google-signup profiles - which have no
+    # phone at all - can coexist without tripping the uniqueness
+    # constraint: Postgres/Django allow many NULLs in a unique column,
+    # but not many empty strings.
+    phone = models.CharField(max_length=30, unique=True, null=True, blank=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
     username = models.CharField(max_length=100, blank=True)
     full_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=100, default="Uy egasi")
@@ -140,8 +145,10 @@ class Profile(models.Model):
     def save(self, *args, **kwargs):
         # Always store the canonical form so two different-looking phone
         # numbers can never create two separate identities for the same
-        # person.
-        self.phone = normalize_phone(self.phone)
+        # person. Only applies when a phone is actually set - Google-only
+        # profiles have none.
+        if self.phone:
+            self.phone = normalize_phone(self.phone)
         super().save(*args, **kwargs)
 
     def __str__(self):

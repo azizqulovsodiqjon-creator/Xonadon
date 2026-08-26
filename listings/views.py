@@ -4,6 +4,7 @@ import os
 import random
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import stripe
@@ -77,7 +78,7 @@ def index(request):
         sweep_expired_listings()
     except Exception as exc:
         print(f'[sweep_expired_listings] failed: {exc}')
-    return render(request, 'index.html')
+    return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID})
 
 
 def _link_images_to_listing(image_ids, listing):
@@ -1149,6 +1150,63 @@ def telegram_verify(request):
     v.verified = True
     v.save(update_fields=['verified'])
     return Response({'ok': True, 'phone': v.phone})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth(request):
+    """
+    'Sign in with Google': the frontend never sees or handles the user's
+    real Google password - Google's own Identity Services widget
+    authenticates them and hands the frontend a signed ID token (JWT).
+    This just verifies that token really came from Google, for THIS
+    app, and wasn't expired/tampered with (via Google's own tokeninfo
+    endpoint - simplest verification path, no crypto library needed),
+    then finds or creates the matching Profile by email.
+    """
+    if not settings.GOOGLE_CLIENT_ID:
+        return Response({'ok': False, 'error': "Google bilan kirish hali sozlanmagan."}, status=503)
+    credential = str(request.data.get('credential', ''))
+    if not credential:
+        return Response({'ok': False, 'error': "Google ma'lumoti topilmadi."}, status=400)
+
+    url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + urllib.parse.quote(credential)
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            payload = json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError:
+        return Response({'ok': False, 'error': "Google tokeni yaroqsiz yoki muddati o'tgan."}, status=400)
+    except Exception as exc:
+        print(f'[google_auth] tokeninfo failed: {exc}')
+        return Response({'ok': False, 'error': "Google bilan bog'lanishda xato yuz berdi."}, status=502)
+
+    # aud must be OUR client id (else this token was issued for some
+    # other app and we shouldn't trust it as proof of identity here).
+    if payload.get('aud') != settings.GOOGLE_CLIENT_ID:
+        return Response({'ok': False, 'error': "Google tokeni yaroqsiz."}, status=400)
+    if payload.get('iss') not in ('accounts.google.com', 'https://accounts.google.com'):
+        return Response({'ok': False, 'error': "Google tokeni yaroqsiz."}, status=400)
+
+    email = str(payload.get('email', '')).strip().lower()
+    if not email:
+        return Response({'ok': False, 'error': "Google hisobida email topilmadi."}, status=400)
+    full_name = str(payload.get('name', '')).strip()
+
+    profile = Profile.objects.filter(email__iexact=email).first()
+    if profile:
+        return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+
+    # New signup - derive a username from the email's local part, made
+    # unique if it's already taken by someone else.
+    base_username = re.sub(r'[^a-z0-9_]', '', email.split('@')[0].lower()) or 'foydalanuvchi'
+    username = base_username
+    suffix = 1
+    while Profile.objects.filter(username=username).exists():
+        suffix += 1
+        username = f'{base_username}{suffix}'
+
+    profile = Profile.objects.create(email=email, username=username, full_name=full_name, role='Uy egasi')
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
 @csrf_exempt

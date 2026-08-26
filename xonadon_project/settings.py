@@ -91,6 +91,11 @@ TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', 'J_joymee_bot')
 # with no bot to start and no contact to share. Get a token by signing in
 # with a Telegram account at core.telegram.org/gateway.
 TELEGRAM_GATEWAY_TOKEN = os.environ.get('TELEGRAM_GATEWAY_TOKEN', '')
+# "Sign in with Google" - the Client ID is not secret (it's embedded in
+# frontend JS), but is still sourced from an env var for easy setup
+# without a code change. Created at console.cloud.google.com (OAuth
+# consent screen + OAuth 2.0 Client ID, type "Web application").
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 # Public base URL Telegram needs to reach for the webhook. RENDER_EXTERNAL_URL
 # isn't reliably present, so fall back to the known production domain
 # (matches CSRF_TRUSTED_ORIGINS above) instead of silently doing nothing.

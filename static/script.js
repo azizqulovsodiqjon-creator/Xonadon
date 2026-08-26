@@ -25,6 +25,7 @@
   var TELEGRAM_START_API = '/api/telegram/start/';
   var TELEGRAM_STATUS_API = '/api/telegram/status/';
   var TELEGRAM_VERIFY_API = '/api/telegram/verify/';
+  var GOOGLE_AUTH_API = '/api/auth/google/';
   var telegramVerifyToken = null, telegramDeepLink = null, telegramPollTimer = null;
   function stopTelegramPoll(){
     if(telegramPollTimer){ clearInterval(telegramPollTimer); telegramPollTimer = null; }
@@ -1302,6 +1303,7 @@
     loadListings();
     loadProfilesDirectory();
     loadPaymentConfig();
+    initGoogleSignIn();
     document.getElementById('langCode').textContent = 'UZ';
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
@@ -2265,6 +2267,54 @@
             }
           }).catch(function(err){ console.error('profile fetch xato:', err); });
       }catch(err){ console.error('finishTelegramLogin xato:', err); }
+    }
+
+    function handleGoogleCredential(response){
+      // response.credential is a signed JWT from Google - we never see
+      // or handle the user's actual Google password, only this token,
+      // which the backend verifies with Google before trusting it.
+      try{
+        fetch(GOOGLE_AUTH_API, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({credential: response.credential})
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
+            if((res.status !== 200 && res.status !== 201) || !res.data.ok){
+              alert((res.data && res.data.error) || "Google bilan kirishda xato yuz berdi.");
+              return;
+            }
+            isLoggedIn = true;
+            var p = res.data.profile;
+            applyProfile(p);
+            saveLoginToStorage(p);
+            loadProfilesDirectory();
+            closeAllAuth();
+            if(pendingAction){ pendingAction(); pendingAction=null; }
+          }).catch(function(err){
+            console.error('google auth xato:', err);
+            alert("Google bilan kirishda xato yuz berdi.");
+          });
+      }catch(err){ console.error('handleGoogleCredential xato:', err); }
+    }
+    function initGoogleSignIn(){
+      var clientIdEl = document.getElementById('googleClientId');
+      var clientId = clientIdEl ? clientIdEl.getAttribute('data-client-id') : '';
+      if(!clientId) return; // not configured yet (no GOOGLE_CLIENT_ID env var) - button stays empty
+      var attempts = 0;
+      (function ready(){
+        if(!window.google || !window.google.accounts || !window.google.accounts.id){
+          if(++attempts > 50) return; // ~10s - gsi script failed to load, give up quietly
+          setTimeout(ready, 200);
+          return;
+        }
+        google.accounts.id.initialize({client_id: clientId, callback: handleGoogleCredential});
+        var btnEl = document.getElementById('googleSignInBtn');
+        if(btnEl){
+          google.accounts.id.renderButton(btnEl, {theme:'outline', size:'large', width:320, text:'continue_with'});
+        }
+      })();
     }
 
     document.getElementById('authProfileSubmitBtn').addEventListener('click', function(ev){
