@@ -2285,7 +2285,12 @@
           setTimeout(ready, 200);
           return;
         }
-        google.accounts.id.initialize({client_id: clientId, callback: handleGoogleCredential});
+        // use_fedcm_for_button: Chrome endi uchinchi tomon cookie'larini
+        // bloklaydi, shu sabab GSI'ning eski popup/iframe usuli
+        // (accounts.google.com/gsi/transform) bo'sh oq oyna sifatida
+        // qotib qoladi. FedCM - brauzerning o'z hisob tanlash oynasi -
+        // bunga bog'liq emas, shuning uchun ishonchli ishlaydi.
+        google.accounts.id.initialize({client_id: clientId, callback: handleGoogleCredential, use_fedcm_for_button: true});
         var btnEl = document.getElementById('googleSignInBtn');
         if(btnEl){
           google.accounts.id.renderButton(btnEl, {theme:'outline', size:'large', width:320, text:'continue_with'});
