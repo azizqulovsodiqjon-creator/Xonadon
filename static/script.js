@@ -2151,36 +2151,12 @@
       boxes.forEach(function(b){ b.value=''; });
       boxes[0].focus();
     }
-    document.getElementById('phoneNextBtn').addEventListener('click', function(ev){
-      if(ev && ev.preventDefault) ev.preventDefault();
-      try{
-        var phone = document.getElementById('phoneInput').value.trim();
-        if(phone.replace(/\D/g,'').length < 9){ alert("Iltimos, telefon raqamni to'liq kiriting."); return; }
-        var btn = this;
-        btn.disabled = true;
-        fetch(TELEGRAM_START_API, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: csrfHeaders({'Content-Type': 'application/json'}),
-          body: JSON.stringify({phone: phone})
-        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
-          .then(function(res){
-            btn.disabled = false;
-            if(res.status !== 200 || !res.data.ok){
-              alert((res.data && res.data.error) || "Kod yuborishda xato yuz berdi.");
-              return;
-            }
-            telegramVerifyToken = res.data.token;
-            document.getElementById('authPhoneScreen').classList.add('hidden');
-            showCodeScreen();
-          }).catch(function(err){
-            btn.disabled = false;
-            console.error('telegram start xato:', err);
-            alert("Kod yuborishda xato yuz berdi.");
-          });
-      }catch(err){ console.error('phoneNextBtn xato:', err); }
-      return false;
-    });
+    // Phone/Telegram-code login retired in favor of "Sign in with
+    // Google" (initGoogleSignIn/handleGoogleCredential below) - the
+    // phoneNextBtn entry point is gone from authPhoneScreen, so nothing
+    // calls showCodeScreen()/starts the Telegram flow anymore. The
+    // screens/handlers below are left in place (harmless, unreachable)
+    // rather than torn out, to keep this change small and low-risk.
     var codeBoxes = document.querySelectorAll('#codeBoxes input');
     codeBoxes.forEach(function(box,i){
       box.addEventListener('input', function(){

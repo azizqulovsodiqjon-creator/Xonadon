@@ -505,11 +505,8 @@
   <div class="auth-full-form">
     <button class="close-x auth-close" id="authPhoneClose">✕</button>
     <h2>Kirish</h2>
-    <label>Telefon raqam</label>
-    <input type="text" id="phoneInput" value="+998">
-    <div class="auth-terms">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
-    <button class="btn-full-black" id="phoneNextBtn">Keyingi</button>
-    <div style="text-align:center;color:rgba(23,27,42,0.4);font-size:12.5px;margin:16px 0;">yoki</div>
+    <div class="auth-terms" style="margin-top:0;">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
+    <input type="hidden" id="phoneInput" value="">
     <div id="googleClientId" data-client-id="{{ google_client_id }}" class="hidden"></div>
     <div id="googleSignInBtn" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
     <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
