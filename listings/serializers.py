@@ -25,7 +25,7 @@ class ListingSerializer(serializers.ModelSerializer):
             'rooms', 'area', 'floor', 'type', 'type_key', 'repair',
             'condition', 'phone', 'seller', 'owner_role', 'owner',
             'mortgage', 'deal', 'vip', 'top', 'sold', 'views_count',
-            'likes_count', 'created_at', 'images', 'voice_note',
+            'likes_count', 'created_at', 'images', 'voice_note', 'is_wanted',
         ]
         # sold/views_count/likes_count only ever change through their own
         # dedicated endpoints (view/like counters, admin sold-toggle) -

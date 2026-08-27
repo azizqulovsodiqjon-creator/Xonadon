@@ -288,8 +288,8 @@
     <div class="option-row" data-role="Ijaraga beraman" data-deal="ijara"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga beraman</div>
     <div class="option-row" data-role="Sotaman" data-deal="sotuv"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotaman</div>
     <div class="section-label">Xaridor sifatida</div>
-    <div class="option-row" data-role="Ijaraga olaman" data-deal="ijara"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga olaman</div>
-    <div class="option-row" data-role="Sotib olaman" data-deal="sotuv"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotib olaman</div>
+    <div class="option-row" data-role="Ijaraga olaman" data-deal="ijara" data-buyer="1"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga olaman</div>
+    <div class="option-row" data-role="Sotib olaman" data-deal="sotuv" data-buyer="1"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotib olaman</div>
   </div>
   <div class="post-body hidden" id="postStep2">
     <div class="post-title">Qo'shish</div>
@@ -306,7 +306,7 @@
       <div id="upgradeTierBody"></div>
     </div>
 
-    <div class="upload-box">
+    <div class="upload-box" id="imagesUploadBox">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div style="font-weight:800;font-size:16px;">Rasmlar</div>
         <span style="font-weight:600;font-size:13px;color:rgba(23,27,42,0.55);" id="uploadCount">0/10</span>
@@ -336,7 +336,7 @@
     <div class="field"><label>Telefon raqami</label><input type="text" id="postPhone" value="+998"></div>
 
     <div class="two-col">
-      <div class="field"><label>Narx</label><input type="text" inputmode="numeric" id="postPrice" placeholder="Narxni kiriting">
+      <div class="field" id="priceField"><label>Narx</label><input type="text" inputmode="numeric" id="postPrice" placeholder="Narxni kiriting">
         <div class="toggle-row" id="currencyToggle" style="margin-top:8px;">
           <button data-currency="ye" class="sel">у.е</button>
           <button data-currency="usd">USD</button>
@@ -348,8 +348,20 @@
       </div>
     </div>
 
+    <div class="field hidden" id="priceRangeField"><label>Qaysi narx oralig'ida qidiryapsiz?</label>
+      <div class="two-col">
+        <input type="text" inputmode="numeric" id="postPriceMin" placeholder="Dan">
+        <input type="text" inputmode="numeric" id="postPriceMax" placeholder="Gacha">
+      </div>
+      <div class="toggle-row" id="priceRangeCurrencyToggle" style="margin-top:8px;">
+        <button data-currency="ye" class="sel">у.е</button>
+        <button data-currency="usd">USD</button>
+        <button data-currency="uzs">UZS</button>
+      </div>
+    </div>
+
     <div class="two-col">
-      <div class="field"><label>Maydonni kiriting, m²</label><input type="text" id="postArea" placeholder="Maydonni kiriting, m²"></div>
+      <div class="field" id="areaField"><label>Maydonni kiriting, m²</label><input type="text" id="postArea" placeholder="Maydonni kiriting, m²"></div>
       <div class="field" id="roomsField"><label>Xonalar soni</label><input type="text" id="postRooms" placeholder="Masalan: 3"></div>
     </div>
 

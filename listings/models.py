@@ -57,6 +57,13 @@ class Listing(models.Model):
     seller = models.CharField(max_length=100)
     owner_role = models.CharField(max_length=100, default="Uy egasi")
     owner = models.BooleanField(default=True)
+    # True for a buyer's "qidiryapman" listing ("Sotib olaman"/"Ijaraga
+    # olaman") - a budget range, not a specific property for sale. Same
+    # Listing table/shape as a seller's listing (simplest to filter/list
+    # together), just with a narrower posting form and `price` holding a
+    # "min-max" range string instead of one number - see PRICE_RANGE_SEP
+    # in views.py/script.js for how that range is packed/unpacked.
+    is_wanted = models.BooleanField(default=False)
     mortgage = models.BooleanField(default=False)
     deal = models.CharField(max_length=20, choices=DEAL_CHOICES, default='sotuv')
     vip = models.BooleanField(default=False)
