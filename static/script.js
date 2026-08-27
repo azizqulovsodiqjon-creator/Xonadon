@@ -1000,6 +1000,7 @@
     updateMortgageFieldVisibility();
     updateConditionFieldVisibility();
     updatePropertyTypeOptions();
+    updateLandFieldVisibility();
     renderUpgradeTierBox(l);
     document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')===postCurrency); });
     document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
@@ -1037,6 +1038,16 @@
     var hide = postDeal === 'kunlik';
     document.getElementById('typeRowTijorat').classList.toggle('hidden', hide);
     document.getElementById('typeRowYer').classList.toggle('hidden', hide);
+  }
+  function updateLandFieldVisibility(){
+    // "Yer" (land) has no repair, room count, or floor - those fields
+    // only make sense for a building. Hide them for land; the values
+    // stay whatever they were (harmless, unused/hidden), so switching
+    // back to another type restores them without extra bookkeeping.
+    var isLand = postTypeKey === 'yer';
+    document.getElementById('repairField').classList.toggle('hidden', isLand);
+    document.getElementById('roomsField').classList.toggle('hidden', isLand);
+    document.getElementById('floorsRow').classList.toggle('hidden', isLand);
   }
 
   /* =========================================================
@@ -1919,6 +1930,7 @@
         updateMortgageFieldVisibility();
         updateConditionFieldVisibility();
         updatePropertyTypeOptions();
+        updateLandFieldVisibility();
         // Not editing anything yet - "Reklama qilish" only applies to an
         // already-live listing, hide any stale box left from a previous edit.
         document.getElementById('upgradeTierField').classList.add('hidden');
@@ -1958,6 +1970,7 @@
         postTypeKey = this.getAttribute('data-typekey');
         document.getElementById('bcRole').textContent = postRole;
         document.getElementById('bcCat').textContent = postCat;
+        updateLandFieldVisibility();
         showPostStep(3);
       });
     });
