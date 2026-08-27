@@ -27,6 +27,19 @@ from .models import (
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
+try:
+    # iPhones save photos as HEIC/HEIF by default, which stock Pillow
+    # can't open - without this, every HEIC upload silently failed
+    # (caught in _compress_to_data_url's caller, logged, skipped) and
+    # the listing would end up with fewer/no photos with no clear error
+    # shown to the user. This registers a Pillow plugin so Image.open()
+    # in _compress_to_data_url() below just handles .heic/.heif files
+    # transparently, same as jpg/png.
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
 
 def sweep_expired_listings():
     """
@@ -191,6 +204,91 @@ class ListingViewSet(viewsets.ModelViewSet):
             Listing.objects.filter(pk=listing.pk).update(likes_count=F('likes_count') + 1)
             listing.refresh_from_db(fields=['likes_count'])
         return Response({'ok': True, 'likes_count': listing.likes_count, 'alreadyLiked': not created})
+
+    TIER_ORDER = {'regular': 0, 'top': 1, 'vip': 2}
+
+    def _validate_upgrade(self, listing, tier):
+        """403/400 Response if this upgrade isn't allowed, else None."""
+        amount = settings.LISTING_PRICE_CENTS.get(tier)
+        if amount is None or self.TIER_ORDER.get(tier, -1) <= self.TIER_ORDER.get(listing.current_stage(), 99):
+            return Response({'ok': False, 'error': "Bu turga o'tkazib bo'lmaydi."}, status=400)
+        return None
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny], url_path='upgrade-tier/checkout')
+    def upgrade_tier_checkout(self, request, pk=None):
+        """Stripe Checkout redirect to bump an EXISTING listing to a
+        higher paid tier (oddiy->top/vip, top->vip) - same per-tier price
+        as posting fresh, no discount for already being live. Finishing
+        reuses confirm_payment/the webhook exactly like a brand new paid
+        post - _finalize_pending_payment tells this case apart by the
+        _upgrade_listing_id marker in the pending row's payload."""
+        if not settings.STRIPE_SECRET_KEY:
+            return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
+        listing = self.get_object()
+        claimed_seller = str(request.data.get('seller') or '').strip()
+        if not claimed_seller or claimed_seller != listing.seller:
+            return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
+        tier = str(request.data.get('tier', '')).strip()
+        bad = self._validate_upgrade(listing, tier)
+        if bad:
+            return bad
+        amount = settings.LISTING_PRICE_CENTS[tier]
+
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        origin = request.build_absolute_uri('/').rstrip('/')
+        tier_label = TIER_LABELS.get(tier, "E'lon")
+        try:
+            session = stripe.checkout.Session.create(
+                mode='payment',
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': amount,
+                        'product_data': {'name': 'Xonadon - ' + tier_label + " ga o'tkazish"},
+                    },
+                    'quantity': 1,
+                }],
+                success_url=f'{origin}/?post_payment=success&session_id={{CHECKOUT_SESSION_ID}}',
+                cancel_url=f'{origin}/?post_payment=cancelled',
+            )
+        except Exception as exc:
+            return Response({'ok': False, 'error': str(exc)}, status=502)
+
+        PendingListingPayment.objects.create(
+            stripe_session_id=session.id,
+            tier=tier,
+            amount_cents=amount,
+            currency='usd',
+            payload={'_upgrade_listing_id': listing.id},
+        )
+        return Response({'ok': True, 'url': session.url})
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny], url_path='upgrade-tier/balance')
+    def upgrade_tier_balance(self, request, pk=None):
+        """Same upgrade as upgrade_tier_checkout, paid straight out of the
+        profile's balance - applies immediately, no Stripe redirect."""
+        listing = self.get_object()
+        claimed_seller = str(request.data.get('seller') or '').strip()
+        if not claimed_seller or claimed_seller != listing.seller:
+            return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
+        tier = str(request.data.get('tier', '')).strip()
+        bad = self._validate_upgrade(listing, tier)
+        if bad:
+            return bad
+        amount = settings.LISTING_PRICE_CENTS[tier]
+
+        try:
+            profile = Profile.objects.get(id=request.data.get('profile_id'))
+        except Profile.DoesNotExist:
+            return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+        if (profile.balance_cents or 0) < amount:
+            return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
+
+        profile.balance_cents = profile.balance_cents - amount
+        profile.save(update_fields=['balance_cents'])
+        listing = _apply_tier_upgrade(listing, tier)
+        return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='mark-sold')
     def mark_sold(self, request, pk=None):
@@ -802,14 +900,41 @@ def create_checkout_session(request):
     return Response({'ok': True, 'url': session.url})
 
 
+def _apply_tier_upgrade(listing, tier):
+    """Bump an already-live listing to a higher paid tier (regular->top/
+    vip, top->vip - never a downgrade, callers only ever offer strictly
+    better tiers). Restarts its lifecycle clock at the new tier's stage,
+    exactly like a fresh post at that tier would (see TIER_LIFECYCLE)."""
+    from django.utils import timezone
+    listing.vip = (tier == 'vip')
+    listing.top = (tier == 'top')
+    listing.posted_tier = tier
+    listing.stage_started_at = timezone.now()
+    listing.save(update_fields=['vip', 'top', 'posted_tier', 'stage_started_at'])
+    return listing
+
+
 def _finalize_pending_payment(pending):
-    """Idempotent: create the Listing for a paid pending row exactly once.
+    """Idempotent: create the Listing for a paid pending row exactly once
+    (or, for a tier-upgrade pending row, apply the upgrade exactly once).
 
     Called from both the success-redirect confirm endpoint and the
     webhook - whichever gets there first wins, the other is a no-op.
     """
     if pending.created_listing_id:
         return pending.created_listing
+    # Tier-upgrade payments (see ListingViewSet.upgrade_tier_checkout)
+    # smuggle the target listing's id in here instead of a full listing
+    # payload - there's no new Listing to create, just flags to flip on
+    # the existing one.
+    upgrade_listing_id = pending.payload.get('_upgrade_listing_id')
+    if upgrade_listing_id:
+        listing = Listing.objects.get(pk=upgrade_listing_id)
+        listing = _apply_tier_upgrade(listing, pending.tier)
+        pending.paid = True
+        pending.created_listing = listing
+        pending.save(update_fields=['paid', 'created_listing'])
+        return listing
     serializer = ListingSerializer(data=pending.payload)
     serializer.is_valid(raise_exception=True)
     listing = serializer.save()

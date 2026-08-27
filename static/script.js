@@ -277,6 +277,9 @@
     galleryIndex = 0;
     l.viewsCount++; // reflect this open immediately, before rendering
     var roomsRow = l.rooms ? '<div class="info-row"><span class="il">Xonalar soni</span><span class="iv">' + l.rooms + '</span></div>' : '';
+    // Calling/messaging yourself makes no sense - hide those two
+    // buttons entirely when the viewer owns this listing.
+    var isOwnListing = !!(l.seller && myUsername() && l.seller === myUsername());
 
     document.getElementById('detailContent').innerHTML =
       '<div class="detail-top-row">' +
@@ -294,7 +297,7 @@
             '<span class="detail-tag">' + l.type + '</span>' +
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
-          '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>' +
+          (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>') +
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
@@ -997,6 +1000,7 @@
     updateMortgageFieldVisibility();
     updateConditionFieldVisibility();
     updatePropertyTypeOptions();
+    renderUpgradeTierBox(l);
     document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')===postCurrency); });
     document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
     document.getElementById('paymentSummary').classList.add('hidden');
@@ -1004,6 +1008,143 @@
     editBtn.textContent = 'Saqlash';
     editBtn.disabled = false;
     showPostStep(3);
+  }
+
+  // Moved out of init() - openEditListing() (above) needs to call these
+  // too, and it's defined at this outer scope, not inside init(). They
+  // only touch DOM-by-id and the outer postDeal/postMortgage state, so
+  // living here works identically for both callers.
+  function updateMortgageFieldVisibility(){
+    // Mortgage only makes sense when buying/selling outright, not for
+    // rentals (ijara/kunlik) - hide the field entirely for those, and
+    // make sure a stale "ipotekaga mumkin" pick from before switching
+    // away from "Sotaman" never rides along in the payload.
+    var applies = postDeal === 'sotuv';
+    document.getElementById('mortgageField').classList.toggle('hidden', !applies);
+    if(!applies){
+      postMortgage = false;
+      document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
+    }
+  }
+  function updateConditionFieldVisibility(){
+    // "Holati" (Ikkinchi qo'l / Yangi bino) only makes sense for an
+    // outright sale, not for rentals (ijara/kunlik) - hide it there.
+    document.getElementById('conditionField').classList.toggle('hidden', postDeal !== 'sotuv');
+  }
+  function updatePropertyTypeOptions(){
+    // "Tijorat binolari" and "Yer" aren't offered for daily rentals
+    // (kunlik) - hide those two option rows in that case.
+    var hide = postDeal === 'kunlik';
+    document.getElementById('typeRowTijorat').classList.toggle('hidden', hide);
+    document.getElementById('typeRowYer').classList.toggle('hidden', hide);
+  }
+
+  /* =========================================================
+     REKLAMA QILISH - tahrirlashda mavjud e'lonni yuqori
+     darajaga o'tkazish (oddiy->top/vip, top->vip)
+  ==========================================================*/
+  var TIER_ORDER = {regular: 0, top: 1, vip: 2};
+  function upgradeTierPriceLabel(tier){
+    var cents = paymentInfo.prices ? paymentInfo.prices[tier] : null;
+    var labels = {top: 'TOP', vip: 'VIP'};
+    return labels[tier] + ' — ' + (cents != null ? formatUsd(cents) : '—');
+  }
+  function renderUpgradeTierBox(l){
+    var field = document.getElementById('upgradeTierField');
+    var body = document.getElementById('upgradeTierBody');
+    if(!field || !body) return;
+    var currentTier = l.vip ? 'vip' : (l.top ? 'top' : 'regular');
+    var options = ['top', 'vip'].filter(function(t){ return TIER_ORDER[t] > TIER_ORDER[currentTier]; });
+    if(!options.length){
+      // Already VIP - nothing higher to offer.
+      field.classList.add('hidden');
+      body.innerHTML = '';
+      return;
+    }
+    field.classList.remove('hidden');
+    var listingId = l.id;
+    var selectedTier = null, payMethod = 'card';
+    body.innerHTML =
+      '<div class="toggle-row" id="upgradeTierToggle">' +
+        options.map(function(t){ return '<button type="button" data-tier="'+t+'">'+upgradeTierPriceLabel(t)+'</button>'; }).join('') +
+      '</div>' +
+      '<div id="upgradeTierPayRow" class="hidden">' +
+        '<div class="toggle-row" style="margin:10px 0;" id="upgradeTierPayMethod">' +
+          '<button type="button" class="sel" data-method="card">💳 Karta orqali</button>' +
+          '<button type="button" data-method="balance">👛 Balansdan (<span id="upgradeBalanceAmount">' + formatUsd(myBalanceCents()) + '</span>)</button>' +
+        '</div>' +
+        '<button type="button" class="btn-full-black" id="upgradeConfirmBtn" style="margin-top:0;">To\'lov qilish</button>' +
+      '</div>';
+    body.querySelectorAll('#upgradeTierToggle button').forEach(function(b){
+      b.addEventListener('click', function(){
+        body.querySelectorAll('#upgradeTierToggle button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        selectedTier = this.getAttribute('data-tier');
+        document.getElementById('upgradeTierPayRow').classList.remove('hidden');
+      });
+    });
+    body.querySelectorAll('#upgradeTierPayMethod button').forEach(function(b){
+      b.addEventListener('click', function(){
+        body.querySelectorAll('#upgradeTierPayMethod button').forEach(function(x){ x.classList.remove('sel'); });
+        this.classList.add('sel');
+        payMethod = this.getAttribute('data-method');
+      });
+    });
+    document.getElementById('upgradeConfirmBtn').addEventListener('click', function(){
+      if(!selectedTier){ toast("Avval turni tanlang."); return; }
+      var seller = document.getElementById('profileUsername').textContent.trim();
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Yuborilmoqda...';
+      if(payMethod === 'balance'){
+        var needed = paymentInfo.prices ? paymentInfo.prices[selectedTier] : null;
+        if(needed != null && myBalanceCents() < needed){
+          alert("Balansingizda yetarli mablag' yo'q.");
+          btn.disabled = false; btn.textContent = "To'lov qilish";
+          return;
+        }
+        fetch(API_BASE + listingId + '/upgrade-tier/balance/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({tier: selectedTier, seller: seller, profile_id: currentProfile ? currentProfile.id : null})
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
+            if(res.status === 200 && res.data.ok){
+              if(res.data.profile) applyProfile(res.data.profile);
+              loadListings(function(){
+                renderPublic();
+                toast("Balansdan to'landi, e'lon " + (selectedTier==='vip'?'VIP':'TOP') + "'ga o'tkazildi!");
+                openDetail(listingId, false);
+              });
+            } else {
+              alert((res.data && res.data.error) || "Xato yuz berdi.");
+              btn.disabled = false; btn.textContent = "To'lov qilish";
+            }
+          }).catch(function(err){
+            console.error('upgrade balance xato:', err);
+            alert("Xato yuz berdi.");
+            btn.disabled = false; btn.textContent = "To'lov qilish";
+          });
+        return;
+      }
+      fetch(API_BASE + listingId + '/upgrade-tier/checkout/', {
+        method: 'POST', credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({tier: selectedTier, seller: seller})
+      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+        .then(function(res){
+          if(res.status === 200 && res.data.ok && res.data.url){
+            window.location.href = res.data.url; // off to Stripe Checkout
+          } else {
+            alert((res.data && res.data.error) || "To'lovni boshlashda xato yuz berdi.");
+            btn.disabled = false; btn.textContent = "To'lov qilish";
+          }
+        }).catch(function(err){
+          console.error('upgrade checkout xato:', err);
+          alert("Xato yuz berdi.");
+          btn.disabled = false; btn.textContent = "To'lov qilish";
+        });
+    });
   }
 
   /* =========================================================
@@ -1178,6 +1319,10 @@
           entry.imageId = data.imageIds[0];
         } else {
           entry.failed = true;
+          // Silent failure here is exactly how photos used to go
+          // missing without the user noticing (the small ⚠️ on the
+          // thumbnail is easy to miss) - surface it right away.
+          toast("Bitta rasm yuklanmadi (format qo'llab-quvvatlanmasligi mumkin). Uni olib tashlang yoki boshqasini tanlang.");
         }
         entry.uploading = false;
         renderUploadThumbs();
@@ -1186,6 +1331,7 @@
         console.error('rasm yuklashda xato:', err);
         entry.uploading = false;
         entry.failed = true;
+        toast("Bitta rasm yuklanmadi. Internetni tekshirib, qayta urinib ko'ring.");
         renderUploadThumbs();
       });
   }
@@ -1773,6 +1919,9 @@
         updateMortgageFieldVisibility();
         updateConditionFieldVisibility();
         updatePropertyTypeOptions();
+        // Not editing anything yet - "Reklama qilish" only applies to an
+        // already-live listing, hide any stale box left from a previous edit.
+        document.getElementById('upgradeTierField').classList.add('hidden');
         document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')==='ye'); });
         postPhotos = [];
         renderUploadThumbs();
@@ -1793,30 +1942,6 @@
         showPostStep(1);
       });
     });
-    function updateMortgageFieldVisibility(){
-      // Mortgage only makes sense when buying/selling outright, not for
-      // rentals (ijara/kunlik) - hide the field entirely for those, and
-      // make sure a stale "ipotekaga mumkin" pick from before switching
-      // away from "Sotaman" never rides along in the payload.
-      var applies = postDeal === 'sotuv';
-      document.getElementById('mortgageField').classList.toggle('hidden', !applies);
-      if(!applies){
-        postMortgage = false;
-        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
-      }
-    }
-    function updateConditionFieldVisibility(){
-      // "Holati" (Ikkinchi qo'l / Yangi bino) only makes sense for an
-      // outright sale, not for rentals (ijara/kunlik) - hide it there.
-      document.getElementById('conditionField').classList.toggle('hidden', postDeal !== 'sotuv');
-    }
-    function updatePropertyTypeOptions(){
-      // "Tijorat binolari" and "Yer" aren't offered for daily rentals
-      // (kunlik) - hide those two option rows in that case.
-      var hide = postDeal === 'kunlik';
-      document.getElementById('typeRowTijorat').classList.toggle('hidden', hide);
-      document.getElementById('typeRowYer').classList.toggle('hidden', hide);
-    }
     document.querySelectorAll('#postStep1 [data-role]').forEach(function(row){
       row.addEventListener('click', function(){
         postRole = this.getAttribute('data-role');
@@ -1866,6 +1991,10 @@
       }
       if(postPhotos.some(function(p){ return p.uploading; })){
         alert("Rasmlar hali yuklanmoqda, biroz kuting.");
+        return;
+      }
+      if(postPhotos.some(function(p){ return p.failed; })){
+        alert("Ba'zi rasmlar yuklanmadi (⚠️ belgili). Iltimos, ularni olib tashlang yoki qayta yuklang.");
         return;
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
@@ -1937,6 +2066,10 @@
       }
       if(postPhotos.some(function(p){ return p.uploading; })){
         alert("Rasmlar hali yuklanmoqda, biroz kuting.");
+        return;
+      }
+      if(postPhotos.some(function(p){ return p.failed; })){
+        alert("Ba'zi rasmlar yuklanmadi (⚠️ belgili). Iltimos, ularni olib tashlang yoki qayta yuklang.");
         return;
       }
       var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
