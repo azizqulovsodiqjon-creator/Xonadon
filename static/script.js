@@ -1932,18 +1932,18 @@
         .then(function(s){
           if(s.verified){
             box.innerHTML = '<div class="badge">✓</div><h3>Profilingiz tasdiqlangan</h3>' +
-              '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;">Ismingiz yonida tasdiqlash belgisi ko\'rinadi.</p>';
+              '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;">Ismingiz yonida tasdiqlash belgisi ko\'rinadi.</p>';
             return;
           }
           if(s.pending){
             box.innerHTML = '<div class="badge">⏳</div><h3>Ko\'rib chiqilmoqda</h3>' +
-              '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;">Hujjatlaringiz yuborildi, admin tez orada ko\'rib chiqadi.</p>';
+              '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;">Hujjatlaringiz yuborildi, admin tez orada ko\'rib chiqadi.</p>';
             return;
           }
           box.innerHTML =
             '<div class="badge">✓</div>' +
             '<h3>Profilingizni tasdiqlang</h3>' +
-            '<p style="color:rgba(43,51,36,0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo\'ladi — foydalanuvchilar sizga ko\'proq ishonadi.</p>' +
+            '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo\'ladi — foydalanuvchilar sizga ko\'proq ishonadi.</p>' +
             '<div style="display:flex;gap:14px;text-align:left;">' +
               '<div style="flex:1;">' +
                 '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📄 Pasport/ID rasmi</div>' +
