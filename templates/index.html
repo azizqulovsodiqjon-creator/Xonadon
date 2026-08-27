@@ -295,8 +295,8 @@
     <div class="post-title">Qo'shish</div>
     <div class="option-row" data-cat="Kvartira" data-typekey="kvartira"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kvartira</div>
     <div class="option-row" data-cat="Hovli/dacha" data-typekey="hovli"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Hovli/dacha</div>
-    <div class="option-row" data-cat="Tijorat binolari" data-typekey="tijorat"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>Tijorat binolari</div>
-    <div class="option-row" data-cat="Yer" data-typekey="yer"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg>Yer</div>
+    <div class="option-row" data-cat="Tijorat binolari" data-typekey="tijorat" id="typeRowTijorat"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>Tijorat binolari</div>
+    <div class="option-row" data-cat="Yer" data-typekey="yer" id="typeRowYer"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg>Yer</div>
   </div>
   <div class="post-body hidden" id="postStep3">
     <div class="breadcrumb"><span id="bcRole"></span> › <span id="bcCat"></span></div>
@@ -321,7 +321,7 @@
     <div class="field"><label>E'lon sarlavhasi</label><input type="text" id="postTitle" placeholder="Sarlavhani kiriting"></div>
     <div class="field"><label>Tavsif</label><textarea id="postDesc" placeholder="Tavsifni kiriting"></textarea></div>
 
-    <div class="field"><label>Holati</label>
+    <div class="field" id="conditionField"><label>Holati</label>
       <div class="toggle-row" id="condToggle"><button data-c="Ikkinchi qo'l">Ikkinchi qo'l</button><button class="sel" data-c="Yangi bino">Yangi bino</button></div>
     </div>
     <div class="field" id="mortgageField"><label>Ipoteka</label>
@@ -331,7 +331,7 @@
     <div class="field"><label>Telefon raqami</label><input type="text" id="postPhone" value="+998"></div>
 
     <div class="two-col">
-      <div class="field"><label>Narx</label><input type="text" id="postPrice" placeholder="Narxni kiriting">
+      <div class="field"><label>Narx</label><input type="text" inputmode="numeric" id="postPrice" placeholder="Narxni kiriting">
         <div class="toggle-row" id="currencyToggle" style="margin-top:8px;">
           <button data-currency="ye" class="sel">у.е</button>
           <button data-currency="usd">USD</button>

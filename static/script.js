@@ -995,6 +995,8 @@
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
     document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', (b.getAttribute('data-m')==='1')===postMortgage); });
     updateMortgageFieldVisibility();
+    updateConditionFieldVisibility();
+    updatePropertyTypeOptions();
     document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')===postCurrency); });
     document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')===postTier); });
     document.getElementById('paymentSummary').classList.add('hidden');
@@ -1769,6 +1771,8 @@
         postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino"; postMortgage=false; postCurrency='ye';
         document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
         updateMortgageFieldVisibility();
+        updateConditionFieldVisibility();
+        updatePropertyTypeOptions();
         document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')==='ye'); });
         postPhotos = [];
         renderUploadThumbs();
@@ -1801,11 +1805,25 @@
         document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
       }
     }
+    function updateConditionFieldVisibility(){
+      // "Holati" (Ikkinchi qo'l / Yangi bino) only makes sense for an
+      // outright sale, not for rentals (ijara/kunlik) - hide it there.
+      document.getElementById('conditionField').classList.toggle('hidden', postDeal !== 'sotuv');
+    }
+    function updatePropertyTypeOptions(){
+      // "Tijorat binolari" and "Yer" aren't offered for daily rentals
+      // (kunlik) - hide those two option rows in that case.
+      var hide = postDeal === 'kunlik';
+      document.getElementById('typeRowTijorat').classList.toggle('hidden', hide);
+      document.getElementById('typeRowYer').classList.toggle('hidden', hide);
+    }
     document.querySelectorAll('#postStep1 [data-role]').forEach(function(row){
       row.addEventListener('click', function(){
         postRole = this.getAttribute('data-role');
         postDeal = this.getAttribute('data-deal');
         updateMortgageFieldVisibility();
+        updateConditionFieldVisibility();
+        updatePropertyTypeOptions();
         showPostStep(2);
       });
     });
@@ -1874,6 +1892,12 @@
       });
     });
     document.getElementById('postRepair').addEventListener('change', function(){ postRepair = this.value; });
+    // Narx maydoni - valyuta alohida tugmalar orqali tanlanadi, shu
+    // sabab bu yerda faqat raqam kiritishga ruxsat beriladi.
+    document.getElementById('postPrice').addEventListener('input', function(){
+      var digitsOnly = this.value.replace(/[^0-9]/g, '');
+      if(digitsOnly !== this.value) this.value = digitsOnly;
+    });
     document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
         document.getElementById('currencyToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
