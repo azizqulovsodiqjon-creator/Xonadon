@@ -341,6 +341,10 @@
   /* ---------- full map view ---------- */
   #mapFull{height:calc(100vh - 70px);width:100%;}
   .leaflet-price-pin{background:var(--accent2);color:#fff;font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 10px rgba(0,0,0,0.25);white-space:nowrap;cursor:pointer;transform:translateY(-6px);position:relative;font-family:'Manrope',sans-serif;}
+  /* "Sizning joylashuvingiz" fixed dot on the post-listing location map -
+     stays put once the separate draggable property pin is moved away. */
+  .my-location-dot{width:16px;height:16px;}
+  .my-location-dot span{display:block;width:12px;height:12px;margin:2px;border-radius:50%;background:#2F6FED;border:2.5px solid #fff;box-shadow:0 0 0 4px rgba(47,111,237,0.28),0 2px 6px rgba(0,0,0,0.3);}
   .leaflet-price-pin::after{content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid var(--accent2);}
   .map-popup-link{display:inline-block;margin-top:6px;font-weight:800;color:var(--accent2);text-decoration:underline;cursor:pointer;}
 

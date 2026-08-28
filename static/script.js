@@ -364,7 +364,7 @@
       '<div class="detail-section"><h3>' + dict.desc + '</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
       (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
       '<div class="detail-section"><div class="info-list">' +
-        '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + l.ownerRole + '</span></div>' +
+        '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
         '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
         // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
         // of its own to show - it's a budget, not a property.
@@ -381,7 +381,7 @@
       '</div>' +
       '<div class="owner-card">' +
         '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
-        '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + l.ownerRole + '</div></div>' +
+        '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
         '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
       '</div>' +
       '<div class="similar-section" id="similarSection"></div>';
@@ -816,9 +816,14 @@
       return r.json();
     }).then(function(s){
       var sellerRows = (s.sellers || []).map(function(row){
+        var paidHtml = (row.top_count || row.vip_count)
+          ? (row.top_count ? ('TOP: ' + row.top_count + " ta (" + formatUsd(row.top_value_cents||0) + ')') : '') +
+            (row.top_count && row.vip_count ? ' · ' : '') +
+            (row.vip_count ? ('VIP: ' + row.vip_count + " ta (" + formatUsd(row.vip_value_cents||0) + ')') : '')
+          : "pullik e'lon yo'q";
         return '<div class="queue-row"><div class="queue-info">' +
           '<div class="qdesc">' + displayName(row.seller) + '</div>' +
-          '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk · ' + formatUsd(row.total_paid_cents||0) + " to'lagan</div>" +
+          '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk · ' + paidHtml + '</div>' +
           '</div></div>';
       }).join('') || '<div class="empty-admin">Hozircha sotuvchi yo\'q.</div>';
       var soldRows = (s.soldListingsDetail || []).map(function(row){
@@ -952,7 +957,7 @@
     if(!filtered.length){ body.innerHTML = '<div class="empty-admin">Hech narsa topilmadi.</div>'; return; }
     body.innerHTML = filtered.map(function(p){
       var v = verifByUsername[p.username];
-      var s = statsByUsername[p.username] || {listing_count:0, total_views:0, total_likes:0, total_paid_cents:0};
+      var s = statsByUsername[p.username] || {listing_count:0, total_views:0, total_likes:0, top_count:0, vip_count:0, top_value_cents:0, vip_value_cents:0};
       var verifHtml = v ?
         '<div class="verify-inline" style="width:100%;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">' +
           '<div style="font-size:12.5px;font-weight:700;color:var(--accent2);margin-bottom:8px;">Tasdiqlash kutilmoqda</div>' +
@@ -963,12 +968,23 @@
           '<button class="qbtn" data-decide="approve" data-vid="'+v.id+'">Tasdiqlash</button> ' +
           '<button class="qbtn del" data-decide="reject" data-vid="'+v.id+'">Rad etish</button>' +
         '</div>' : '';
+      // TOP/VIP shown separately (each tier's own price × how many of
+      // their listings are currently at that tier) rather than one
+      // lumped total - a listing that reached a tier without an audited
+      // payment (seeded/demo data, or predating PaymentEvent tracking)
+      // still shows a real amount here instead of $0.00.
+      var paidHtml = (s.top_count || s.vip_count)
+        ? (s.top_count ? ('TOP: ' + s.top_count + " ta (" + formatUsd(s.top_value_cents||0) + ')') : '') +
+          (s.top_count && s.vip_count ? ' · ' : '') +
+          (s.vip_count ? ('VIP: ' + s.vip_count + " ta (" + formatUsd(s.vip_value_cents||0) + ')') : '')
+        : "pullik e'lon yo'q";
       return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;flex-wrap:wrap;">' +
         '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
         '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div>' +
         '<div class="profile-meta">ID: '+p.id+' · '+(p.phone || p.email || '—')+' · '+p.role+'</div></div>' +
-        '<div class="profile-count">'+s.listing_count+" ta e'lon · 👁 "+(s.total_views||0)+' · 🤍 '+(s.total_likes||0)+' · '+formatUsd(s.total_paid_cents||0)+" to'lagan</div>" +
+        '<div class="profile-count">'+s.listing_count+" ta e'lon · 👁 "+(s.total_views||0)+' · 🤍 '+(s.total_likes||0)+' · '+paidHtml+'</div>' +
         '<button class="qbtn" data-discount="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">Chegirma berish</button>' +
+        '<button class="qbtn del" data-delprofile="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">O\'chirish</button>' +
         '<div class="discount-form hidden" id="discountForm-'+p.id+'" style="width:100%;"></div>' +
         verifHtml +
       '</div>';
@@ -978,6 +994,24 @@
       row.addEventListener('click', function(e){
         if(e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
         openSellerProfile(this.getAttribute('data-seller'), true);
+      });
+    });
+    body.querySelectorAll('[data-delprofile]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = this.getAttribute('data-delprofile');
+        var username = this.getAttribute('data-username');
+        if(!confirm("'" + username + "' profilini butunlay o'chirmoqchimisiz? Bu amalni orqaga qaytarib bo'lmaydi.")) return;
+        fetch('/api/profiles/' + id + '/', {method: 'DELETE', credentials: 'same-origin', headers: csrfHeaders()})
+          .then(function(r){
+            if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+            if(r.status === 204 || r.ok){
+              toast("Profil o'chirildi.");
+              renderAdmin();
+            } else {
+              toast("O'chirishda xato yuz berdi.");
+            }
+          }).catch(function(err){ console.error('delete profile xato:', err); toast("Xato yuz berdi."); });
       });
     });
     body.querySelectorAll('[data-decide]').forEach(function(btn){
@@ -1060,11 +1094,14 @@
   ==========================================================*/
   var t = {
     UZ:{sotuv:"Sotuv", ijara:"Ijara", kunlik:"Kunlik", search:"Qidirish... (nomi, hudud)", post_ad:"E'lon joylash", admin:"Admin", on_map:"Xaritada", filters:"Filtrlar", type_all:"Barcha turlar", kvartira:"Kvartira", hovli:"Hovli/dacha", tijorat:"Tijorat binolari", yer:"Yer", owner:"Egasi", mortgage:"Ipotekaga mumkin", last_week:"Oxirgi hafta", last_month:"Oxirgi oy",
-      desc:"Tavsif", posted_by:"Kim joylashtirdi", property_type:"Mulk turi", rooms_count:"Xonalar soni", area_label:"Maydon, m²", repair_label:"Ta'mir", location:"Joylashuv", show_route:"Yo'nalishni ko'rsatish", msg_seller:"Sotuvchiga yozing", call_seller:"Qo'ng'iroq qilish", view_profile:"Profilni ko'rish", floor_label:"Qavat", floors_total_label:"Uyning qavatlari soni"},
+      desc:"Tavsif", posted_by:"Kim joylashtirdi", property_type:"Mulk turi", rooms_count:"Xonalar soni", area_label:"Maydon, m²", repair_label:"Ta'mir", location:"Joylashuv", show_route:"Yo'nalishni ko'rsatish", msg_seller:"Sotuvchiga yozing", call_seller:"Qo'ng'iroq qilish", view_profile:"Profilni ko'rish", floor_label:"Qavat", floors_total_label:"Uyning qavatlari soni",
+      hero_eyebrow:"To'g'ridan-to'g'ri egasidan, tekshirilgan e'lonlar", hero_title_1:"Uyingiz bor.", hero_title_2:"Topilishi", hero_title_em:"qoldi.", hero_sub:"Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari — bitta manzilda. Admin tomonidan tasdiqlangan, ishonchli sotuvchilardan.", hero_browse:"E'lonlarni ko'rish", hero_stat_listings:"Faol e'lon", hero_stat_districts:"Tuman qamrovi", hero_chip:"Admin tasdiqlagan"},
     RU:{sotuv:"Продажа", ijara:"Аренда", kunlik:"Посуточно", search:"Поиск... (название, район)", post_ad:"Разместить объявление", admin:"Админ", on_map:"На карте", filters:"Фильтры", type_all:"Все типы", kvartira:"Квартира", hovli:"Дом/дача", tijorat:"Коммерческая", yer:"Земля", owner:"От собственника", mortgage:"Ипотека возможна", last_week:"За неделю", last_month:"За месяц",
-      desc:"Описание", posted_by:"Кто разместил", property_type:"Тип недвижимости", rooms_count:"Количество комнат", area_label:"Площадь, м²", repair_label:"Ремонт", location:"Расположение", show_route:"Показать маршрут", msg_seller:"Написать продавцу", call_seller:"Позвонить", view_profile:"Смотреть профиль", floor_label:"Этаж", floors_total_label:"Этажность дома"},
+      desc:"Описание", posted_by:"Кто разместил", property_type:"Тип недвижимости", rooms_count:"Количество комнат", area_label:"Площадь, м²", repair_label:"Ремонт", location:"Расположение", show_route:"Показать маршрут", msg_seller:"Написать продавцу", call_seller:"Позвонить", view_profile:"Смотреть профиль", floor_label:"Этаж", floors_total_label:"Этажность дома",
+      hero_eyebrow:"Напрямую от собственника, проверенные объявления", hero_title_1:"Ваш дом есть.", hero_title_2:"Осталось", hero_title_em:"найти его.", hero_sub:"Квартиры, дома, коммерческая недвижимость и земля по всей Джизакской области — в одном месте. Проверено администрацией, от надёжных продавцов.", hero_browse:"Смотреть объявления", hero_stat_listings:"Активных объявлений", hero_stat_districts:"Районов охвачено", hero_chip:"Подтверждено админом"},
     EN:{sotuv:"Sale", ijara:"Rent", kunlik:"Daily", search:"Search... (title, district)", post_ad:"Post an ad", admin:"Admin", on_map:"On map", filters:"Filters", type_all:"All types", kvartira:"Apartment", hovli:"House/dacha", tijorat:"Commercial", yer:"Land", owner:"By owner", mortgage:"Mortgage OK", last_week:"Last week", last_month:"Last month",
-      desc:"Description", posted_by:"Posted by", property_type:"Property type", rooms_count:"Rooms", area_label:"Area, m²", repair_label:"Renovation", location:"Location", show_route:"Show route", msg_seller:"Message seller", call_seller:"Call", view_profile:"View profile", floor_label:"Floor", floors_total_label:"Total floors"}
+      desc:"Description", posted_by:"Posted by", property_type:"Property type", rooms_count:"Rooms", area_label:"Area, m²", repair_label:"Renovation", location:"Location", show_route:"Show route", msg_seller:"Message seller", call_seller:"Call", view_profile:"View profile", floor_label:"Floor", floors_total_label:"Total floors",
+      hero_eyebrow:"Straight from the owner, verified listings", hero_title_1:"Your home is out there.", hero_title_2:"Finding it is", hero_title_em:"the easy part.", hero_sub:"Apartments, houses, commercial spaces and land across Jizzax region — all in one place. Admin-verified, from trusted sellers.", hero_browse:"Browse listings", hero_stat_listings:"Active listings", hero_stat_districts:"Districts covered", hero_chip:"Admin verified"}
   };
   // listings themselves are stored in Uzbek (type/district/repair/
   // condition are fixed enum-like values, not free text) - this maps
@@ -1089,7 +1126,10 @@
     "O'rtacha": {RU:'Средний', EN:'Average'},
     "Ta'mirsiz": {RU:'Без ремонта', EN:'No renovation'},
     "Ikkinchi qo'l": {RU:'Вторичка', EN:'Second-hand'},
-    'Yangi bino': {RU:'Новостройка', EN:'New building'}
+    'Yangi bino': {RU:'Новостройка', EN:'New building'},
+    'Uy egasi': {RU:'Собственник', EN:'Owner'},
+    'Xaridor': {RU:'Покупатель', EN:'Buyer'},
+    'Ishonchli sotuvchi': {RU:'Надёжный продавец', EN:'Trusted seller'}
   };
   function trValue(uzText){
     if(currentLang === 'UZ' || !uzText) return uzText;
@@ -1107,6 +1147,15 @@
     // Both buttons have a leading text node + a trailing arrow-icon
     // <span> (see .cta-arrow) - touch only the text node, or .textContent
     // would wipe the icon out.
+    document.getElementById('heroEyebrowText').textContent = dict.hero_eyebrow;
+    document.getElementById('heroTitle1').textContent = dict.hero_title_1;
+    document.getElementById('heroTitle2').textContent = dict.hero_title_2;
+    document.getElementById('heroTitleEm').textContent = dict.hero_title_em;
+    document.getElementById('heroSub').textContent = dict.hero_sub;
+    document.getElementById('heroBrowseBtn').textContent = dict.hero_browse;
+    document.getElementById('heroStatListingsLabel').textContent = dict.hero_stat_listings;
+    document.getElementById('heroStatDistrictsLabel').textContent = dict.hero_stat_districts;
+    document.getElementById('heroChipText').textContent = dict.hero_chip;
     ['postAdBtn', 'heroPostBtn'].forEach(function(id){
       var btn = document.getElementById(id);
       if(btn && btn.firstChild) btn.firstChild.textContent = dict.post_ad;
@@ -1784,11 +1833,20 @@
       postLocationMap.on('click', function(e){ postLocationMarker.setLatLng(e.latlng); });
       setTimeout(function(){ postLocationMap.invalidateSize(); }, 60);
       // Center on the user's real current location if they allow it,
-      // instead of always defaulting to the Jizzax city center.
+      // instead of always defaulting to the Jizzax city center. This
+      // marks it with its own small fixed dot - separate from the
+      // draggable property pin - so it stays visible even after the
+      // property pin gets moved somewhere else (they're not always the
+      // same place: posting a listing for a house you don't currently
+      // live in/near is normal).
       if(navigator.geolocation){
         navigator.geolocation.getCurrentPosition(function(pos){
           var latlng = [pos.coords.latitude, pos.coords.longitude];
-          postLocationMarker.setLatLng(latlng);
+          var meIcon = L.divIcon({className:'my-location-dot', html:'<span></span>', iconSize:[16,16], iconAnchor:[8,8]});
+          L.marker(latlng, {icon: meIcon, interactive:false, keyboard:false, zIndexOffset:-100})
+            .addTo(postLocationMap)
+            .bindTooltip("Sizning joylashuvingiz");
+          postLocationMarker.setLatLng(latlng); // property pin still starts here, for convenience - drag it to the real spot
           postLocationMap.setView(latlng, 14);
         }, function(){ /* denied/unavailable - keep the default Jizzax center */ }, {enableHighAccuracy:true, timeout:8000});
       }
@@ -1817,6 +1875,8 @@
     currentProfile = p;
     document.getElementById('profileFullName').innerHTML = escapeHtml(p.full_name || '') + (p.verified ? VERIFIED_TICK_HTML : '');
     document.getElementById('profileUsername').textContent = p.username;
+    var idEl = document.getElementById('profileIdDisplay');
+    if(idEl) idEl.textContent = 'ID: ' + p.id;
     document.getElementById('profilePhoneDisplay').textContent = p.phone || '';
     document.getElementById('balancePhone').textContent = p.phone || '';
     var balEl = document.getElementById('balanceAmount');

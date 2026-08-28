@@ -709,21 +709,39 @@ def admin_stats(request):
             listing_count=Count('id'),
             total_views=Sum('views_count'),
             total_likes=Sum('likes_count'),
+            top_count=Count('id', filter=Q(top=True)),
+            vip_count=Count('id', filter=Q(vip=True)),
         )
     }
+    # Real, audited money actually collected (see PaymentEvent) - accurate
+    # going forward, but 0 for any listing that reached TOP/VIP some
+    # other way (seeded/demo data, or anything predating this tracking).
     paid_by_username = {
         row['username']: row['s']
         for row in PaymentEvent.objects.values('username').annotate(s=Sum('amount_cents'))
     }
+    top_price = settings.LISTING_PRICE_CENTS.get('top', 0)
+    vip_price = settings.LISTING_PRICE_CENTS.get('vip', 0)
     by_seller = []
     for username in Profile.objects.order_by('username').values_list('username', flat=True):
         stats = listing_stats_by_username.get(username)
+        top_count = stats['top_count'] if stats else 0
+        vip_count = stats['vip_count'] if stats else 0
         by_seller.append({
             'seller': username,
             'listing_count': stats['listing_count'] if stats else 0,
             'total_views': stats['total_views'] if stats else 0,
             'total_likes': stats['total_likes'] if stats else 0,
             'total_paid_cents': paid_by_username.get(username, 0),
+            # Notional value of their CURRENTLY-active TOP/VIP listings
+            # (count * that tier's price) - matches how tier_breakdown
+            # below values the site-wide totals, so it's never 0 just
+            # because a listing reached TOP/VIP without an audited
+            # PaymentEvent (e.g. it predates this tracking).
+            'top_count': top_count,
+            'vip_count': vip_count,
+            'top_value_cents': top_count * top_price,
+            'vip_value_cents': vip_count * vip_price,
         })
     by_seller.sort(key=lambda r: r['listing_count'], reverse=True)
 
