@@ -143,6 +143,12 @@ class Profile(models.Model):
     username = models.CharField(max_length=100, blank=True)
     full_name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=100, default="Uy egasi")
+    # A random 6-digit "account number" shown to the user and in the
+    # admin panel instead of the raw database id (which starts at 1 and
+    # would take 100,000+ signups to ever reach 6 digits on its own).
+    # Purely cosmetic/lookup - every real relationship still uses the
+    # normal `id` PK.
+    public_id = models.CharField(max_length=6, unique=True, blank=True)
     balance_cents = models.IntegerField(default=0)  # USD cents, topped up via Stripe
     # True once an admin approves a VerificationRequest for this profile -
     # drives the checkmark shown next to their name across the site.
@@ -156,7 +162,21 @@ class Profile(models.Model):
         # profiles have none.
         if self.phone:
             self.phone = normalize_phone(self.phone)
+        if not self.public_id:
+            self.public_id = self._new_public_id()
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def _new_public_id():
+        import random
+        for _ in range(50):  # astronomically unlikely to ever need more than a couple tries
+            candidate = str(random.randint(100000, 999999))
+            if not Profile.objects.filter(public_id=candidate).exists():
+                return candidate
+        # 900,000 possible 6-digit ids - only reachable if nearly all of
+        # them are already taken, at which point the site has bigger
+        # problems than this ever getting hit.
+        raise RuntimeError("Could not find an unused 6-digit public_id")
 
     def __str__(self):
         return self.username or self.phone

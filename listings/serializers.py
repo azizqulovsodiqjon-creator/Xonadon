@@ -38,11 +38,12 @@ from .models import Profile
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'phone', 'email', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']
+        fields = ['id', 'public_id', 'phone', 'email', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']
         # balance_cents/verified are only ever changed server-side (Stripe
         # top-up confirmation, or an admin approving a VerificationRequest)
-        # - never writable directly through a profile PATCH.
-        read_only_fields = ['balance_cents', 'verified']
+        # - never writable directly through a profile PATCH. public_id is
+        # assigned once at creation (see Profile.save()) and never changes.
+        read_only_fields = ['balance_cents', 'verified', 'public_id']
 
 
 class MessageSerializer(serializers.ModelSerializer):

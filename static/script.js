@@ -950,7 +950,7 @@
     if(!body) return;
     var filtered = profiles.filter(function(p){
       if(!query) return true;
-      return String(p.id) === query ||
+      return String(p.public_id||'') === query || String(p.id) === query ||
         (p.username||'').toLowerCase().indexOf(query)!==-1 ||
         (p.full_name||'').toLowerCase().indexOf(query)!==-1;
     });
@@ -981,7 +981,7 @@
       return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;flex-wrap:wrap;">' +
         '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
         '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div>' +
-        '<div class="profile-meta">ID: '+p.id+' · '+(p.phone || p.email || '—')+' · '+p.role+'</div></div>' +
+        '<div class="profile-meta">ID: '+(p.public_id||p.id)+' · '+(p.phone || p.email || '—')+' · '+p.role+'</div></div>' +
         '<div class="profile-count">'+s.listing_count+" ta e'lon · 👁 "+(s.total_views||0)+' · 🤍 '+(s.total_likes||0)+' · '+paidHtml+'</div>' +
         '<button class="qbtn" data-discount="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">Chegirma berish</button>' +
         '<button class="qbtn del" data-delprofile="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">O\'chirish</button>' +
@@ -1885,7 +1885,7 @@
     document.getElementById('profileFullName').innerHTML = escapeHtml(p.full_name || '') + (p.verified ? VERIFIED_TICK_HTML : '');
     document.getElementById('profileUsername').textContent = p.username;
     var idEl = document.getElementById('profileIdDisplay');
-    if(idEl) idEl.textContent = 'ID: ' + p.id;
+    if(idEl) idEl.textContent = 'ID: ' + (p.public_id || p.id);
     document.getElementById('profilePhoneDisplay').textContent = p.phone || '';
     document.getElementById('balancePhone').textContent = p.phone || '';
     var balEl = document.getElementById('balanceAmount');
