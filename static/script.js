@@ -1777,7 +1777,10 @@
       .then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
       .then(function(res){
         if(res.status !== 200 || !res.data.ok){
-          toast((res.data && res.data.error) || "Ovozli xabarni yuklashda xato yuz berdi.");
+          var msg = (res.status === 429)
+            ? "Juda ko'p urinish, biroz kuting va qayta urinib ko'ring."
+            : ((res.data && res.data.error) || "Ovozli xabarni yuklashda xato yuz berdi.");
+          toast(msg);
           postVoiceNoteId = null; postVoiceNoteUrl = null;
           renderVoiceRecorder();
           return;
@@ -1796,16 +1799,22 @@
     var fd = new FormData();
     fd.append('images', file);
     fetch(LISTING_IMAGES_API, {method:'POST', body: fd})
-      .then(function(r){ return r.json(); })
-      .then(function(data){
+      .then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+      .then(function(res){
+        var data = res.data;
         if(data.ok && data.imageIds && data.imageIds.length){
           entry.imageId = data.imageIds[0];
         } else {
           entry.failed = true;
           // Silent failure here is exactly how photos used to go
           // missing without the user noticing (the small ⚠️ on the
-          // thumbnail is easy to miss) - surface it right away.
-          toast("Bitta rasm yuklanmadi (format qo'llab-quvvatlanmasligi mumkin). Uni olib tashlang yoki boshqasini tanlang.");
+          // thumbnail is easy to miss) - surface it right away. The
+          // server's own message (size/format/rate-limit) is more
+          // accurate than a single hardcoded guess.
+          var msg = (res.status === 429)
+            ? "Juda ko'p rasm ketma-ket yuklandi, biroz kuting va qayta urinib ko'ring."
+            : ((data && data.error) || "Bitta rasm yuklanmadi. Uni olib tashlang yoki boshqasini tanlang.");
+          toast(msg);
         }
         entry.uploading = false;
         renderUploadThumbs();

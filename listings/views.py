@@ -314,7 +314,7 @@ class ListingViewSet(viewsets.ModelViewSet):
 
 
 MAX_UPLOAD_IMAGES = 10
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024  # 8MB per file, before compression
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB per file, before compression - modern phone cameras (especially Android, or iPhone ProRAW/Live Photos) can exceed the old 8MB limit on a single full-resolution photo
 
 
 def _compress_to_data_url(uploaded_file, max_dim=None, quality=None):
@@ -361,19 +361,29 @@ def upload_listing_images(request):
         return Response({'ok': False, 'error': "Rasm topilmadi."}, status=400)
 
     created_ids = []
+    skip_reason = None  # last reason a file was skipped, for a more honest error message below
     for f in files:
         if f.size > MAX_UPLOAD_BYTES:
+            skip_reason = 'size'
+            print(f'[upload_listing_images] skipped oversized file: {f.name} ({f.size} bytes)')
             continue
         try:
             data_url = _compress_to_data_url(f)
         except Exception as exc:
-            print(f'[upload_listing_images] skipped unreadable file: {exc}')
+            skip_reason = 'format'
+            print(f'[upload_listing_images] skipped unreadable file: {f.name} ({f.size} bytes) - {exc}')
             continue
         img = ListingImage.objects.create(listing=None, image=data_url)
         created_ids.append(img.id)
 
     if not created_ids:
-        return Response({'ok': False, 'error': "Hech qanday rasm yuklanmadi."}, status=400)
+        if skip_reason == 'size':
+            error = f"Rasm hajmi juda katta (maksimum {MAX_UPLOAD_BYTES // (1024*1024)}MB)."
+        elif skip_reason == 'format':
+            error = "Rasm formati qo'llab-quvvatlanmaydi. Boshqa rasm tanlang yoki skrinshot qiling."
+        else:
+            error = "Hech qanday rasm yuklanmadi."
+        return Response({'ok': False, 'error': error}, status=400)
     return Response({'ok': True, 'imageIds': created_ids})
 
 
@@ -401,10 +411,14 @@ def upload_voice_note(request):
         return Response({'ok': False, 'error': "Audio fayl hajmi juda katta."}, status=400)
 
     import base64
-    content_type = f.content_type or 'audio/webm'
-    b64 = base64.b64encode(f.read()).decode('ascii')
-    data_url = f'data:{content_type};base64,{b64}'
-    note = VoiceNote.objects.create(listing=None, audio=data_url)
+    try:
+        content_type = f.content_type or 'audio/webm'
+        b64 = base64.b64encode(f.read()).decode('ascii')
+        data_url = f'data:{content_type};base64,{b64}'
+        note = VoiceNote.objects.create(listing=None, audio=data_url)
+    except Exception as exc:
+        print(f'[upload_voice_note] failed: {exc}')
+        return Response({'ok': False, 'error': "Ovozli xabarni saqlashda xato yuz berdi."}, status=500)
     return Response({'ok': True, 'voiceNoteId': note.id})
 
 

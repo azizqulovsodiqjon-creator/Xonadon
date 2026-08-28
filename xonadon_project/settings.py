@@ -56,8 +56,13 @@ REST_FRAMEWORK = {
         # Rate-limit how often one IP can trigger a new Telegram deep
         # link/verification row, to blunt spamming the bot.
         'telegram_start': '10/min',
-        # Rate-limit listing-photo uploads per IP.
-        'listing_images': '30/min',
+        # Rate-limit listing-photo/voice-note uploads per IP. A single
+        # listing can carry up to 10 photos + one re-recorded voice note,
+        # and a failed upload still counts against this - 30/min made
+        # that genuinely reachable for a normal user, not just abuse, and
+        # once hit it silently looked like "rasm formati noto'g'ri"
+        # instead of a rate limit.
+        'listing_images': '90/min',
         # Rate-limit profile-verification submissions per IP.
         'verification_submit': '10/min',
     },
