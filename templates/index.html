@@ -60,7 +60,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
           <span class="notif-badge hidden" id="notifBadge">0</span>
         </button>
-        <button class="pill-btn cta" id="postAdBtn">E'lon joylash<span class="cta-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
+        <!-- Kept in the DOM (heroPostBtn proxies its click) but hidden -
+             the hero's own "E'lon joylash" button is now the single
+             entry point, this one at the very top was redundant. -->
+        <button class="pill-btn cta hidden" id="postAdBtn">E'lon joylash<span class="cta-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
         <button class="avatar-btn" id="avatarBtn" title="Mening profilim">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="9" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>
         </button>
@@ -373,7 +376,6 @@
       <div class="field" id="priceField"><label>Narx</label><input type="text" inputmode="numeric" id="postPrice" placeholder="Narxni kiriting">
         <div class="toggle-row" id="currencyToggle" style="margin-top:8px;">
           <button data-currency="ye" class="sel">у.е</button>
-          <button data-currency="usd">USD</button>
           <button data-currency="uzs">UZS</button>
         </div>
       </div>
@@ -389,7 +391,6 @@
       </div>
       <div class="toggle-row" id="priceRangeCurrencyToggle" style="margin-top:8px;">
         <button data-currency="ye" class="sel">у.е</button>
-        <button data-currency="usd">USD</button>
         <button data-currency="uzs">UZS</button>
       </div>
     </div>

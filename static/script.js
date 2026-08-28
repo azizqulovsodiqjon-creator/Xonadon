@@ -49,14 +49,17 @@
   var API_BASE = '/api/listings/';
   var LISTING_IMAGES_API = '/api/listing-images/';
   function recordListingView(id){
-    // Only count once per browser tab session - without this, simply
-    // going back and re-opening the same listing kept incrementing the
-    // view count again on every re-entry.
+    // Only count once per BROWSER (localStorage, not sessionStorage) -
+    // closing the tab/app and opening the same listing again shouldn't
+    // keep incrementing the view count every single time.
     var seen;
-    try{ seen = JSON.parse(sessionStorage.getItem('xonadonViewedIds') || '[]'); }catch(e){ seen = []; }
+    try{ seen = JSON.parse(localStorage.getItem('xonadonViewedIds') || '[]'); }catch(e){ seen = []; }
     if(seen.indexOf(id) !== -1) return;
     seen.push(id);
-    try{ sessionStorage.setItem('xonadonViewedIds', JSON.stringify(seen)); }catch(e){}
+    // Cap how many ids we remember so this can't grow forever for a
+    // heavy browser - drop the oldest once it gets large.
+    if(seen.length > 2000) seen = seen.slice(seen.length - 2000);
+    try{ localStorage.setItem('xonadonViewedIds', JSON.stringify(seen)); }catch(e){}
     fetch(API_BASE + id + '/view_hit/', {method:'POST'}).catch(function(err){ console.error('view_hit xato:', err); });
   }
   function likeListing(id, cb){
@@ -266,7 +269,7 @@
         '<div class="vip-badge">★ VIP</div>' +
         (filterState.owner ? '<div class="owner-badge" style="top:44px;">' + displayName(l.seller) + '</div>' : '') +
         '<div class="vip-info"><div class="vip-price">' + formatPrice(l) + '</div>' +
-        '<div class="vip-place">' + l.title + ' · ' + l.district + '</div></div>' +
+        '<div class="vip-place">' + l.title + ' · ' + trValue(l.district) + '</div></div>' +
       '</button>';
     }).join('') : '<div class="empty-note">Hozircha VIP e\'lon yo\'q.</div>';
 
@@ -282,10 +285,10 @@
             // see at a glance whose listing each card is - stacked below
             // the TOP badge when both apply, so they never overlap.
             (filterState.owner ? '<div class="owner-badge" style="top:' + (l.top ? '44px' : '12px') + ';">' + displayName(l.seller) + '</div>' : '') +
-            '<div class="type-badge">' + l.type + '</div>' +
+            '<div class="type-badge">' + trValue(l.type) + '</div>' +
           '</div>' +
           '<div class="body"><div class="price">' + formatPrice(l) + '</div>' +
-          '<div class="desc">' + l.title + ', ' + l.district + '</div>' +
+          '<div class="desc">' + l.title + ', ' + trValue(l.district) + '</div>' +
           '<div class="meta"><span>' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</span></div></div>' +
         '</button>';
       }).join('');
@@ -317,13 +320,17 @@
     return '<div class="info-row"><span class="il">' + dict.floor_label + '</span><span class="iv">' + (l.floor || '—') + '</span></div>';
   }
 
-  function openDetail(id, fromAdmin){
+  var currentDetailListing = null; // {id, fromAdmin} while pageDetail is showing - lets applyLang() below refresh its translated text without re-opening it (which would double-count the view)
+  function openDetail(id, fromAdmin, isTranslationRefresh){
     var l = findListing(id);
     if(!l) return;
     lastPage = fromAdmin ? 'pageAdmin' : 'pageHome';
+    currentDetailListing = {id: id, fromAdmin: fromAdmin};
     galleryPhotos = getPhotos(l);
     galleryIndex = 0;
-    l.viewsCount++; // reflect this open immediately, before rendering
+    if(!isTranslationRefresh){
+      l.viewsCount++; // reflect this open immediately, before rendering
+    }
     var dict = t[currentLang] || t.UZ;
     var roomsRow = l.rooms ? '<div class="info-row"><span class="il">' + dict.rooms_count + '</span><span class="iv">' + l.rooms + '</span></div>' : '';
     // Calling/messaging yourself makes no sense - hide those two
@@ -343,7 +350,7 @@
           '<div class="action-tags">' +
             (l.vip ? '<span class="detail-tag gold">★ VIP</span>' : '') +
             (l.top ? '<span class="detail-tag top">▲ TOP</span>' : '') +
-            '<span class="detail-tag">' + l.type + '</span>' +
+            '<span class="detail-tag">' + trValue(l.type) + '</span>' +
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
           (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button><button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button></div>') +
@@ -352,22 +359,22 @@
       '<div class="detail-title-block">' +
         '<div class="detail-price">' + formatPrice(l) + '</div>' +
         '<div class="detail-title">' + l.title + '</div>' +
-        '<div class="location-row"><span class="pin">📍</span>' + l.district + '</div>' +
+        '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
       '</div>' +
       '<div class="detail-section"><h3>' + dict.desc + '</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
       (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
       '<div class="detail-section"><div class="info-list">' +
         '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + l.ownerRole + '</span></div>' +
-        '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + l.type + '</span></div>' +
+        '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
         // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
         // of its own to show - it's a budget, not a property.
         (l.isWanted ? '' : (roomsRow + floorRows(l) +
         '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
-        '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + l.repair + '</span></div>')) +
+        '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
       '</div></div>' +
       '<div class="detail-section">' +
         '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
-        '<div class="location-row2"><span class="pin">📍</span>' + l.district + '</div>' +
+        '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
         '<div class="map-box" id="detailMap"></div>' +
         '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
         '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
@@ -383,7 +390,9 @@
     initDetailMap(l);
     initGallery();
     renderSimilarListings(l);
-    recordListingView(l.id);
+    if(!isTranslationRefresh){
+      recordListingView(l.id);
+    }
 
     var likeBtn = document.getElementById('detailLikeBtn');
     if(likeBtn){
@@ -494,7 +503,7 @@
       try{
         currentMap = L.map(mapEl, {scrollWheelZoom:false, minZoom:8, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView([l.lat,l.lng],13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(currentMap);
-        L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(l.title+'<br>'+l.district).openPopup();
+        L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(l.title+'<br>'+trValue(l.district)).openPopup();
         setTimeout(function(){ if(currentMap) currentMap.invalidateSize(); },200);
       }catch(err){ mapEl.innerHTML = '<div class="map-fallback">Xaritani yuklab bo\'lmadi.</div>'; }
     },60);
@@ -532,8 +541,8 @@
     var gridWrap = document.getElementById('sellerListingsGrid');
     gridWrap.innerHTML = mine.length ? mine.map(function(l){
       return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt="">' +
-        (l.top ? '<div class="top-badge">▲ TOP</div>' : '') + '<div class="type-badge">'+l.type+'</div></div>' +
-        '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+l.district+'</div>' +
+        (l.top ? '<div class="top-badge">▲ TOP</div>' : '') + '<div class="type-badge">'+trValue(l.type)+'</div></div>' +
+        '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+trValue(l.district)+'</div>' +
         '<div class="meta"><span>'+(l.vip?'★ VIP':(l.top?'▲ TOP':'Oddiy'))+'</span></div></div></div>';
     }).join('') : '<div class="empty-note">Hali e\'lon joylamagan.</div>';
     gridWrap.querySelectorAll('[data-id]').forEach(function(el){
@@ -729,7 +738,7 @@
         var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
         var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
         var popupEl = document.createElement('div');
-        popupEl.innerHTML = '<b>'+l.title+'</b><br>'+l.district+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
+        popupEl.innerHTML = '<b>'+l.title+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
         popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
         popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
         m.bindPopup(popupEl);
@@ -1057,13 +1066,51 @@
     EN:{sotuv:"Sale", ijara:"Rent", kunlik:"Daily", search:"Search... (title, district)", post_ad:"Post an ad", admin:"Admin", on_map:"On map", filters:"Filters", type_all:"All types", kvartira:"Apartment", hovli:"House/dacha", tijorat:"Commercial", yer:"Land", owner:"By owner", mortgage:"Mortgage OK", last_week:"Last week", last_month:"Last month",
       desc:"Description", posted_by:"Posted by", property_type:"Property type", rooms_count:"Rooms", area_label:"Area, m²", repair_label:"Renovation", location:"Location", show_route:"Show route", msg_seller:"Message seller", call_seller:"Call", view_profile:"View profile", floor_label:"Floor", floors_total_label:"Total floors"}
   };
+  // listings themselves are stored in Uzbek (type/district/repair/
+  // condition are fixed enum-like values, not free text) - this maps
+  // those exact Uzbek strings to RU/EN so a listing's own words also
+  // switch with the language picker, not just the surrounding UI chrome.
+  var TYPE_TO_DICT_KEY = {'Kvartira':'kvartira', 'Hovli/dacha':'hovli', 'Tijorat binolari':'tijorat', 'Yer':'yer'};
+  var VALUE_TRANSLATIONS = {
+    'Jizzax shahri': {RU:'г. Джизак', EN:'Jizzax city'},
+    'Arnasoy tumani': {RU:'Арнасайский район', EN:'Arnasoy district'},
+    'Baxmal tumani': {RU:'Бахмальский район', EN:'Baxmal district'},
+    "Do'stlik tumani": {RU:'Дустликский район', EN:"Do'stlik district"},
+    'Forish tumani': {RU:'Форишский район', EN:'Forish district'},
+    "G'allaorol tumani": {RU:'Галляаральский район', EN:"G'allaorol district"},
+    "Mirzacho'l tumani": {RU:'Мирзачульский район', EN:"Mirzacho'l district"},
+    'Paxtakor tumani': {RU:'Пахтакорский район', EN:'Paxtakor district'},
+    'Sh. Rashidov tumani': {RU:'р-н Ш. Рашидова', EN:'Sh. Rashidov district'},
+    'Yangiobod tumani': {RU:'Янгиабадский район', EN:'Yangiobod district'},
+    'Zafarobod tumani': {RU:'Зафарабадский район', EN:'Zafarobod district'},
+    'Zarbdor tumani': {RU:'Зарбдарский район', EN:'Zarbdor district'},
+    'Zomin tumani': {RU:'Зааминский район', EN:'Zomin district'},
+    'Evroremont': {RU:'Евроремонт', EN:'Euro renovation'},
+    "O'rtacha": {RU:'Средний', EN:'Average'},
+    "Ta'mirsiz": {RU:'Без ремонта', EN:'No renovation'},
+    "Ikkinchi qo'l": {RU:'Вторичка', EN:'Second-hand'},
+    'Yangi bino': {RU:'Новостройка', EN:'New building'}
+  };
+  function trValue(uzText){
+    if(currentLang === 'UZ' || !uzText) return uzText;
+    var typeKey = TYPE_TO_DICT_KEY[uzText];
+    if(typeKey) return t[currentLang][typeKey];
+    var entry = VALUE_TRANSLATIONS[uzText];
+    return (entry && entry[currentLang]) || uzText;
+  }
   function applyLang(lang){
     currentLang = lang;
     document.getElementById('langCode').textContent = lang;
     var dict = t[lang];
     document.querySelectorAll('#segment button[data-deal]').forEach(function(b){ b.textContent = dict[b.getAttribute('data-deal')]; });
     document.getElementById('searchInput').setAttribute('placeholder', dict.search);
-    document.getElementById('postAdBtn').textContent = dict.post_ad;
+    // Both buttons have a leading text node + a trailing arrow-icon
+    // <span> (see .cta-arrow) - touch only the text node, or .textContent
+    // would wipe the icon out.
+    ['postAdBtn', 'heroPostBtn'].forEach(function(id){
+      var btn = document.getElementById(id);
+      if(btn && btn.firstChild) btn.firstChild.textContent = dict.post_ad;
+    });
     document.querySelector('#mapBtn').childNodes[1] ? (document.querySelector('#mapBtn').lastChild.textContent = dict.on_map) : null;
     document.querySelector('#filtersBtn').lastChild.textContent = ' ' + dict.filters;
     if(filterState.type === 'all'){ document.getElementById('typeLabel').textContent = dict.type_all; }
@@ -1073,6 +1120,14 @@
     document.querySelector('[data-filter="mortgage"]').lastChild.textContent = ' ' + dict.mortgage;
     document.querySelector('[data-filter="lastWeek"]').lastChild.textContent = ' ' + dict.last_week;
     document.querySelector('[data-filter="lastMonth"]').lastChild.textContent = ' ' + dict.last_month;
+    // The listing chrome above is UI-only, but each listing's own words
+    // (type/district/repair) are stored in Uzbek - re-render whatever's
+    // currently on screen so switching language actually retranslates
+    // them too, not just the surrounding buttons/labels.
+    renderPublic();
+    if(currentDetailListing && document.getElementById('pageDetail').classList.contains('show')){
+      openDetail(currentDetailListing.id, currentDetailListing.fromAdmin, true);
+    }
   }
 
   /* =========================================================
@@ -1985,7 +2040,7 @@
       }
       wrap.innerHTML = mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+l.district+'</div></div></div>';
+          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+trValue(l.district)+'</div></div></div>';
       }).join('');
       wrap.querySelectorAll('[data-id]').forEach(function(el){
         el.addEventListener('click', function(){ closeAllPanels(); openDetail(Number(this.getAttribute('data-id')), false); });
