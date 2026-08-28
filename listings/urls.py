@@ -26,6 +26,9 @@ urlpatterns = [
     path('api/verification/status/', views.verification_status, name='verification-status'),
     path('api/admin/verification-requests/', views.admin_verification_requests, name='admin-verification-requests'),
     path('api/admin/verification-requests/<int:request_id>/decide/', views.admin_verification_decide, name='admin-verification-decide'),
+    path('api/admin/discounts/', views.admin_create_discount, name='admin-create-discount'),
+    path('api/discounts/mine/', views.my_discounts, name='my-discounts'),
+    path('api/currency-rate/', views.currency_rate, name='currency-rate'),
     path('api/payments/config/', views.payment_config, name='payment-config'),
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),
     path('api/payments/confirm/', views.confirm_payment, name='confirm-payment'),
@@ -42,5 +45,6 @@ urlpatterns = [
     path('api/telegram/webhook/', views.telegram_webhook, name='telegram-webhook'),
     path('api/telegram/diagnostics/', views.telegram_diagnostics, name='telegram-diagnostics'),
     path('api/auth/google/', views.google_auth, name='google-auth'),
+    path('api/auth/simple-register/', views.simple_register, name='simple-register'),
     path('api/', include(router.urls)),
 ]

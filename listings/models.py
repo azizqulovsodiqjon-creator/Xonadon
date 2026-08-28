@@ -226,6 +226,50 @@ class PendingBalanceTopup(models.Model):
         return f"topup {self.amount_cents}c for {self.profile} ({'paid' if self.paid else 'pending'})"
 
 
+class PaymentEvent(models.Model):
+    """One completed payment, for the admin 'qancha pul to'lagan' report.
+    Written at each of the 4 places money actually changes hands (balance
+    top-up, a new TOP/VIP listing paid by card or balance, a tier upgrade
+    paid by card or balance) - see views.py's _record_payment_event().
+    Keyed by username (not a Profile FK) because a card-paid listing
+    purchase only ever has the username the payload was posted under,
+    the same "not a real per-request identity" tradeoff the rest of this
+    app already makes (Message, Listing.seller, etc.)."""
+    KIND_CHOICES = [
+        ('balance_topup', "Balans to'ldirish"),
+        ('tier_purchase', "E'lon turi (yangi)"),
+        ('tier_upgrade', "Reklama qilish (mavjud e'lon)"),
+    ]
+    username = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+    tier = models.CharField(max_length=20, blank=True)  # 'top'/'vip' when relevant, blank for a plain top-up
+    amount_cents = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.username}: {self.kind} {self.amount_cents}c"
+
+
+class TierDiscount(models.Model):
+    """An admin-granted price break on a profile's NEXT TOP or VIP listing
+    purchase - see ListingViewSet-adjacent admin_create_discount() and
+    _discounted_price_cents() in views.py. One-time use: `used` flips to
+    True the moment it's actually spent (see _finalize_pending_payment/
+    create_listing_from_balance), never before, so an abandoned/failed
+    checkout doesn't burn it."""
+    TIER_CHOICES = [('top', 'Top'), ('vip', 'Vip')]
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='discounts')
+    tier = models.CharField(max_length=20, choices=TIER_CHOICES)
+    percent = models.PositiveIntegerField()
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.profile.username}: {self.percent}% off {self.tier} ({'used' if self.used else 'active'})"
+
+
 def _new_telegram_token():
     return secrets.token_urlsafe(16)
 

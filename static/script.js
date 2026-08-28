@@ -22,10 +22,23 @@
   // once actually logged in.
   var PANEL_ROUTE = location.pathname.replace(/\/+$/, '') === '/panel';
   var currentProfile = null; // the full Profile record (id/phone/username/...) for the logged-in user
+  // Global price display currency - у.е or so'm, independent of what
+  // currency each individual listing was actually posted in. See
+  // formatOnePrice() below, which does the actual conversion.
+  var displayCurrency = (function(){ try{ return localStorage.getItem('displayCurrency') || 'ye'; }catch(e){ return 'ye'; } })();
+  var usdUzsRate = null;
+  var CURRENCY_RATE_API = '/api/currency-rate/';
+  function loadCurrencyRate(cb){
+    fetch(CURRENCY_RATE_API).then(function(r){ return r.json(); }).then(function(d){
+      if(d.ok && d.rate) usdUzsRate = d.rate;
+      if(cb) cb();
+    }).catch(function(err){ console.error('currency rate xato:', err); if(cb) cb(); });
+  }
   var TELEGRAM_START_API = '/api/telegram/start/';
   var TELEGRAM_STATUS_API = '/api/telegram/status/';
   var TELEGRAM_VERIFY_API = '/api/telegram/verify/';
   var GOOGLE_AUTH_API = '/api/auth/google/';
+  var SIMPLE_REGISTER_API = '/api/auth/simple-register/';
   var telegramVerifyToken = null, telegramDeepLink = null, telegramPollTimer = null;
   function stopTelegramPoll(){
     if(telegramPollTimer){ clearInterval(telegramPollTimer); telegramPollTimer = null; }
@@ -145,10 +158,20 @@
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
   function displayName(handle){ return handle.replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
-  function formatOnePrice(cur, value){
-    if(cur === 'usd') return '$' + value;
-    if(cur === 'uzs') return value + " so'm";
-    return value + ' у.е';
+  function formatOnePrice(sourceCur, value){
+    // The header currency toggle (у.е / so'm) overrides how EVERY price
+    // displays, regardless of which currency it was actually posted in -
+    // 'usd' and 'ye' are both always treated as 1:1 with each other
+    // locally (the standard Uzbekistan real-estate convention), so only
+    // so'm<->у.е ever needs the live CBU rate to convert.
+    var num = parseFloat(String(value).replace(/[^\d.]/g,'')) || 0;
+    var usdEquivalent = (sourceCur === 'uzs') ? (usdUzsRate ? num / usdUzsRate : num) : num;
+    if(displayCurrency === 'uzs'){
+      var som = (sourceCur === 'uzs') ? num : (usdUzsRate ? usdEquivalent * usdUzsRate : num);
+      return Math.round(som).toLocaleString('ru-RU') + " so'm";
+    }
+    var rounded = Math.round(usdEquivalent * 100) / 100;
+    return (rounded % 1 === 0 ? rounded : rounded.toFixed(2)) + ' у.е';
   }
   function formatPrice(l){
     var cur = (l && l.currency) || 'ye';
@@ -283,12 +306,13 @@
   var detailRouteLine = null;
 
   function floorRows(l){
+    var dict = t[currentLang] || t.UZ;
     if(l.floor && l.floor.indexOf('/') !== -1){
       var parts = l.floor.split('/');
-      return '<div class="info-row"><span class="il">Qavat</span><span class="iv">' + parts[0] + '</span></div>' +
-             '<div class="info-row"><span class="il">Uyning qavatlari soni</span><span class="iv">' + parts[1] + '</span></div>';
+      return '<div class="info-row"><span class="il">' + dict.floor_label + '</span><span class="iv">' + parts[0] + '</span></div>' +
+             '<div class="info-row"><span class="il">' + dict.floors_total_label + '</span><span class="iv">' + parts[1] + '</span></div>';
     }
-    return '<div class="info-row"><span class="il">Qavat</span><span class="iv">' + (l.floor || '—') + '</span></div>';
+    return '<div class="info-row"><span class="il">' + dict.floor_label + '</span><span class="iv">' + (l.floor || '—') + '</span></div>';
   }
 
   function openDetail(id, fromAdmin){
@@ -298,7 +322,8 @@
     galleryPhotos = getPhotos(l);
     galleryIndex = 0;
     l.viewsCount++; // reflect this open immediately, before rendering
-    var roomsRow = l.rooms ? '<div class="info-row"><span class="il">Xonalar soni</span><span class="iv">' + l.rooms + '</span></div>' : '';
+    var dict = t[currentLang] || t.UZ;
+    var roomsRow = l.rooms ? '<div class="info-row"><span class="il">' + dict.rooms_count + '</span><span class="iv">' + l.rooms + '</span></div>' : '';
     // Calling/messaging yourself makes no sense - hide those two
     // buttons entirely when the viewer owns this listing.
     var isOwnListing = !!(l.seller && myUsername() && l.seller === myUsername());
@@ -319,7 +344,7 @@
             '<span class="detail-tag">' + l.type + '</span>' +
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
-          (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">Sotuvchiga yozing</button><button class="action-btn filled" id="callSellerBtn">Qo\'ng\'iroq qilish</button></div>') +
+          (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button><button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button></div>') +
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
@@ -327,28 +352,28 @@
         '<div class="detail-title">' + l.title + '</div>' +
         '<div class="location-row"><span class="pin">📍</span>' + l.district + '</div>' +
       '</div>' +
-      '<div class="detail-section"><h3>Tavsif</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
+      '<div class="detail-section"><h3>' + dict.desc + '</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
       (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
       '<div class="detail-section"><div class="info-list">' +
-        '<div class="info-row"><span class="il">Kim joylashtirdi</span><span class="iv">' + l.ownerRole + '</span></div>' +
-        '<div class="info-row"><span class="il">Mulk turi</span><span class="iv">' + l.type + '</span></div>' +
+        '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + l.ownerRole + '</span></div>' +
+        '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + l.type + '</span></div>' +
         // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
         // of its own to show - it's a budget, not a property.
         (l.isWanted ? '' : (roomsRow + floorRows(l) +
-        '<div class="info-row"><span class="il">Maydon, m²</span><span class="iv">' + l.area + '</span></div>' +
-        '<div class="info-row"><span class="il">Ta\'mir</span><span class="iv">' + l.repair + '</span></div>')) +
+        '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
+        '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + l.repair + '</span></div>')) +
       '</div></div>' +
       '<div class="detail-section">' +
-        '<div class="section-head-row"><h3 style="margin:0;">Joylashuv</h3></div>' +
+        '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
         '<div class="location-row2"><span class="pin">📍</span>' + l.district + '</div>' +
         '<div class="map-box" id="detailMap"></div>' +
         '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
-        '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">Yo\'nalishni ko\'rsatish</button>' +
+        '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
       '</div>' +
       '<div class="owner-card">' +
         '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
         '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + l.ownerRole + '</div></div>' +
-        '<button class="owner-contact-btn" id="viewSellerProfileBtn">Profilni ko\'rish</button>' +
+        '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
       '</div>' +
       '<div class="similar-section" id="similarSection"></div>';
 
@@ -782,7 +807,7 @@
       var sellerRows = (s.sellers || []).map(function(row){
         return '<div class="queue-row"><div class="queue-info">' +
           '<div class="qdesc">' + displayName(row.seller) + '</div>' +
-          '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk</div>' +
+          '<div class="qseller">' + row.listing_count + " ta e'lon · 👁 " + (row.total_views||0) + " ko'rish · 🤍 " + (row.total_likes||0) + ' layk · ' + formatUsd(row.total_paid_cents||0) + " to'lagan</div>" +
           '</div></div>';
       }).join('') || '<div class="empty-admin">Hozircha sotuvchi yo\'q.</div>';
       var soldRows = (s.soldListingsDetail || []).map(function(row){
@@ -796,6 +821,8 @@
           '<div class="astat"><div class="n">' + s.totalListings + '</div><div class="l">Jami e\'lonlar</div></div>' +
           '<div class="astat"><div class="n">' + s.soldListings + '</div><div class="l">Sotilgan uylar</div></div>' +
           '<div class="astat"><div class="n">' + s.paidListingsBought + '</div><div class="l">Pullik (TOP/VIP) e\'lonlar</div></div>' +
+          '<div class="astat"><div class="n">' + (s.totalViews||0) + '</div><div class="l">Jami ko\'rishlar</div></div>' +
+          '<div class="astat"><div class="n">' + (s.totalLikes||0) + '</div><div class="l">Jami layklar</div></div>' +
         '</div>' +
         '<div class="admin-stats">' +
           '<div class="astat"><div class="n">' + ((s.tierBreakdown&&s.tierBreakdown.top) ? s.tierBreakdown.top.count : 0) + '</div><div class="l">TOP e\'lonlar (qiymati ' + formatUsd((s.tierBreakdown&&s.tierBreakdown.top) ? s.tierBreakdown.top.revenueCents : 0) + ')</div></div>' +
@@ -822,6 +849,8 @@
   function renderAdminStats(){
     var vipCount = listings.filter(function(l){ return l.vip; }).length;
     var topCount = listings.filter(function(l){ return l.top; }).length;
+    var totalViews = listings.reduce(function(sum,l){ return sum + (l.viewsCount||0); }, 0);
+    var totalLikes = listings.reduce(function(sum,l){ return sum + (l.likesCount||0); }, 0);
     // Total registered profiles (allProfilesDirectory), not just sellers
     // who've posted a listing - a "profiles" count should include
     // everyone who signed up, listing or not.
@@ -829,7 +858,9 @@
       '<div class="astat"><div class="n">'+listings.length+'</div><div class="l">Jami e\'lonlar</div></div>' +
       '<div class="astat"><div class="n">'+vipCount+'</div><div class="l">VIP e\'lonlar</div></div>' +
       '<div class="astat"><div class="n">'+topCount+'</div><div class="l">TOP e\'lonlar</div></div>' +
-      '<div class="astat"><div class="n">'+allProfilesDirectory.length+'</div><div class="l">Profillar ro\'yxati</div></div>';
+      '<div class="astat"><div class="n">'+allProfilesDirectory.length+'</div><div class="l">Profillar ro\'yxati</div></div>' +
+      '<div class="astat"><div class="n">'+totalViews+'</div><div class="l">Jami ko\'rishlar</div></div>' +
+      '<div class="astat"><div class="n">'+totalLikes+'</div><div class="l">Jami layklar</div></div>';
   }
   function renderAdmin(){
     renderAdminStats();
@@ -840,59 +871,34 @@
       renderAdminStatsOnly('adminContent');
       return;
     }
-    if(adminTab==='verification'){
-      fetch(ADMIN_VERIFICATION_REQUESTS_API, {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(reqs){
-        if(!reqs.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha kutilayotgan so\'rov yo\'q.</div>'; return; }
-        wrap.innerHTML = reqs.map(function(r){
-          return '<div class="queue-row" data-vr="'+r.id+'" style="cursor:default;flex-wrap:wrap;">' +
-            '<div style="display:flex;gap:8px;">' +
-              '<img src="'+r.idPhoto+'" alt="ID" style="width:90px;height:70px;border-radius:10px;object-fit:cover;">' +
-              '<img src="'+r.selfiePhoto+'" alt="Selfie" style="width:90px;height:70px;border-radius:10px;object-fit:cover;">' +
-            '</div>' +
-            '<div class="queue-info">' +
-              '<div class="qprice">'+(r.fullName || r.username)+'</div>' +
-              '<div class="qdesc">@'+r.username+' · '+r.phone+'</div>' +
-            '</div>' +
-            '<div class="queue-actions">' +
-              '<button class="qbtn" data-decide="approve" data-id="'+r.id+'">Tasdiqlash</button>' +
-              '<button class="qbtn del" data-decide="reject" data-id="'+r.id+'">Rad etish</button>' +
-            '</div></div>';
-        }).join('');
-        wrap.querySelectorAll('[data-decide]').forEach(function(btn){
-          btn.addEventListener('click', function(){
-            var id = this.getAttribute('data-id');
-            var decision = this.getAttribute('data-decide');
-            fetch(ADMIN_VERIFICATION_REQUESTS_API + id + '/decide/', {
-              method: 'POST', credentials: 'same-origin',
-              headers: csrfHeaders({'Content-Type': 'application/json'}),
-              body: JSON.stringify({decision: decision})
-            }).then(function(r){
-              if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
-              renderAdmin();
-              toast(decision === 'approve' ? "Profil tasdiqlandi." : "So'rov rad etildi.");
-            }).catch(function(err){ console.error('verification decide xato:', err); toast("Xato yuz berdi."); });
-          });
-        });
-      }).catch(function(err){ console.error('verification requests xato:', err); wrap.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>'; });
-      return;
-    }
     if(adminTab==='profiles'){
-      fetch(PROFILE_API).then(function(r){ return r.json(); }).then(function(profiles){
-        if(!profiles.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha ro\'yxatdan o\'tgan foydalanuvchi yo\'q.</div>'; return; }
-        wrap.innerHTML = profiles.map(function(p){
-          var listingCount = listings.filter(function(l){ return l.seller === p.username; }).length;
-          return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;">' +
-            '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
-            '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div><div class="profile-meta">'+p.phone+' · '+p.role+'</div></div>' +
-            '<div class="profile-count">'+listingCount+' ta e\'lon</div></div>';
-        }).join('');
-        wrap.querySelectorAll('[data-seller]').forEach(function(row){
-          row.addEventListener('click', function(){
-            // openSellerProfile now handles users with zero listings too
-            // (shows their profile with an empty-listings state).
-            openSellerProfile(this.getAttribute('data-seller'), true);
-          });
+      // Tasdiqlash used to be its own tab - now it renders inline on
+      // whichever profile has a pending request, so there's one place
+      // to look instead of two. Needs three fetches merged together:
+      // the profile list itself, who's waiting on verification, and
+      // (from the stats endpoint, already computed there) each
+      // profile's listing/view/like/payment totals.
+      wrap.innerHTML =
+        '<input type="text" id="profileSearchInput" placeholder="ID, username yoki ism bo\'yicha qidirish..." style="width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--line);margin-bottom:14px;font-family:inherit;font-size:14px;background:var(--card);color:var(--ink);">' +
+        '<div id="profileListBody"><div class="empty-admin">Yuklanmoqda...</div></div>';
+      Promise.all([
+        fetch(PROFILE_API).then(function(r){ return r.json(); }),
+        fetch(ADMIN_VERIFICATION_REQUESTS_API, {credentials:'same-origin'}).then(function(r){ return r.json(); }),
+        fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){ return r.json(); })
+      ]).then(function(results){
+        var profiles = results[0], verifReqs = results[1], stats = results[2];
+        var verifByUsername = {};
+        verifReqs.forEach(function(v){ verifByUsername[v.username] = v; });
+        var statsByUsername = {};
+        (stats.sellers || []).forEach(function(s){ statsByUsername[s.seller] = s; });
+        renderAdminProfilesList(profiles, verifByUsername, statsByUsername, '');
+        document.getElementById('profileSearchInput').addEventListener('input', function(){
+          renderAdminProfilesList(profiles, verifByUsername, statsByUsername, this.value.trim().toLowerCase());
         });
+      }).catch(function(err){
+        console.error('admin profiles xato:', err);
+        var body = document.getElementById('profileListBody');
+        if(body) body.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>';
       });
       return;
     }
@@ -923,6 +929,100 @@
       });
     });
   }
+  function renderAdminProfilesList(profiles, verifByUsername, statsByUsername, query){
+    var body = document.getElementById('profileListBody');
+    if(!body) return;
+    var filtered = profiles.filter(function(p){
+      if(!query) return true;
+      return String(p.id) === query ||
+        (p.username||'').toLowerCase().indexOf(query)!==-1 ||
+        (p.full_name||'').toLowerCase().indexOf(query)!==-1;
+    });
+    if(!filtered.length){ body.innerHTML = '<div class="empty-admin">Hech narsa topilmadi.</div>'; return; }
+    body.innerHTML = filtered.map(function(p){
+      var v = verifByUsername[p.username];
+      var s = statsByUsername[p.username] || {listing_count:0, total_views:0, total_likes:0, total_paid_cents:0};
+      var verifHtml = v ?
+        '<div class="verify-inline" style="width:100%;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">' +
+          '<div style="font-size:12.5px;font-weight:700;color:var(--accent2);margin-bottom:8px;">Tasdiqlash kutilmoqda</div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+            '<img src="'+v.idPhoto+'" alt="ID" style="width:80px;height:64px;border-radius:8px;object-fit:cover;">' +
+            '<img src="'+v.selfiePhoto+'" alt="Selfie" style="width:80px;height:64px;border-radius:8px;object-fit:cover;">' +
+          '</div>' +
+          '<button class="qbtn" data-decide="approve" data-vid="'+v.id+'">Tasdiqlash</button> ' +
+          '<button class="qbtn del" data-decide="reject" data-vid="'+v.id+'">Rad etish</button>' +
+        '</div>' : '';
+      return '<div class="profile-row" data-seller="'+p.username+'" style="cursor:pointer;flex-wrap:wrap;">' +
+        '<div class="profile-avatar">'+(p.full_name || p.username).charAt(0).toUpperCase()+'</div>' +
+        '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div>' +
+        '<div class="profile-meta">ID: '+p.id+' · '+(p.phone || p.email || '—')+' · '+p.role+'</div></div>' +
+        '<div class="profile-count">'+s.listing_count+" ta e'lon · 👁 "+(s.total_views||0)+' · 🤍 '+(s.total_likes||0)+' · '+formatUsd(s.total_paid_cents||0)+" to'lagan</div>" +
+        '<button class="qbtn" data-discount="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">Chegirma berish</button>' +
+        '<div class="discount-form hidden" id="discountForm-'+p.id+'" style="width:100%;"></div>' +
+        verifHtml +
+      '</div>';
+    }).join('');
+
+    body.querySelectorAll('[data-seller]').forEach(function(row){
+      row.addEventListener('click', function(e){
+        if(e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
+        openSellerProfile(this.getAttribute('data-seller'), true);
+      });
+    });
+    body.querySelectorAll('[data-decide]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = this.getAttribute('data-vid');
+        var decision = this.getAttribute('data-decide');
+        fetch(ADMIN_VERIFICATION_REQUESTS_API + id + '/decide/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({decision: decision})
+        }).then(function(r){
+          if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+          toast(decision === 'approve' ? "Profil tasdiqlandi." : "So'rov rad etildi.");
+          renderAdmin();
+        }).catch(function(err){ console.error('verification decide xato:', err); toast("Xato yuz berdi."); });
+      });
+    });
+    body.querySelectorAll('[data-discount]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var pid = this.getAttribute('data-discount');
+        var username = this.getAttribute('data-username');
+        var formEl = document.getElementById('discountForm-'+pid);
+        var wasOpen = !formEl.classList.contains('hidden');
+        document.querySelectorAll('.discount-form').forEach(function(f){ f.classList.add('hidden'); f.innerHTML=''; });
+        if(wasOpen) return;
+        formEl.classList.remove('hidden');
+        formEl.innerHTML =
+          '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">' +
+            '<select class="disc-tier" style="padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);"><option value="top">TOP</option><option value="vip">VIP</option></select>' +
+            '<input type="text" inputmode="numeric" class="disc-percent" placeholder="Foiz (masalan 30)" style="width:150px;padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);">' +
+            '<button type="button" class="qbtn" data-send-discount="1">Yuborish</button>' +
+          '</div>';
+        formEl.querySelector('[data-send-discount]').addEventListener('click', function(ev){
+          ev.stopPropagation();
+          var tier = formEl.querySelector('.disc-tier').value;
+          var percent = parseInt(formEl.querySelector('.disc-percent').value, 10);
+          if(!percent || percent < 1 || percent > 100){ alert("1 dan 100 gacha foiz kiriting."); return; }
+          fetch('/api/admin/discounts/', {
+            method: 'POST', credentials: 'same-origin',
+            headers: csrfHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({profile_id: pid, tier: tier, percent: percent})
+          }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+            .then(function(res){
+              if(res.status === 200 && res.data.ok){
+                toast(username + "ga " + percent + "% " + tier.toUpperCase() + " chegirma berildi.");
+                formEl.classList.add('hidden'); formEl.innerHTML = '';
+              } else {
+                alert((res.data && res.data.error) || "Xato yuz berdi.");
+              }
+            }).catch(function(err){ console.error('discount xato:', err); alert("Xato yuz berdi."); });
+        });
+      });
+    });
+  }
   function deleteListing(id){
     fetch(API_BASE + id + '/', {method:'DELETE', credentials:'same-origin', headers: csrfHeaders()})
       .then(function(r){
@@ -948,9 +1048,12 @@
      TIL ALMASHTIRISH
   ==========================================================*/
   var t = {
-    UZ:{sotuv:"Sotuv", ijara:"Ijara", kunlik:"Kunlik", search:"Qidirish... (nomi, hudud)", post_ad:"E'lon joylash", admin:"Admin", on_map:"Xaritada", filters:"Filtrlar", type_all:"Barcha turlar", kvartira:"Kvartira", hovli:"Hovli/dacha", tijorat:"Tijorat binolari", yer:"Yer", owner:"Egasi", mortgage:"Ipotekaga mumkin", last_week:"Oxirgi hafta", last_month:"Oxirgi oy"},
-    RU:{sotuv:"Продажа", ijara:"Аренда", kunlik:"Посуточно", search:"Поиск... (название, район)", post_ad:"Разместить объявление", admin:"Админ", on_map:"На карте", filters:"Фильтры", type_all:"Все типы", kvartira:"Квартира", hovli:"Дом/дача", tijorat:"Коммерческая", yer:"Земля", owner:"От собственника", mortgage:"Ипотека возможна", last_week:"За неделю", last_month:"За месяц"},
-    EN:{sotuv:"Sale", ijara:"Rent", kunlik:"Daily", search:"Search... (title, district)", post_ad:"Post an ad", admin:"Admin", on_map:"On map", filters:"Filters", type_all:"All types", kvartira:"Apartment", hovli:"House/dacha", tijorat:"Commercial", yer:"Land", owner:"By owner", mortgage:"Mortgage OK", last_week:"Last week", last_month:"Last month"}
+    UZ:{sotuv:"Sotuv", ijara:"Ijara", kunlik:"Kunlik", search:"Qidirish... (nomi, hudud)", post_ad:"E'lon joylash", admin:"Admin", on_map:"Xaritada", filters:"Filtrlar", type_all:"Barcha turlar", kvartira:"Kvartira", hovli:"Hovli/dacha", tijorat:"Tijorat binolari", yer:"Yer", owner:"Egasi", mortgage:"Ipotekaga mumkin", last_week:"Oxirgi hafta", last_month:"Oxirgi oy",
+      desc:"Tavsif", posted_by:"Kim joylashtirdi", property_type:"Mulk turi", rooms_count:"Xonalar soni", area_label:"Maydon, m²", repair_label:"Ta'mir", location:"Joylashuv", show_route:"Yo'nalishni ko'rsatish", msg_seller:"Sotuvchiga yozing", call_seller:"Qo'ng'iroq qilish", view_profile:"Profilni ko'rish", floor_label:"Qavat", floors_total_label:"Uyning qavatlari soni"},
+    RU:{sotuv:"Продажа", ijara:"Аренда", kunlik:"Посуточно", search:"Поиск... (название, район)", post_ad:"Разместить объявление", admin:"Админ", on_map:"На карте", filters:"Фильтры", type_all:"Все типы", kvartira:"Квартира", hovli:"Дом/дача", tijorat:"Коммерческая", yer:"Земля", owner:"От собственника", mortgage:"Ипотека возможна", last_week:"За неделю", last_month:"За месяц",
+      desc:"Описание", posted_by:"Кто разместил", property_type:"Тип недвижимости", rooms_count:"Количество комнат", area_label:"Площадь, м²", repair_label:"Ремонт", location:"Расположение", show_route:"Показать маршрут", msg_seller:"Написать продавцу", call_seller:"Позвонить", view_profile:"Смотреть профиль", floor_label:"Этаж", floors_total_label:"Этажность дома"},
+    EN:{sotuv:"Sale", ijara:"Rent", kunlik:"Daily", search:"Search... (title, district)", post_ad:"Post an ad", admin:"Admin", on_map:"On map", filters:"Filters", type_all:"All types", kvartira:"Apartment", hovli:"House/dacha", tijorat:"Commercial", yer:"Land", owner:"By owner", mortgage:"Mortgage OK", last_week:"Last week", last_month:"Last month",
+      desc:"Description", posted_by:"Posted by", property_type:"Property type", rooms_count:"Rooms", area_label:"Area, m²", repair_label:"Renovation", location:"Location", show_route:"Show route", msg_seller:"Message seller", call_seller:"Call", view_profile:"View profile", floor_label:"Floor", floors_total_label:"Total floors"}
   };
   function applyLang(lang){
     currentLang = lang;
@@ -1439,7 +1542,12 @@
       lifecycleText = 'Muddat: ' + parts.join(' → ') + ' (jami ' + totalDays + ' kun), keyin avtomatik o\'chadi.';
     }
     var countText = 'Hozir ' + (counts[tier] != null ? counts[tier] : 0) + ' ta e\'lon ' + stageLabels[tier] + ' holatda.';
-    return lifecycleText + ' ' + countText;
+    var discountText = '';
+    var discountPercent = paymentInfo.discounts ? paymentInfo.discounts[tier] : null;
+    if(discountPercent && (tier === 'top' || tier === 'vip')){
+      discountText = ' 🎁 Sizda ' + stageLabels[tier] + ' uchun ' + discountPercent + '% chegirma bor!';
+    }
+    return lifecycleText + ' ' + countText + discountText;
   }
   function updatePaymentSummary(){
     var amountEl = document.getElementById('paymentAmount');
@@ -1453,7 +1561,17 @@
       if(methodToggle) methodToggle.classList.add('hidden');
     } else {
       var cents = paymentInfo.prices ? paymentInfo.prices[postTier] : null;
-      amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+      // An admin-granted discount (see TierDiscount / admin_create_discount)
+      // knocks a % off - shown as the original price struck through next
+      // to the real, discounted one, so it's obvious something changed.
+      var discountPercent = paymentInfo.discounts ? paymentInfo.discounts[postTier] : null;
+      if(cents != null && discountPercent){
+        var finalCents = Math.round(cents * (100 - discountPercent) / 100);
+        amountEl.innerHTML = '<span style="text-decoration:line-through;opacity:0.5;font-size:0.7em;margin-right:6px;">' + formatUsd(cents) + '</span>' +
+          formatUsd(finalCents) + ' <span style="color:var(--red);font-weight:800;font-size:0.65em;">-' + discountPercent + '%</span>';
+      } else {
+        amountEl.textContent = (cents != null) ? formatUsd(cents) : '—';
+      }
       if(methodToggle) methodToggle.classList.remove('hidden');
       var balEl = document.getElementById('postPayBalanceAmount');
       if(balEl) balEl.textContent = formatUsd(myBalanceCents());
@@ -1622,7 +1740,16 @@
   function showPostStep(n){
     [1,2,3,4].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
     if(n===3){ initPostLocationMap(); }
-    if(n===4){ updatePaymentSummary(); }
+    if(n===4){
+      // Re-fetch payment config WITH this poster's username so any
+      // admin-granted TierDiscount for them comes back too (the app-init
+      // load at loadPaymentConfig() has no username yet at that point).
+      var uname = document.getElementById('profileUsername').textContent.trim();
+      fetch(PAYMENT_CONFIG_API + '?username=' + encodeURIComponent(uname)).then(function(r){ return r.json(); }).then(function(data){
+        paymentInfo = data;
+        updatePaymentSummary();
+      }).catch(function(err){ console.error('payment config (discount) xato:', err); updatePaymentSummary(); });
+    }
   }
 
   /* =========================================================
@@ -1710,6 +1837,7 @@
     loadListings();
     loadProfilesDirectory();
     loadPaymentConfig();
+    loadCurrencyRate(function(){ renderPublic(); }); // re-render once the real rate is in, in case so'm display was already selected
     initGoogleSignIn();
     document.getElementById('langCode').textContent = 'UZ';
 
@@ -1723,6 +1851,20 @@
     var langBtn = document.getElementById('langBtn'), langMenu = document.getElementById('langMenu');
     langBtn.addEventListener('click', function(e){ e.stopPropagation(); langMenu.classList.toggle('open'); });
     langMenu.querySelectorAll('button').forEach(function(b){ b.addEventListener('click', function(){ applyLang(this.getAttribute('data-lang')); langMenu.classList.remove('open'); }); });
+
+    var currencyBtn = document.getElementById('currencyBtn'), currencyMenu = document.getElementById('currencyMenu');
+    currencyMenu.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-currency') === displayCurrency); });
+    currencyBtn.addEventListener('click', function(e){ e.stopPropagation(); currencyMenu.classList.toggle('open'); });
+    currencyMenu.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        displayCurrency = this.getAttribute('data-currency');
+        try{ localStorage.setItem('displayCurrency', displayCurrency); }catch(e){}
+        currencyMenu.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
+        this.classList.add('active');
+        currencyMenu.classList.remove('open');
+        renderPublic(); // re-render every visible price in the new currency
+      });
+    });
 
     document.getElementById('darkToggle').addEventListener('click', function(){
       document.body.classList.toggle('dark');
@@ -1788,6 +1930,7 @@
 
     document.addEventListener('click', function(){
       langMenu.classList.remove('open');
+      currencyMenu.classList.remove('open');
       typeDropdown.classList.remove('open'); typePill.classList.remove('open');
     });
 
@@ -2395,6 +2538,40 @@
     });
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
+    document.getElementById('simpleRegisterBtn').addEventListener('click', function(){
+      var fullName = document.getElementById('simpleRegName').value.trim();
+      var phone = document.getElementById('simpleRegPhone').value.trim();
+      if(!fullName){ alert("Ism familiyangizni kiriting."); return; }
+      if(!phone){ alert("Telefon raqamingizni kiriting."); return; }
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Kirilmoqda...';
+      fetch(SIMPLE_REGISTER_API, {
+        method: 'POST', credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({full_name: fullName, phone: phone})
+      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+        .then(function(res){
+          btn.disabled = false;
+          btn.textContent = "Oddiy ro'yxatdan o'tish";
+          if((res.status !== 200 && res.status !== 201) || !res.data.ok){
+            alert((res.data && res.data.error) || "Ro'yxatdan o'tishda xato yuz berdi.");
+            return;
+          }
+          isLoggedIn = true;
+          var p = res.data.profile;
+          applyProfile(p);
+          saveLoginToStorage(p);
+          loadProfilesDirectory();
+          closeAllAuth();
+          if(pendingAction){ pendingAction(); pendingAction=null; }
+        }).catch(function(err){
+          console.error('simple register xato:', err);
+          alert("Ro'yxatdan o'tishda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = "Oddiy ro'yxatdan o'tish";
+        });
+    });
 
     // Phone -> code, no intermediate "choose method"/"open Telegram" step:
     // Telegram's Gateway API delivers the code straight to whichever

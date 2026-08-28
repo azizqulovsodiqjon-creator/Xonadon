@@ -23,7 +23,7 @@ from django.db.models import Q, F, Sum, Count
 from .models import (
     Listing, ListingImage, VoiceNote, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
-    VerificationRequest,
+    VerificationRequest, PaymentEvent, TierDiscount,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 
@@ -288,6 +288,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         profile.balance_cents = profile.balance_cents - amount
         profile.save(update_fields=['balance_cents'])
         listing = _apply_tier_upgrade(listing, tier)
+        _record_payment_event(listing.seller, 'tier_upgrade', tier, amount)
         return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='mark-sold')
@@ -522,6 +523,55 @@ def admin_verification_decide(request, request_id):
     return Response({'ok': True})
 
 
+DISCOUNT_TIER_LABELS = {'top': 'TOP', 'vip': 'VIP'}
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_create_discount(request):
+    """Admin grants one profile a % off their NEXT top/vip purchase (see
+    TierDiscount + _discounted_price_cents). Notifies the profile the same
+    way any other message does - there's no separate notification system,
+    the bell icon already just shows unread Messages."""
+    profile_id = request.data.get('profile_id')
+    tier = str(request.data.get('tier', '')).strip()
+    try:
+        percent = int(request.data.get('percent'))
+    except (TypeError, ValueError):
+        percent = None
+    if tier not in ('top', 'vip'):
+        return Response({'ok': False, 'error': "Tur 'top' yoki 'vip' bo'lishi kerak."}, status=400)
+    if percent is None or not (1 <= percent <= 100):
+        return Response({'ok': False, 'error': "Foiz 1 dan 100 gacha bo'lishi kerak."}, status=400)
+    try:
+        profile = Profile.objects.get(id=profile_id)
+    except Profile.DoesNotExist:
+        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+
+    discount = TierDiscount.objects.create(profile=profile, tier=tier, percent=percent)
+    tier_label = DISCOUNT_TIER_LABELS[tier]
+    Message.objects.create(
+        sender='Jizzax UyJoy',
+        receiver=profile.username,
+        text=f"Admin tomonidan sizga {tier_label}'ga e'lon qo'shishingiz uchun {percent}% chegirma berildi!",
+    )
+    return Response({'ok': True, 'id': discount.id})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def my_discounts(request):
+    """Active (unused) discounts for one username, e.g. {'top': 30} -
+    used by the tier-picker (step4) to show/apply the discounted price."""
+    username = str(request.query_params.get('username', '')).strip()
+    if not username:
+        return Response({})
+    result = {}
+    for d in TierDiscount.objects.filter(profile__username=username, used=False).order_by('created_at'):
+        result[d.tier] = d.percent  # later (newer) rows win if more than one for the same tier
+    return Response(result)
+
+
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all().order_by('-created_at')
     serializer_class = ProfileSerializer
@@ -661,6 +711,10 @@ def admin_stats(request):
             total_likes=Sum('likes_count'),
         )
     }
+    paid_by_username = {
+        row['username']: row['s']
+        for row in PaymentEvent.objects.values('username').annotate(s=Sum('amount_cents'))
+    }
     by_seller = []
     for username in Profile.objects.order_by('username').values_list('username', flat=True):
         stats = listing_stats_by_username.get(username)
@@ -669,8 +723,12 @@ def admin_stats(request):
             'listing_count': stats['listing_count'] if stats else 0,
             'total_views': stats['total_views'] if stats else 0,
             'total_likes': stats['total_likes'] if stats else 0,
+            'total_paid_cents': paid_by_username.get(username, 0),
         })
     by_seller.sort(key=lambda r: r['listing_count'], reverse=True)
+
+    # Site-wide totals (not per-seller) - for the top stat-box row.
+    site_totals = Listing.objects.aggregate(views=Sum('views_count'), likes=Sum('likes_count'))
 
     # Sold listings are deleted from Listing the instant they're marked
     # sold (see mark_sold), so history comes from the snapshot taken
@@ -702,6 +760,8 @@ def admin_stats(request):
     return Response({
         'sellers': list(by_seller),
         'totalListings': Listing.objects.count(),
+        'totalViews': site_totals['views'] or 0,
+        'totalLikes': site_totals['likes'] or 0,
         'soldListings': sold_qs.count(),
         'soldListingsDetail': sold_detail,
         'soldListingsTotalPriceNumber': sold_total_number,
@@ -817,11 +877,74 @@ def my_likes(request):
 TIER_LABELS = {'regular': "Oddiy e'lon", 'top': "TOP e'lon", 'vip': "VIP e'lon"}
 
 
+def _discounted_price_cents(base_cents, username, tier):
+    """An admin-granted TierDiscount (see TierDiscount model + the
+    admin_create_discount view) knocks a percentage off the NEXT TOP/VIP
+    purchase for that profile+tier. Returns (final_cents, discount_or_None)
+    - the discount is NOT marked used here, only found; the caller marks
+    it used once the purchase actually completes (see
+    _finalize_pending_payment / create_listing_from_balance)."""
+    if not username:
+        return base_cents, None
+    discount = TierDiscount.objects.filter(
+        profile__username=username, tier=tier, used=False
+    ).order_by('-created_at').first()
+    if not discount:
+        return base_cents, None
+    final = max(round(base_cents * (100 - discount.percent) / 100), 0)
+    return final, discount
+
+
+def _record_payment_event(username, kind, tier, amount_cents):
+    if username:
+        PaymentEvent.objects.create(username=username, kind=kind, tier=tier or '', amount_cents=amount_cents)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def currency_rate(request):
+    """USD/UZS so'm rate, for converting between listing prices entered
+    in 'у.е' (locally always treated as 1:1 with USD) and so'm. Sourced
+    from the Central Bank of Uzbekistan's own public rate API - the
+    number everyone here actually prices real estate against - and
+    cached for an hour so every page load/currency toggle doesn't hit
+    cbu.uz directly."""
+    from django.core.cache import cache
+
+    rate = cache.get('usd_uzs_rate')
+    if rate:
+        return Response({'ok': True, 'rate': rate, 'cached': True})
+
+    try:
+        url = 'https://cbu.uz/en/arkhiv-kursov-valyut/json/USD/'
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        rate = float(data[0]['Rate'])
+    except Exception as exc:
+        print(f'[currency_rate] cbu.uz fetch failed: {exc}')
+        # A stale cached value beats none - fall back to a fixed estimate
+        # only if we've genuinely never fetched one successfully yet.
+        rate = cache.get('usd_uzs_rate_stale') or 12700.0
+
+    cache.set('usd_uzs_rate', rate, 3600)  # 1 hour
+    cache.set('usd_uzs_rate_stale', rate, None)  # never expires - last-known-good fallback
+    return Response({'ok': True, 'rate': rate, 'cached': False})
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def payment_config(request):
     # Lets the frontend show real prices/currency and know whether Stripe
     # keys have even been set yet, without ever seeing the secret key.
+    username = str(request.query_params.get('username', '')).strip()
+    discounts = {}
+    if username:
+        for d in TierDiscount.objects.filter(profile__username=username, used=False):
+            # Only the newest active discount per tier matters for display.
+            if d.tier not in discounts or d.created_at > discounts[d.tier]['created_at']:
+                discounts[d.tier] = {'percent': d.percent, 'created_at': d.created_at}
+        discounts = {tier: v['percent'] for tier, v in discounts.items()}
     return Response({
         'configured': bool(settings.STRIPE_SECRET_KEY and settings.STRIPE_PUBLISHABLE_KEY),
         'publishableKey': settings.STRIPE_PUBLISHABLE_KEY,
@@ -838,6 +961,9 @@ def payment_config(request):
         # Day-by-day lifecycle each tier steps through before expiring,
         # for the "necha kun turadi" text under each price.
         'lifecycle': TIER_LIFECYCLE,
+        # Admin-granted % off this profile's NEXT top/vip purchase, e.g.
+        # {'top': 30} - empty if none or no username given.
+        'discounts': discounts,
     })
 
 
@@ -867,6 +993,13 @@ def create_checkout_session(request):
     serializer = ListingSerializer(data=listing_payload)
     if not serializer.is_valid():
         return Response({'ok': False, 'error': "E'lon ma'lumotlari noto'g'ri.", 'details': serializer.errors}, status=400)
+
+    # An admin-granted discount (see TierDiscount) is only found here, not
+    # spent yet - _finalize_pending_payment marks it used once this
+    # checkout actually completes, via the _discount_id it's stashed in below.
+    amount, discount = _discounted_price_cents(amount, listing_payload.get('seller'), tier)
+    if discount:
+        listing_payload['_discount_id'] = discount.id
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     origin = request.build_absolute_uri('/').rstrip('/')
@@ -921,6 +1054,7 @@ def _finalize_pending_payment(pending):
     Called from both the success-redirect confirm endpoint and the
     webhook - whichever gets there first wins, the other is a no-op.
     """
+    from django.utils import timezone
     if pending.created_listing_id:
         return pending.created_listing
     # Tier-upgrade payments (see ListingViewSet.upgrade_tier_checkout)
@@ -934,6 +1068,7 @@ def _finalize_pending_payment(pending):
         pending.paid = True
         pending.created_listing = listing
         pending.save(update_fields=['paid', 'created_listing'])
+        _record_payment_event(listing.seller, 'tier_upgrade', pending.tier, pending.amount_cents)
         return listing
     serializer = ListingSerializer(data=pending.payload)
     serializer.is_valid(raise_exception=True)
@@ -943,6 +1078,10 @@ def _finalize_pending_payment(pending):
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])
+    discount_id = pending.payload.get('_discount_id')
+    if discount_id:
+        TierDiscount.objects.filter(id=discount_id, used=False).update(used=True, used_at=timezone.now())
+    _record_payment_event(listing.seller, 'tier_purchase', pending.tier, pending.amount_cents)
     return listing
 
 
@@ -1040,6 +1179,7 @@ def _finalize_balance_topup(pending):
     profile = pending.profile
     profile.balance_cents = (profile.balance_cents or 0) + pending.amount_cents
     profile.save(update_fields=['balance_cents'])
+    _record_payment_event(profile.username, 'balance_topup', '', pending.amount_cents)
     return profile
 
 
@@ -1094,6 +1234,11 @@ def create_listing_from_balance(request):
     except Profile.DoesNotExist:
         return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
 
+    # An admin-granted discount (see TierDiscount) applies here too, same
+    # as the card-checkout path - the balance check/deduction below uses
+    # this (possibly lower) amount, not the sticker price.
+    amount, discount = _discounted_price_cents(amount, listing_payload.get('seller'), tier)
+
     if (profile.balance_cents or 0) < amount:
         return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
 
@@ -1112,6 +1257,10 @@ def create_listing_from_balance(request):
     listing = serializer.save()
     _link_images_to_listing(listing_payload.get('image_ids'), listing)
     _link_voice_note_to_listing(listing_payload.get('voice_note_id'), listing)
+    if discount:
+        from django.utils import timezone
+        TierDiscount.objects.filter(id=discount.id, used=False).update(used=True, used_at=timezone.now())
+    _record_payment_event(listing.seller, 'tier_purchase', tier, amount)
     return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
 
 
@@ -1331,6 +1480,41 @@ def google_auth(request):
         username = f'{base_username}{suffix}'
 
     profile = Profile.objects.create(email=email, username=username, full_name=full_name, role='Uy egasi')
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def simple_register(request):
+    """'Oddiy ro'yxatdan o'tish' - a friction-free alternative to Google
+    sign-in: just a name + phone number, no password, no code. Finds the
+    existing profile for that phone if there is one (same person
+    signing back in), otherwise creates a new one - exactly the
+    find-or-create-by-identity shape google_auth uses, keyed by phone
+    instead of email."""
+    full_name = str(request.data.get('full_name', '')).strip()
+    phone = normalize_phone(request.data.get('phone', ''))
+    if not full_name:
+        return Response({'ok': False, 'error': "Ism familiyangizni kiriting."}, status=400)
+    if len(phone) != 9:
+        return Response({'ok': False, 'error': "To'g'ri telefon raqam kiriting."}, status=400)
+
+    profile = Profile.objects.filter(phone=phone).first()
+    if profile:
+        # Welcome back - refresh the name in case it changed, keep everything else.
+        if full_name and profile.full_name != full_name:
+            profile.full_name = full_name
+            profile.save(update_fields=['full_name'])
+        return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+
+    base_username = re.sub(r'[^a-z0-9_]', '', full_name.lower().replace(' ', '_')) or 'foydalanuvchi'
+    username = base_username
+    suffix = 1
+    while Profile.objects.filter(username=username).exists():
+        suffix += 1
+        username = f'{base_username}{suffix}'
+
+    profile = Profile.objects.create(phone=phone, username=username, full_name=full_name, role='Uy egasi')
     return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
