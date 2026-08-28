@@ -13,6 +13,7 @@
     --teal-700:#5C5346;
     --turquoise:#1F6E52; /* repurposed as the "verified" green */
     --turquoise-soft:#D9EEE4;
+    --verified-blue:#1D9BF0; /* the classic blue checkmark color, same in both themes */
     --accent:#D8551F;
     --accent-rgb:216,85,31;
     --accent-deep:#A83C11;
@@ -244,7 +245,7 @@
   .owner-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:14px;margin-top:26px;flex-wrap:wrap;}
   .owner-avatar{width:52px;height:52px;border-radius:50%;background:var(--turquoise);color:#fff;font-family:'Unbounded',sans-serif;font-weight:700;font-size:19px;display:grid;place-items:center;flex-shrink:0;}
   .owner-name{font-weight:800;font-size:15px;color:var(--teal-900);}
-  .verified-tick{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--turquoise);color:#fff;font-size:10.5px;font-weight:800;vertical-align:middle;}
+  .verified-tick{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--verified-blue);color:#fff;font-size:10.5px;font-weight:800;vertical-align:middle;}
   .owner-role{font-size:12.5px;color:rgba(var(--ink-rgb),0.55);margin-top:2px;}
   .owner-contact-btn{margin-left:auto;background:var(--accent2);color:#fff;border:1.5px solid var(--accent2);padding:11px 20px;border-radius:999px;font-weight:800;font-size:13.5px;}
   .similar-section{margin-top:34px;}

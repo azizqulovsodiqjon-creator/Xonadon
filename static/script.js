@@ -2914,6 +2914,21 @@
       if(savedProfile){
         isLoggedIn = true;
         applyProfile(savedProfile);
+        // The cached copy in localStorage can be stale (created before a
+        // field like public_id existed, or balance/verified changed on
+        // another device) - always refresh from the server right after
+        // showing the cached version, so the UI self-heals silently.
+        if(savedProfile.id){
+          fetch(PROFILE_API + savedProfile.id + '/')
+            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(fresh){
+              if(fresh && fresh.username){
+                applyProfile(fresh);
+                saveLoginToStorage(fresh);
+              }
+            })
+            .catch(function(err){ console.error('profil yangilash xato:', err); });
+        }
       }
     }catch(loginRestoreErr){
       console.error('LOGIN TIKLASH XATO:', loginRestoreErr);
