@@ -628,6 +628,31 @@
 <div class="backdrop" id="backdrop"></div>
 <div class="toast" id="toast"></div>
 
+<!-- Mobile-only bottom tab bar - hidden on desktop via CSS (>820px).
+     Lives outside every .page div so it stays put across page switches;
+     each button re-uses the exact same handlers as the desktop icons. -->
+<nav class="mobile-tabbar" id="mobileTabbar">
+  <button class="mtab active" id="mtabHome" data-mtab="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+    <span>Bosh sahifa</span>
+  </button>
+  <button class="mtab" id="mtabSearch" data-mtab="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <span>Qidiruv</span>
+  </button>
+  <button class="mtab mtab-post" id="mtabPost" data-mtab="post" title="E'lon joylash">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="mtab" id="mtabMessages" data-mtab="messages">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-3.8-.9L3 20l1.1-3.5A8.3 8.3 0 0 1 3.5 12 8.4 8.4 0 0 1 12 3.6a8.4 8.4 0 0 1 9 7.9z"/></svg>
+    <span>Xabarlar</span>
+  </button>
+  <button class="mtab" id="mtabProfile" data-mtab="profile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.5 3.5-7 8-7s8 2.5 8 7"/></svg>
+    <span>Profil</span>
+  </button>
+</nav>
+
 <script src="{% static 'script.js' %}"></script>
 
 </body>

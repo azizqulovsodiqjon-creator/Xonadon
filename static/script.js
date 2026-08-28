@@ -157,6 +157,18 @@
     for(var i=0;i<pages.length;i++){ pages[i].classList.remove('show'); }
     document.getElementById(id).classList.add('show');
     window.scrollTo(0,0);
+    setMobileTab(id === 'pageHome' ? 'Home' : id === 'pagePost' ? 'Post' : id === 'pageMyProfile' ? 'Profile' : null);
+  }
+  // Keeps the mobile bottom tab bar's highlighted icon in sync with
+  // whatever page/section is actually showing - name is one of
+  // 'Home'/'Search'/'Post'/'Messages'/'Profile', or null to clear all
+  // (browsing a listing detail, admin, etc. - none of the 5 tabs apply).
+  function setMobileTab(name){
+    document.querySelectorAll('.mtab').forEach(function(t){ t.classList.remove('active'); });
+    if(name){
+      var el = document.getElementById('mtab' + name);
+      if(el) el.classList.add('active');
+    }
   }
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
@@ -2188,6 +2200,33 @@
       requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); });
     });
     document.getElementById('myProfileBackBtn').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+
+    // ---- mobil pastki panel (faqat telefon ekranida ko'rinadi) ----
+    var mtabHomeBtn = document.getElementById('mtabHome');
+    if(mtabHomeBtn) mtabHomeBtn.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+    var mtabSearchBtn = document.getElementById('mtabSearch');
+    if(mtabSearchBtn) mtabSearchBtn.addEventListener('click', function(){
+      showPage('pageHome'); renderPublic(); setMobileTab('Search');
+      var si = document.getElementById('searchInput');
+      if(si){ si.scrollIntoView({block:'center'}); si.focus(); }
+    });
+    var mtabPostBtn = document.getElementById('mtabPost');
+    if(mtabPostBtn) mtabPostBtn.addEventListener('click', function(){ document.getElementById('postAdBtn').click(); });
+    var mtabMessagesBtn = document.getElementById('mtabMessages');
+    if(mtabMessagesBtn) mtabMessagesBtn.addEventListener('click', function(){
+      requireAuth(function(){
+        showPage('pageMyProfile');
+        document.querySelectorAll('.profile-nav-item[data-sub]').forEach(function(i){ i.classList.remove('active'); });
+        var navItem = document.querySelector('.profile-nav-item[data-sub="xabarlar"]');
+        if(navItem) navItem.classList.add('active');
+        switchProfileSub('xabarlar');
+        setMobileTab('Messages');
+      });
+    });
+    var mtabProfileBtn = document.getElementById('mtabProfile');
+    if(mtabProfileBtn) mtabProfileBtn.addEventListener('click', function(){
+      requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); setMobileTab('Profile'); });
+    });
     document.querySelectorAll('.profile-nav-item[data-sub]').forEach(function(item){
       item.addEventListener('click', function(){
         document.querySelectorAll('.profile-nav-item[data-sub]').forEach(function(i){ i.classList.remove('active'); });
