@@ -122,8 +122,16 @@
     .hero-icon svg{width:24px;height:24px;}
     /* pulled out of the grid flow into a small badge in the corner,
        instead of its own big full-width row - shrinks the whole hero
-       and moves everything under it up, per feedback. */
-    .hero-art{position:absolute;top:34px;right:6vw;min-height:0;z-index:2;}
+       and moves everything under it up, per feedback. Sits below the
+       title (not at the very top, where it collided with the
+       "tekshirilgan e'lonlar" eyebrow pill) - roughly level with the
+       paragraph/stats, out of everything else's way. */
+    .hero-art{position:absolute;top:190px;right:6vw;min-height:0;z-index:2;}
+    /* the paragraph's max-width (440px) is wider than the phone
+       itself, so it was running edge-to-edge straight under the icon.
+       Narrowing it reserves a clear column on the right for the icon
+       for its whole height, instead of the text wrapping behind it. */
+    .hero-sub{max-width:calc(100% - 76px);}
     .hero-section{padding-bottom:24px;}
     /* the two hero CTA buttons are redundant on mobile - the bottom
        tabbar's own "+" tab already posts an ad, and browsing is just
@@ -390,7 +398,11 @@
   .map-popup-link{display:inline-block;margin-top:6px;font-weight:800;color:var(--accent2);text-decoration:underline;cursor:pointer;}
 
   /* ---------- side panels ---------- */
-  .backdrop{position:fixed;inset:0;background:rgba(20,24,15,0.4);z-index:70;display:none;}
+  /* 0.4 alpha only dimmed the page behind an open drawer - a bright
+     map (or any light content) stayed clearly legible through it,
+     reading as "why is a map showing inside the panel". Dark enough
+     now that whatever's behind is properly obscured, not just tinted. */
+  .backdrop{position:fixed;inset:0;background:rgba(10,10,8,0.82);z-index:70;display:none;}
   .backdrop.open{display:block;}
   .side-panel{position:fixed;top:0;right:-420px;width:400px;max-width:92vw;height:100%;background:#fff;z-index:80;box-shadow:-10px 0 30px rgba(0,0,0,0.2);transition:right .25s ease;display:flex;flex-direction:column;}
   body.dark .side-panel{background:var(--card);}
