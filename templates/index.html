@@ -422,7 +422,12 @@
         <input type="text" id="postLocationSearchInput" placeholder="Mahalla yoki ko'cha nomini qidiring...">
         <button type="button" id="postLocationSearchBtn">Qidirish</button>
       </div>
-      <div id="postLocationMap"></div>
+      <div class="post-location-map-wrap" id="postLocationMapWrap">
+        <div id="postLocationMap"></div>
+        <button type="button" class="post-location-expand-btn" id="postLocationExpandBtn" title="Xaritani kattalashtirish">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M15 3h6v6M21 15v6h-6M3 15v6h6"/></svg>
+        </button>
+      </div>
       <div class="loc-hint">Xaritadan uyingiz joylashgan nuqtani belgilang (bosing yoki belgini suring).</div>
     </div>
 

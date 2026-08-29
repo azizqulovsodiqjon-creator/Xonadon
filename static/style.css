@@ -104,6 +104,9 @@
   .hero-actions{display:flex;align-items:center;gap:12px;margin-top:26px;flex-wrap:wrap;}
   .hero-actions .pill-btn{padding-top:13px;padding-bottom:13px;font-size:14.5px;}
   .hero-actions .pill-btn.cta{padding:8px 8px 8px 22px;}
+  /* "E'lonlarni ko'rish" was redundant next to "E'lon joylash" - the
+     listings grid is one scroll away regardless, on any screen size. */
+  #heroBrowseBtn{display:none;}
   .hero-stats{display:flex;gap:26px;margin-top:28px;}
   .hero-stats div b{display:block;font-family:'Unbounded',sans-serif;font-size:19px;font-weight:700;}
   .hero-stats div span{font-size:11px;color:rgba(var(--ink-rgb),0.5);font-weight:700;text-transform:uppercase;letter-spacing:0.04em;}
@@ -115,9 +118,13 @@
   .hero-float-chip svg{width:15px;height:15px;color:var(--accent);flex-shrink:0;}
   @media (max-width:820px){
     .hero-float-chip{display:none;}
-    .hero-icon{width:96px;height:96px;border-radius:28px;}
-    .hero-icon svg{width:42px;height:42px;}
-    .hero-art{min-height:0;margin-top:6px;}
+    .hero-icon{width:56px;height:56px;border-radius:16px;}
+    .hero-icon svg{width:24px;height:24px;}
+    /* pulled out of the grid flow into a small badge in the corner,
+       instead of its own big full-width row - shrinks the whole hero
+       and moves everything under it up, per feedback. */
+    .hero-art{position:absolute;top:34px;right:6vw;min-height:0;z-index:2;}
+    .hero-section{padding-bottom:24px;}
     /* the two hero CTA buttons are redundant on mobile - the bottom
        tabbar's own "+" tab already posts an ad, and browsing is just
        a scroll away - dropping them shortens the hero so the icon
@@ -148,15 +155,21 @@
     /* on a narrow screen toolbar-left (segment+viewcontrols+map button)
        never fits next to "Filtrlar" on one line - the leftover
        margin-left:auto then left a big ugly gap once it wrapped to
-       its own row. Drop the auto-margin and let it wrap flush left,
-       and shrink everything a notch so more fits per row. */
+       its own row. display:contents dissolves toolbar-left's own box
+       so segment/map-btn/filters-btn all become plain flex items of
+       one shared wrapping row: segment (flex:1 0 100%) forces its own
+       full-width line, then "Xaritada" and "Filtrlar" are the only
+       two items left and land side by side right under it. The 3-way
+       grid/list/compact toggle is dropped on mobile - one screen-wide
+       column is the only view that makes sense at this width anyway. */
     .toolbar{padding:12px 4vw;gap:10px;}
-    .toolbar-left{gap:8px;}
+    .toolbar-left{display:contents;}
     .toolbar-divider{display:none;}
-    .segment button{padding:6px 11px;font-size:12px;}
-    .view-controls{gap:4px;}
-    .map-btn{padding:0 12px;height:32px;font-size:12.5px;}
-    .filters-btn{margin-left:0;padding:7px 14px;font-size:12.5px;}
+    .view-controls{display:none;}
+    .segment{flex:1 0 100%;}
+    .segment button{flex:1;padding:6px 11px;font-size:12px;}
+    .map-btn{flex:1;justify-content:center;padding:0 12px;height:36px;font-size:12.5px;}
+    .filters-btn{flex:1;justify-content:center;margin-left:0;padding:7px 14px;font-size:12.5px;}
   }
 
   /* ---------- filter pills row ---------- */
@@ -366,12 +379,6 @@
   /* ---------- full map view ---------- */
   #mapFull{height:calc(100vh - 70px);width:100%;}
   @media (max-width:820px){
-    /* the fixed mobile bottom tabbar eats into the viewport - without
-       this the map's bottom slice (and its controls) end up hidden
-       underneath the tabbar, looking "broken" on phones. Subtracting
-       a bit extra (76 instead of the tabbar's ~68px) keeps a safety
-       gap so Leaflet's own attribution/zoom controls never touch it. */
-    #mapFull{height:calc(100vh - 70px - 76px - env(safe-area-inset-bottom));}
     #mapFull .leaflet-bottom{margin-bottom:4px;}
   }
   .leaflet-price-pin{background:var(--accent2);color:#fff;font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 10px rgba(0,0,0,0.25);white-space:nowrap;cursor:pointer;transform:translateY(-6px);position:relative;font-family:'Manrope',sans-serif;}
@@ -488,11 +495,18 @@
   .payment-amount{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:var(--turquoise);}
   .payment-summary-note{font-size:12.5px;color:rgba(var(--ink-rgb),0.55);margin-top:6px;}
   .location-card .lt{font-weight:800;font-size:14px;margin-bottom:6px;}
-  #postLocationMap{height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--line);margin-top:10px;}
+  #postLocationMap{height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--line);}
   .post-location-search{display:flex;gap:8px;margin-top:14px;}
   .post-location-search input{flex:1;border:1.5px solid var(--line);border-radius:9px;padding:0 14px;height:38px;font-size:13.5px;font-family:'Manrope',sans-serif;background:var(--paper);color:var(--ink);outline:none;}
   .post-location-search input:focus{border-color:var(--accent);}
   .post-location-search button{background:var(--accent2);color:#fff;border:none;padding:0 18px;height:38px;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;}
+  .post-location-map-wrap{position:relative;margin-top:10px;}
+  .post-location-expand-btn{position:absolute;top:10px;right:10px;z-index:1000;width:34px;height:34px;border-radius:9px;background:#fff;border:none;box-shadow:0 4px 12px rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;color:var(--teal-900);cursor:pointer;}
+  /* full-screen mode: same map instance, just its wrapper grows to
+     cover the whole viewport - click again (icon becomes a shrink
+     arrow) to go back to the normal in-flow size. */
+  .post-location-map-wrap.fullscreen{position:fixed;inset:0;z-index:2000;margin:0;}
+  .post-location-map-wrap.fullscreen #postLocationMap{height:100%;border-radius:0;border:none;}
   @media (max-width:820px){
     #postLocationMap{height:260px;}
   }
@@ -563,13 +577,29 @@
 
     body{padding-bottom:68px;}
     /* pastki panelga tegib turadigan "suzuvchi" elementlarni ko'tarib qo'yamiz */
-    .map-search-box{bottom:80px;}
     .yandex-map-fab{bottom:80px;}
     .admin-fab{bottom:80px;}
+    /* the search box used to sit fixed at bottom-right, directly on
+       top of the Yandex fab at bottom-left - on a narrow phone its
+       90%-width span covered nearly the whole row so the two visually
+       collided. Moving it to a plain top bar (in normal flow, not
+       fixed) sidesteps the whole overlap instead of fine-tuning two
+       floating positions against each other. */
+    .map-search-box{position:static;width:auto;max-width:none;margin:10px 4vw;box-shadow:0 6px 18px rgba(var(--shadow-rgb,0,0,0),0.15);}
+    /* header (70) + bottom tabbar w/ safety margin (76 incl. safe-area)
+       + the search bar's own in-flow height (~58, now that it's no
+       longer fixed) all eat into the map's available space. */
+    #mapFull{height:calc(100vh - 70px - 76px - 58px - env(safe-area-inset-bottom));}
 
     .mobile-tabbar{
       display:flex;align-items:stretch;justify-content:space-around;
-      position:fixed;left:0;right:0;bottom:0;z-index:500;
+      /* MUST stay below every overlay (side-panel drawers z-index:80,
+         backdrop 70, auth-gate 95/96, admin-fab 90, dropdowns 40/60) -
+         it was wrongly at 500 before, sitting ON TOP of open drawers
+         and hiding their bottom-most controls (e.g. the "write a
+         message" input box got fully covered by the tabbar and was
+         impossible to reach/type into). */
+      position:fixed;left:0;right:0;bottom:0;z-index:30;
       background:var(--card);border-top:1px solid var(--line);
       padding:6px 4px calc(6px + env(safe-area-inset-bottom));
       box-shadow:0 -6px 24px rgba(var(--shadow-rgb,0,0,0),0.08);

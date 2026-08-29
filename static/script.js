@@ -2588,6 +2588,17 @@
     if(postLocSearchBtn) postLocSearchBtn.addEventListener('click', doPostLocationSearch);
     var postLocSearchInput = document.getElementById('postLocationSearchInput');
     if(postLocSearchInput) postLocSearchInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); doPostLocationSearch(); } });
+    var postLocExpandBtn = document.getElementById('postLocationExpandBtn');
+    if(postLocExpandBtn) postLocExpandBtn.addEventListener('click', function(){
+      var wrap = document.getElementById('postLocationMapWrap');
+      var goingFull = !wrap.classList.contains('fullscreen');
+      wrap.classList.toggle('fullscreen', goingFull);
+      postLocExpandBtn.title = goingFull ? "Xaritani kichraytirish" : "Xaritani kattalashtirish";
+      postLocExpandBtn.innerHTML = goingFull
+        ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H3v6M15 3h6v6M21 15v6h-6M3 15v6h6"/></svg>';
+      setTimeout(function(){ if(postLocationMap) postLocationMap.invalidateSize(); }, 60);
+    });
 
     document.getElementById('postContinueBtn').addEventListener('click', function(){
       var err = validatePostForm();
