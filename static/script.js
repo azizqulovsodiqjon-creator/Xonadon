@@ -743,7 +743,12 @@
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       var el = document.getElementById('mapFull');
       if(!el || typeof L === 'undefined') return;
-      fullMap = L.map(el, {minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, 10);
+      // Same geo zoom level looks fine on a wide desktop screen but packs
+      // nearby listings' price labels into far fewer horizontal pixels on
+      // a phone, so they visually pile on top of each other - starting
+      // one zoom level closer on narrow screens spreads them out.
+      var isMobileMap = window.innerWidth <= 820;
+      fullMap = L.map(el, {minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, isMobileMap ? 12 : 10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(fullMap);
       var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
       visible.forEach(function(l){
@@ -1843,6 +1848,25 @@
     return postPhotos.filter(function(p){ return p.imageId && !p.existing; }).map(function(p){ return p.imageId; });
   }
 
+  function doPostLocationSearch(){
+    var input = document.getElementById('postLocationSearchInput');
+    var q = input ? input.value.trim() : '';
+    if(!q || !postLocationMap) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q + ', Jizzax, Uzbekiston'))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(data && data.length){
+          var latlng = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          postLocationMap.setView(latlng, 16);
+          // the property pin jumps to the searched spot too (fine-tune
+          // by dragging afterwards) - the separate "sizning
+          // joylashuvingiz" dot is its own marker and is untouched.
+          if(postLocationMarker) postLocationMarker.setLatLng(latlng);
+        } else {
+          toast("Joy topilmadi.");
+        }
+      }).catch(function(err){ console.error('Manzil qidirish xatosi:', err); toast("Qidirishda xato yuz berdi."); });
+  }
   function initPostLocationMap(){
     if(postLocationMap){ setTimeout(function(){ postLocationMap.invalidateSize(); },60); return; }
     setTimeout(function(){
@@ -2559,6 +2583,11 @@
       if(!document.getElementById('postStep2').classList.contains('hidden')){ showPostStep(1); return; }
       showPage('pageHome'); renderPublic();
     });
+
+    var postLocSearchBtn = document.getElementById('postLocationSearchBtn');
+    if(postLocSearchBtn) postLocSearchBtn.addEventListener('click', doPostLocationSearch);
+    var postLocSearchInput = document.getElementById('postLocationSearchInput');
+    if(postLocSearchInput) postLocSearchInput.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); doPostLocationSearch(); } });
 
     document.getElementById('postContinueBtn').addEventListener('click', function(){
       var err = validatePostForm();

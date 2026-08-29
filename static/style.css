@@ -113,7 +113,17 @@
   .hero-float-chip{position:absolute;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 16px;font-size:12.5px;font-weight:800;box-shadow:0 16px 30px -12px rgba(var(--shadow-rgb),0.3);display:flex;align-items:center;gap:8px;z-index:1;}
   .hero-float-chip.c1{top:8%;left:2%;}
   .hero-float-chip svg{width:15px;height:15px;color:var(--accent);flex-shrink:0;}
-  @media (max-width:820px){.hero-float-chip{display:none;}.hero-icon{width:150px;height:150px;}.hero-icon svg{width:66px;height:66px;}}
+  @media (max-width:820px){
+    .hero-float-chip{display:none;}
+    .hero-icon{width:96px;height:96px;border-radius:28px;}
+    .hero-icon svg{width:42px;height:42px;}
+    .hero-art{min-height:0;margin-top:6px;}
+    /* the two hero CTA buttons are redundant on mobile - the bottom
+       tabbar's own "+" tab already posts an ad, and browsing is just
+       a scroll away - dropping them shortens the hero so the icon
+       (now much smaller) sits right after the text, not way down. */
+    .hero-actions{display:none;}
+  }
 
   /* ---------- toolbar: segment + view controls + map + filters ---------- */
   .toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 6vw;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);border-top:1px solid var(--line);}
@@ -134,6 +144,20 @@
   .filters-btn{display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--ink);padding:8px 16px;border-radius:9px;font-weight:700;font-size:13.5px;color:var(--ink);cursor:pointer;margin-left:auto;}
   body.dark .filters-btn{background:var(--card);}
   .filters-btn svg{width:15px;height:15px;}
+  @media (max-width:820px){
+    /* on a narrow screen toolbar-left (segment+viewcontrols+map button)
+       never fits next to "Filtrlar" on one line - the leftover
+       margin-left:auto then left a big ugly gap once it wrapped to
+       its own row. Drop the auto-margin and let it wrap flush left,
+       and shrink everything a notch so more fits per row. */
+    .toolbar{padding:12px 4vw;gap:10px;}
+    .toolbar-left{gap:8px;}
+    .toolbar-divider{display:none;}
+    .segment button{padding:6px 11px;font-size:12px;}
+    .view-controls{gap:4px;}
+    .map-btn{padding:0 12px;height:32px;font-size:12.5px;}
+    .filters-btn{margin-left:0;padding:7px 14px;font-size:12.5px;}
+  }
 
   /* ---------- filter pills row ---------- */
   .filter-pills{display:flex;gap:9px;padding:14px 6vw 6px;flex-wrap:wrap;position:relative;}
@@ -344,8 +368,11 @@
   @media (max-width:820px){
     /* the fixed mobile bottom tabbar eats into the viewport - without
        this the map's bottom slice (and its controls) end up hidden
-       underneath the tabbar, looking "broken" on phones. */
-    #mapFull{height:calc(100vh - 70px - 68px - env(safe-area-inset-bottom));}
+       underneath the tabbar, looking "broken" on phones. Subtracting
+       a bit extra (76 instead of the tabbar's ~68px) keeps a safety
+       gap so Leaflet's own attribution/zoom controls never touch it. */
+    #mapFull{height:calc(100vh - 70px - 76px - env(safe-area-inset-bottom));}
+    #mapFull .leaflet-bottom{margin-bottom:4px;}
   }
   .leaflet-price-pin{background:var(--accent2);color:#fff;font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 10px rgba(0,0,0,0.25);white-space:nowrap;cursor:pointer;transform:translateY(-6px);position:relative;font-family:'Manrope',sans-serif;}
   /* "Sizning joylashuvingiz" fixed dot on the post-listing location map -
@@ -461,7 +488,14 @@
   .payment-amount{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:var(--turquoise);}
   .payment-summary-note{font-size:12.5px;color:rgba(var(--ink-rgb),0.55);margin-top:6px;}
   .location-card .lt{font-weight:800;font-size:14px;margin-bottom:6px;}
-  #postLocationMap{height:220px;border-radius:12px;overflow:hidden;border:1px solid var(--line);margin-top:14px;}
+  #postLocationMap{height:320px;border-radius:12px;overflow:hidden;border:1px solid var(--line);margin-top:10px;}
+  .post-location-search{display:flex;gap:8px;margin-top:14px;}
+  .post-location-search input{flex:1;border:1.5px solid var(--line);border-radius:9px;padding:0 14px;height:38px;font-size:13.5px;font-family:'Manrope',sans-serif;background:var(--paper);color:var(--ink);outline:none;}
+  .post-location-search input:focus{border-color:var(--accent);}
+  .post-location-search button{background:var(--accent2);color:#fff;border:none;padding:0 18px;height:38px;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0;}
+  @media (max-width:820px){
+    #postLocationMap{height:260px;}
+  }
   .loc-hint{font-size:12px;color:rgba(var(--ink-rgb),0.55);margin-top:8px;}
 
   /* ---------- auth screens ---------- */
