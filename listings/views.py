@@ -9,7 +9,7 @@ import urllib.request
 
 import stripe
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
@@ -92,6 +92,37 @@ def index(request):
     except Exception as exc:
         print(f'[sweep_expired_listings] failed: {exc}')
     return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID})
+
+
+def robots_txt(request):
+    # '/panel/' is the hidden admin-login entry point (same SPA page as
+    # '/', just auto-opens the login modal) - not something that should
+    # ever show up in search results, so it's kept out of the crawl.
+    lines = [
+        'User-agent: *',
+        'Allow: /',
+        'Disallow: /panel/',
+        'Sitemap: https://xonadon.onrender.com/sitemap.xml',
+    ]
+    return HttpResponse('\n'.join(lines), content_type='text/plain')
+
+
+def sitemap_xml(request):
+    # Listings themselves have no server-rendered URL of their own (the
+    # whole site is a client-side SPA - opening a listing just toggles a
+    # div, the address bar never changes), so there's only one real page
+    # for a crawler to index right now: the homepage itself.
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        '  <url>\n'
+        '    <loc>https://xonadon.onrender.com/</loc>\n'
+        '    <changefreq>daily</changefreq>\n'
+        '    <priority>1.0</priority>\n'
+        '  </url>\n'
+        '</urlset>\n'
+    )
+    return HttpResponse(xml, content_type='application/xml')
 
 
 def _link_images_to_listing(image_ids, listing):
