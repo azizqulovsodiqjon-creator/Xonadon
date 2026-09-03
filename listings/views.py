@@ -107,6 +107,10 @@ def robots_txt(request):
     return HttpResponse('\n'.join(lines), content_type='text/plain')
 
 
+def google_site_verification(request):
+    return HttpResponse('google-site-verification: google2df38b97da6abe80.html', content_type='text/html')
+
+
 def sitemap_xml(request):
     # Listings themselves have no server-rendered URL of their own (the
     # whole site is a client-side SPA - opening a listing just toggles a

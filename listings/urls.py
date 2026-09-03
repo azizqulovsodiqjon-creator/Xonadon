@@ -10,6 +10,11 @@ urlpatterns = [
     path('', views.index, name='index'),
     path('robots.txt', views.robots_txt, name='robots-txt'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap-xml'),
+    # Google Search Console site-ownership verification (HTML-file method) -
+    # the exact filename/content Google's dashboard generated for this
+    # property. Never remove this once it's live, or Search Console loses
+    # its proof of ownership.
+    path('google2df38b97da6abe80.html', views.google_site_verification, name='google-site-verification'),
     # Hidden admin entry point - not linked anywhere on the site. Same
     # SPA page as '/', but static/script.js detects this path on load
     # and auto-opens the admin login modal.
