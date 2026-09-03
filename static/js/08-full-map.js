@@ -24,8 +24,8 @@
   function updateUserMarkerOnMap(mapObj){
     if(!mapObj || userLat == null) return;
     if(userMarker){ try{ mapObj.removeLayer(userMarker); }catch(e){} }
-    var icon = L.divIcon({className:'', html:'<div class="user-location-pin"></div>', iconSize:[16,16]});
-    userMarker = L.marker([userLat, userLng], {icon:icon}).addTo(mapObj).bindPopup('Siz shu yerdasiz');
+    var icon = L.divIcon({className:'', html:'<div class="user-location-pin">Men</div>', iconSize:[38,38], iconAnchor:[19,19]});
+    userMarker = L.marker([userLat, userLng], {icon:icon, zIndexOffset:1000}).addTo(mapObj).bindPopup('Siz shu yerdasiz');
   }
 
   function startLiveLocation(cb){

@@ -102,6 +102,12 @@
       var url = 'https://yandex.com/maps/?ll=' + center.lng + ',' + center.lat + '&z=' + zoom;
       window.open(url, '_blank', 'noopener');
     });
+    document.getElementById('nearMeBtn').addEventListener('click', function(){
+      startLiveLocation(function(){
+        if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
+        if(fullMap) fullMap.setView([userLat, userLng], 15);
+      });
+    });
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       stopLiveLocationIfUnused();
