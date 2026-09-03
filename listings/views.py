@@ -347,6 +347,22 @@ class ListingViewSet(viewsets.ModelViewSet):
         listing.delete()
         return Response({'ok': True, 'sold': True, 'deleted': True})
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='set-tier')
+    def set_tier(self, request, pk=None):
+        # Admin-only manual override for a listing's tier - lets an admin
+        # grant/showcase TOP or VIP without the seller having to go
+        # through the paid upgrade flow (e.g. to seed a few examples so
+        # the "VIP e'lonlar" section isn't empty). Not exposed anywhere
+        # in the public flow - only from the admin panel.
+        tier = request.data.get('tier')
+        if tier not in ('regular', 'top', 'vip'):
+            return Response({'ok': False, 'error': "tier 'regular', 'top' yoki 'vip' bo'lishi kerak."}, status=400)
+        listing = self.get_object()
+        listing.vip = (tier == 'vip')
+        listing.top = (tier == 'top')
+        listing.save(update_fields=['vip', 'top'])
+        return Response({'ok': True, 'listing': ListingSerializer(listing).data})
+
 
 MAX_UPLOAD_IMAGES = 10
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB per file, before compression - modern phone cameras (especially Android, or iPhone ProRAW/Live Photos) can exceed the old 8MB limit on a single full-resolution photo

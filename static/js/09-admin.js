@@ -169,6 +169,8 @@
         '<div class="qseller">'+l.seller+' · 👁 '+l.viewsCount+' · 🤍 '+l.likesCount+'</div></div>' +
         '<div class="queue-actions">' +
           '<button class="qbtn" data-action="sold" data-id="'+l.id+'" data-sold="'+(l.sold?'1':'0')+'">'+(l.sold?'Sotilmagan deb belgilash':'Sotildi deb belgilash')+'</button>' +
+          '<button class="qbtn" data-tier="vip" data-id="'+l.id+'">'+(l.vip?'VIP\'dan olib tashlash':'VIP qilib belgilash')+'</button>' +
+          '<button class="qbtn" data-tier="top" data-id="'+l.id+'">'+(l.top?'TOP\'dan olib tashlash':'TOP qilib belgilash')+'</button>' +
           '<button class="qbtn del" data-action="delete" data-id="'+l.id+'">O\'chirish</button>' +
         '</div></div>';
     }).join('');
@@ -185,6 +187,18 @@
         var id = Number(this.getAttribute('data-id'));
         var nextSold = this.getAttribute('data-sold') !== '1';
         toggleListingSold(id, nextSold);
+      });
+    });
+    wrap.querySelectorAll('[data-tier]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = Number(this.getAttribute('data-id'));
+        var tierClicked = this.getAttribute('data-tier');
+        var listing = listings.find(function(l){ return l.id === id; });
+        var isCurrentlyThatTier = listing && ((tierClicked === 'vip' && listing.vip) || (tierClicked === 'top' && listing.top));
+        // clicking an already-active tier turns it back to regular;
+        // clicking the other tier switches straight to it.
+        setListingTier(id, isCurrentlyThatTier ? 'regular' : tierClicked);
       });
     });
   }
@@ -330,5 +344,16 @@
       loadListings(function(){ renderAdmin(); });
       toast(sold ? "E'lon sotilgan deb belgilandi." : "E'lon sotilmagan deb belgilandi.");
     }).catch(function(err){ console.error('toggleListingSold xato:', err); toast("Xato yuz berdi."); });
+  }
+  function setListingTier(id, tier){
+    fetch(API_BASE + id + '/set-tier/', {
+      method: 'POST', credentials: 'same-origin',
+      headers: csrfHeaders({'Content-Type': 'application/json'}),
+      body: JSON.stringify({tier: tier})
+    }).then(function(r){
+      if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+      loadListings(function(){ renderAdmin(); });
+      toast(tier === 'regular' ? "Oddiy e'longa qaytarildi." : tier.toUpperCase() + " qilib belgilandi.");
+    }).catch(function(err){ console.error('setListingTier xato:', err); toast("Xato yuz berdi."); });
   }
 
