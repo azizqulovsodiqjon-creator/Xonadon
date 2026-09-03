@@ -798,7 +798,7 @@
       }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
         .then(function(res){
           btn.disabled = false;
-          btn.textContent = "Oddiy ro'yxatdan o'tish";
+          btn.textContent = "Ro'yxatdan o'tish";
           if((res.status !== 200 && res.status !== 201) || !res.data.ok){
             alert((res.data && res.data.error) || "Ro'yxatdan o'tishda xato yuz berdi.");
             return;
@@ -814,7 +814,7 @@
           console.error('simple register xato:', err);
           alert("Ro'yxatdan o'tishda xato yuz berdi.");
           btn.disabled = false;
-          btn.textContent = "Oddiy ro'yxatdan o'tish";
+          btn.textContent = "Ro'yxatdan o'tish";
         });
     });
 
