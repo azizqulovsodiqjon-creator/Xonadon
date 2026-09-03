@@ -450,10 +450,26 @@
   <div class="post-body hidden" id="postStep4">
     <div class="breadcrumb"><span>E'lon turini tanlang</span></div>
     <div class="field"><label>E'lon turini tanlang</label>
-      <div class="toggle-row" id="tierToggle">
-        <button class="sel" data-tier="regular">Oddiy — Tekin</button>
-        <button data-tier="top">TOP — 35 000 so'm</button>
-        <button data-tier="vip">VIP — 100 000 so'm</button>
+      <div class="tier-cards" id="tierToggle">
+        <button class="tier-card sel" data-tier="regular">
+          <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></span>
+          <span class="tier-card-name">Oddiy</span>
+          <span class="tier-card-price">Tekin</span>
+          <span class="tier-card-feats">Oddiy ro'yxatda<br>Standart ko'rinish</span>
+        </button>
+        <button class="tier-card" data-tier="top">
+          <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+          <span class="tier-card-name">TOP</span>
+          <span class="tier-card-price">35 000 so'm</span>
+          <span class="tier-card-feats">✓ Yuqorida chiqadi<br>✓ Ko'proq ko'rish</span>
+        </button>
+        <button class="tier-card tier-card-vip" data-tier="vip">
+          <span class="tier-card-badge">Eng mashhur</span>
+          <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.3 6.8L12 17.6 5.9 20.8l1.3-6.8-5-4.8 6.9-.9z"/></svg></span>
+          <span class="tier-card-name">VIP</span>
+          <span class="tier-card-price">100 000 so'm</span>
+          <span class="tier-card-feats">✓ Bosh sahifada<br>✓ 10x ko'proq ko'rish</span>
+        </button>
       </div>
       <div class="tier-info" id="tierInfo"></div>
     </div>

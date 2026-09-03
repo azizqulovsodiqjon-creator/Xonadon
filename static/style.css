@@ -502,6 +502,19 @@
   @media (max-width:700px){.two-col{grid-template-columns:1fr;}}
   .location-card{background:var(--paper);border-radius:14px;padding:16px 18px;margin-bottom:26px;}
   .tier-info{font-size:12.5px;color:rgba(var(--ink-rgb),0.6);margin-top:8px;line-height:1.5;}
+  .tier-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  @media (max-width:640px){.tier-cards{grid-template-columns:1fr;}}
+  .tier-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px 14px;cursor:pointer;font-family:'Manrope',sans-serif;}
+  .tier-card.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink);}
+  .tier-card-icon{width:34px;height:34px;border-radius:10px;background:var(--paper);color:var(--accent);display:flex;align-items:center;justify-content:center;}
+  .tier-card-icon svg{width:18px;height:18px;}
+  .tier-card-name{font-family:'Unbounded',sans-serif;font-weight:700;font-size:14.5px;color:var(--ink);}
+  .tier-card-price{font-family:'Unbounded',sans-serif;font-weight:700;font-size:17px;color:var(--ink);}
+  .tier-card-feats{font-size:12px;color:rgba(var(--ink-rgb),0.6);line-height:1.6;}
+  .tier-card-vip{border-color:var(--gold);}
+  .tier-card-vip .tier-card-icon{background:var(--gold-soft);color:var(--gold-ink);}
+  .tier-card-vip.sel{border-color:var(--gold);box-shadow:0 0 0 1.5px var(--gold);}
+  .tier-card-badge{position:absolute;top:-10px;left:12px;background:var(--gold-soft);color:var(--gold-ink);font-size:11px;font-weight:800;padding:3px 10px;border-radius:8px;}
   .payment-summary{background:var(--paper);border-radius:14px;padding:16px 18px;margin:18px 0;}
   .payment-summary-row{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;color:var(--teal-900);}
   .payment-amount{font-family:'Unbounded',sans-serif;font-size:22px;font-weight:700;color:var(--turquoise);}
