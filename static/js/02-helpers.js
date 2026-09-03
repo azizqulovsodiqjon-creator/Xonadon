@@ -110,6 +110,10 @@
   function loadProfilesDirectory(cb){
     fetch(PROFILES_DIRECTORY_API).then(function(r){ return r.json(); }).then(function(data){
       allProfilesDirectory = data;
+      // hero's "Foydalanuvchi" stat - every registered profile, whether
+      // or not they've ever posted a listing.
+      var usersEl = document.getElementById('heroStatUsers');
+      if(usersEl) usersEl.textContent = allProfilesDirectory.length;
       if(cb) cb();
     }).catch(function(err){ console.error('profiles directory xato:', err); if(cb) cb(); });
   }
