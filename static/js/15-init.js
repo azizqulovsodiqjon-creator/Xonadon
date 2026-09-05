@@ -123,6 +123,37 @@
     });
 
     document.getElementById('mapBtn').addEventListener('click', openMapFull);
+
+    // Map page's own filter bar (segment + property type) - a second
+    // set of controls over the same shared filterState/matchesFilters
+    // as the home toolbar, so "faqat shu turdagi uylar" works whether
+    // you filter before opening the map or right there on it.
+    document.querySelectorAll('#mapSegment button').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('#mapSegment button').forEach(function(x){ x.classList.remove('active'); });
+        this.classList.add('active');
+        filterState.deal = this.getAttribute('data-deal');
+        document.querySelectorAll('#segment button').forEach(function(x){ x.classList.toggle('active', x.getAttribute('data-deal')===filterState.deal); });
+        refreshMapMarkers();
+        syncFilterUrl();
+      });
+    });
+    var mapTypePill = document.getElementById('mapPropertyTypePill'), mapTypeDropdown = document.getElementById('mapTypeDropdown');
+    mapTypePill.addEventListener('click', function(e){ e.stopPropagation(); mapTypeDropdown.classList.toggle('open'); });
+    mapTypeDropdown.querySelectorAll('button').forEach(function(opt){
+      opt.addEventListener('click', function(e){
+        e.stopPropagation();
+        filterState.type = this.getAttribute('data-type');
+        syncMapFilterUi();
+        var homeTypeBtn = document.querySelector('#typeDropdown button[data-type="'+filterState.type+'"]');
+        document.querySelectorAll('#typeDropdown button').forEach(function(b){ b.classList.toggle('active', b===homeTypeBtn); });
+        if(homeTypeBtn) document.getElementById('typeLabel').textContent = homeTypeBtn.textContent;
+        refreshMapMarkers();
+        syncFilterUrl();
+        mapTypeDropdown.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', function(){ mapTypeDropdown.classList.remove('open'); });
     document.getElementById('mapSearchBtn').addEventListener('click', doMapSearch);
     document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
     document.getElementById('openYandexMapBtn').addEventListener('click', function(){

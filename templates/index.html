@@ -239,6 +239,26 @@
 <!-- ============ PAGE 2c: FULL MAP VIEW ============ -->
 <div class="page" id="pageMapFull">
   <div class="navy-block"><header class="nav"><button class="back-btn" id="mapFullBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15.5 16 6l10 9.5"/><path d="M9 13v13h14V13"/><circle cx="16" cy="19.4" r="2.1"/><path d="M16 21.5v4.5M16 24h2.4M16 25.6h1.6"/></svg></span> Jizzax UyJoy</div></header></div>
+  <div class="map-filter-bar">
+    <div class="segment" id="mapSegment">
+      <button class="active" data-deal="sotuv">Sotuv</button>
+      <button data-deal="ijara">Ijara</button>
+      <button data-deal="kunlik">Kunlik</button>
+    </div>
+    <div class="lang-wrap">
+      <button class="pill" id="mapPropertyTypePill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>
+        <span id="mapTypeLabel">Barcha turlar</span>
+      </button>
+      <div class="type-dropdown" id="mapTypeDropdown">
+        <button data-type="all" class="active">Barcha turlar</button>
+        <button data-type="kvartira">Kvartira</button>
+        <button data-type="hovli">Hovli/dacha</button>
+        <button data-type="tijorat">Tijorat binolari</button>
+        <button data-type="yer">Yer</button>
+      </div>
+    </div>
+  </div>
   <div class="map-search-box">
     <input type="text" id="mapSearchInput" placeholder="Mahalla yoki ko'cha nomini qidiring...">
     <button id="mapSearchBtn">Qidirish</button>

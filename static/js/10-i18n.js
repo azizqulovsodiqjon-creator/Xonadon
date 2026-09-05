@@ -52,6 +52,8 @@
   function applyLang(lang){
     currentLang = lang;
     document.getElementById('langCode').textContent = lang;
+    filterState.lang = lang;
+    syncFilterUrl();
     var dict = t[lang];
     document.querySelectorAll('#segment button[data-deal]').forEach(function(b){ b.textContent = dict[b.getAttribute('data-deal')]; });
     document.getElementById('searchInput').setAttribute('placeholder', dict.search);

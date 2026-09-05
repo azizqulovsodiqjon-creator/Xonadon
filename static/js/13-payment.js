@@ -267,6 +267,7 @@
   }
   function showPostStep(n){
     [1,2,3,4].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
+    try{ history.replaceState({route:'/elon-joylash'}, '', '/elon-joylash?step=' + n); }catch(e){}
     if(n===3){ initPostLocationMap(); }
     if(n===4){
       // Re-fetch payment config WITH this poster's username so any

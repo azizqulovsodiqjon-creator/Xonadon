@@ -91,6 +91,7 @@
   function openMapFull(){
     showPage('pageMapFull');
     updateUrl('/xarita');
+    syncMapFilterUi();
     fullMapToken++;
     var myToken = fullMapToken;
     routeTargetListing = null;
@@ -106,19 +107,43 @@
       var isMobileMap = window.innerWidth <= 820;
       fullMap = L.map(el, {minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, isMobileMap ? 12 : 10);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(fullMap);
-      var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
-      visible.forEach(function(l){
-        var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
-        var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
-        var popupEl = document.createElement('div');
-        popupEl.innerHTML = '<b>'+l.title+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
-        popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
-        popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
-        m.bindPopup(popupEl);
-      });
+      refreshMapMarkers();
       startLiveLocation(function(){ updateUserMarkerOnMap(fullMap); });
       setTimeout(function(){ if(fullMap) fullMap.invalidateSize(); }, 100);
     }, 60);
+  }
+  var mapMarkers = [];
+  // Re-draws just the listing pins against the CURRENT filterState,
+  // without tearing down/recreating the whole map (keeps whatever
+  // pan/zoom the user already has) - called on first open AND every
+  // time a filter changes while the map is already showing, so
+  // "faqat shu turdagi uylar" actually updates live.
+  function refreshMapMarkers(){
+    if(!fullMap) return;
+    mapMarkers.forEach(function(m){ try{ fullMap.removeLayer(m); }catch(e){} });
+    mapMarkers = [];
+    var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
+    visible.forEach(function(l){
+      var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
+      var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
+      var popupEl = document.createElement('div');
+      popupEl.innerHTML = '<b>'+l.title+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
+      popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
+      popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
+      m.bindPopup(popupEl);
+      mapMarkers.push(m);
+    });
+  }
+  // Reflects the shared filterState onto the map page's OWN filter
+  // controls (a separate DOM set from the home toolbar's) - called
+  // whenever the map opens, so it doesn't silently disagree with
+  // whatever filters were already active.
+  function syncMapFilterUi(){
+    document.querySelectorAll('#mapSegment button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-deal')===(filterState.deal||'sotuv')); });
+    var typeBtn = document.querySelector('#mapTypeDropdown button[data-type="'+(filterState.type||'all')+'"]');
+    document.querySelectorAll('#mapTypeDropdown button').forEach(function(b){ b.classList.toggle('active', b===typeBtn); });
+    var typeLabelEl = document.getElementById('mapTypeLabel');
+    if(typeLabelEl) typeLabelEl.textContent = typeBtn ? typeBtn.textContent : 'Barcha turlar';
   }
 
   function stopLiveLocationIfUnused(){

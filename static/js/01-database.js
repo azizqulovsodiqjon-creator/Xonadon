@@ -65,6 +65,7 @@
     if(filterState.priceMax != null) params.set('priceMax', filterState.priceMax);
     if(filterState.rooms != null) params.set('rooms', filterState.rooms);
     if(filterState.search) params.set('q', filterState.search);
+    if(filterState.lang && filterState.lang !== 'UZ') params.set('lang', filterState.lang);
     var qs = params.toString();
     var newUrl = location.pathname + (qs ? '?' + qs : '');
     try{ history.replaceState({route: location.pathname}, '', newUrl); }catch(e){}
@@ -85,6 +86,7 @@
     if(params.has('priceMax')) filterState.priceMax = parseInt(params.get('priceMax'), 10) || null;
     if(params.has('rooms')) filterState.rooms = parseInt(params.get('rooms'), 10) || null;
     if(params.has('q')) filterState.search = params.get('q');
+    if(params.has('lang') && t[params.get('lang')]) applyLang(params.get('lang'));
   }
 
   function routeFromLocation(){
