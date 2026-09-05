@@ -606,12 +606,11 @@
   .mobile-tabbar{display:none;}
 
   @media (max-width:820px){
-    /* Telefonda tepadagi qatorni ixchamlashtiramiz: profil/layk/
-       profil-qidiruv tugmalari pastki panelda takrorlangani yoki
-       Profil bo'limi ichida joylashgani uchun bu yerdan olib
-       tashlanadi - qolgani (logo, til, tungi rejim, qidiruv,
-       valyuta, bildirishnoma) joyida qoladi. */
-    #avatarBtn, #myLikesBtn, #profileSearchBtn{display:none;}
+    /* Telefonda tepadagi qatorni ixchamlashtiramiz: profil tugmasi
+       pastki panelda takrorlangani uchun bu yerdan olib tashlanadi -
+       layk va profil-qidirish esa (o'z alohida bo'limi bo'lmagani
+       uchun) joyida qoladi. */
+    #avatarBtn{display:none;}
     header.nav{padding:12px 4vw;gap:10px;}
     .navbar-search{margin:0 6px;}
 
