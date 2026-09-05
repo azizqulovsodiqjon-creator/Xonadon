@@ -36,6 +36,6 @@
     showPage('pageSellerProfile');
   }
   function returnFromSellerProfile(){
-    if(sellerProfileFromAdmin){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); }
+    if(sellerProfileFromAdmin){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); updateUrl('/'); }
   }
 

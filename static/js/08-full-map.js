@@ -90,6 +90,7 @@
 
   function openMapFull(){
     showPage('pageMapFull');
+    updateUrl('/xarita');
     fullMapToken++;
     var myToken = fullMapToken;
     routeTargetListing = null;

@@ -44,7 +44,7 @@
           openModal('adminLoginModal');
           return;
         }
-        showPage('pageHome'); renderPublic();
+        showPage('pageHome'); renderPublic(); updateUrl('/');
       });
   }
   function renderAdminStatsOnly(targetId){

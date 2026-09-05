@@ -22,6 +22,79 @@
   // not after logging out) - only the login form, or the admin panel
   // once actually logged in.
   var PANEL_ROUTE = location.pathname.replace(/\/+$/, '') === '/panel';
+
+  /* =========================================================
+     URL YO'NALTIRISH (routing) - joymee.uz kabi, har bir asosiy
+     ekran (bosh sahifa/xarita/e'lon/profil/e'lon joylash) o'z
+     manzil qatoriga ega bo'lishi uchun. Django tarafida bir xil
+     SPA sahifasini har qanday yo'l uchun qaytaradigan "catch-all"
+     marshrut bor (xonadon_project/urls.py) - shuning uchun to'g'ridan
+     -to'g'ri /xarita yoki /elon/42 ga kirish (yoki sahifani yangilash)
+     ham to'g'ri ishlaydi.
+     ========================================================= */
+  function updateUrl(path, replaceOnly){
+    if(PANEL_ROUTE) return; // /panel/ manzili hech qachon o'zgarmasin
+    if(typeof history === 'undefined' || !history.pushState) return;
+    if(location.pathname === path) return; // aynan shu yo'lda turibmiz - qayta yozmaymiz
+    var fn = replaceOnly ? history.replaceState : history.pushState;
+    try{ fn.call(history, {route: path}, '', path + location.search); }catch(e){}
+  }
+  // Orqaga/oldinga (brauzer tugmalari) bosilganda yoki sahifa birinchi
+  // marta to'g'ridan-to'g'ri shu manzilda ochilganda qaysi ekranni
+  // ko'rsatish kerakligini hal qiladi. Mavjud tugmalarni ".click()"
+  // orqali "bosish" - profil/e'lon joylash kabi ekranlar uchun ularning
+  // o'z requireAuth/tozalash mantig'ini qayta yozmaslik uchun.
+  // Reflects the current filterState into the URL's query string
+  // (?deal=ijara&type=kvartira&owner=1&...) so a filtered view is a
+  // real, shareable/bookmarkable/back-button-able link too - not just
+  // the page routes above. Uses replaceState (not pushState): every
+  // single filter click adding its own back-button stop would make
+  // "back" nearly unusable, so filters update the current entry
+  // in place instead of piling up new ones.
+  function syncFilterUrl(){
+    if(PANEL_ROUTE) return;
+    var params = new URLSearchParams();
+    if(filterState.deal) params.set('deal', filterState.deal);
+    if(filterState.type && filterState.type !== 'all') params.set('type', filterState.type);
+    if(filterState.owner) params.set('owner', '1');
+    if(filterState.mortgage) params.set('mortgage', '1');
+    if(filterState.lastWeek) params.set('lastWeek', '1');
+    if(filterState.lastMonth) params.set('lastMonth', '1');
+    if(filterState.district) params.set('district', filterState.district);
+    if(filterState.priceMin != null) params.set('priceMin', filterState.priceMin);
+    if(filterState.priceMax != null) params.set('priceMax', filterState.priceMax);
+    if(filterState.rooms != null) params.set('rooms', filterState.rooms);
+    var qs = params.toString();
+    var newUrl = location.pathname + (qs ? '?' + qs : '');
+    try{ history.replaceState({route: location.pathname}, '', newUrl); }catch(e){}
+  }
+  // Reverse of the above - reads whatever filter query params the page
+  // was opened with (a shared/bookmarked filtered link) back into
+  // filterState, before the first render.
+  function applyFilterParamsFromUrl(){
+    var params = new URLSearchParams(location.search);
+    if(params.has('deal')) filterState.deal = params.get('deal');
+    if(params.has('type')) filterState.type = params.get('type');
+    if(params.has('owner')) filterState.owner = params.get('owner') === '1';
+    if(params.has('mortgage')) filterState.mortgage = params.get('mortgage') === '1';
+    if(params.has('lastWeek')) filterState.lastWeek = params.get('lastWeek') === '1';
+    if(params.has('lastMonth')) filterState.lastMonth = params.get('lastMonth') === '1';
+    if(params.has('district')) filterState.district = params.get('district');
+    if(params.has('priceMin')) filterState.priceMin = parseInt(params.get('priceMin'), 10) || null;
+    if(params.has('priceMax')) filterState.priceMax = parseInt(params.get('priceMax'), 10) || null;
+    if(params.has('rooms')) filterState.rooms = parseInt(params.get('rooms'), 10) || null;
+  }
+
+  function routeFromLocation(){
+    if(PANEL_ROUTE) return;
+    var path = location.pathname.replace(/\/+$/, '') || '/';
+    var m = path.match(/^\/elon\/(\d+)$/);
+    if(m){ openDetail(Number(m[1]), false); return; }
+    if(path === '/xarita'){ openMapFull(); return; }
+    if(path === '/profil'){ var pb = document.getElementById('avatarBtn'); if(pb) pb.click(); return; }
+    if(path === '/elon-joylash'){ var nb = document.getElementById('postAdBtn'); if(nb) nb.click(); return; }
+    showPage('pageHome'); renderPublic();
+  }
   var currentProfile = null; // the full Profile record (id/phone/username/...) for the logged-in user
   // Global price display currency - у.е or so'm, independent of what
   // currency each individual listing was actually posted in. See

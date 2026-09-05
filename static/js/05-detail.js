@@ -83,6 +83,7 @@
       '<div class="similar-section" id="similarSection"></div>';
 
     showPage('pageDetail');
+    if(!isTranslationRefresh) updateUrl('/elon/' + id);
     initDetailMap(l);
     initGallery();
     renderSimilarListings(l);
@@ -208,6 +209,6 @@
   function returnFromDetail(){
     if(currentMap){ try{ currentMap.remove(); }catch(e){} currentMap=null; }
     stopLiveLocationIfUnused();
-    if(lastPage==='pageAdmin'){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); }
+    if(lastPage==='pageAdmin'){ showPage('pageAdmin'); renderAdmin(); } else { showPage('pageHome'); renderPublic(); updateUrl('/'); }
   }
 

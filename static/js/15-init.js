@@ -28,14 +28,41 @@
       });
     });
 
-    loadListings();
+    // A shared/bookmarked filtered link (?deal=ijara&type=kvartira&...)
+    // should actually apply those filters, not just sit there unused -
+    // read them into filterState, then reflect that back into the
+    // filter controls themselves so the UI doesn't silently disagree
+    // with what's actually being shown.
+    applyFilterParamsFromUrl();
+    if(filterState.deal){
+      document.querySelectorAll('#segment button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-deal')===filterState.deal); });
+    }
+    if(filterState.type && filterState.type !== 'all'){
+      document.querySelectorAll('#typeDropdown button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-type')===filterState.type); });
+      var selectedTypeBtn = document.querySelector('#typeDropdown button[data-type="'+filterState.type+'"]');
+      if(selectedTypeBtn){ document.getElementById('typeLabel').textContent = selectedTypeBtn.textContent; document.getElementById('propertyTypePill').classList.add('selected'); }
+    }
+    document.querySelectorAll('#filterPillsRow .pill[data-toggle]').forEach(function(p){
+      p.classList.toggle('selected', !!filterState[p.getAttribute('data-filter')]);
+    });
+    if(filterState.district) document.getElementById('filterDistrict').value = filterState.district;
+    if(filterState.priceMin != null) document.getElementById('priceFromInput').value = filterState.priceMin;
+    if(filterState.priceMax != null) document.getElementById('priceToInput').value = filterState.priceMax;
+    if(filterState.rooms != null) document.getElementById('roomsInput').value = filterState.rooms;
+
+    // Deep-link support: if the page was opened directly at /xarita,
+    // /elon/42, /profil etc. (not just '/'), route to that screen once
+    // the listings are actually in hand - openDetail()/openMapFull()
+    // need real data to show anything.
+    loadListings(function(){ renderPublic(); routeFromLocation(); });
+    window.addEventListener('popstate', routeFromLocation);
     loadProfilesDirectory();
     loadPaymentConfig();
     loadCurrencyRate(function(){ renderPublic(); }); // re-render once the real rate is in, in case so'm display was already selected
     initGoogleSignIn();
     document.getElementById('langCode').textContent = 'UZ';
 
-    document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+    document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); updateUrl('/'); });
 
     // Hero buttons just proxy the real ones - same auth/scroll behavior,
     // no duplicated logic.
@@ -79,6 +106,7 @@
         this.classList.add('active');
         filterState.deal = this.getAttribute('data-deal');
         renderPublic();
+        syncFilterUrl();
       });
     });
 
@@ -111,7 +139,7 @@
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       stopLiveLocationIfUnused();
-      showPage('pageHome'); renderPublic();
+      showPage('pageHome'); renderPublic(); updateUrl('/');
     });
 
     var typePill = document.getElementById('propertyTypePill'), typeDropdown = document.getElementById('typeDropdown');
@@ -124,6 +152,7 @@
         typePill.classList.toggle('selected', this.getAttribute('data-type')!=='all');
         filterState.type = this.getAttribute('data-type');
         renderPublic();
+        syncFilterUrl();
         typeDropdown.classList.remove('open'); typePill.classList.remove('open');
       });
     });
@@ -133,6 +162,7 @@
         this.classList.toggle('selected');
         filterState[this.getAttribute('data-filter')] = this.classList.contains('selected');
         renderPublic();
+        syncFilterUrl();
       });
     });
 
@@ -209,6 +239,7 @@
       filterState.district = document.getElementById('filterDistrict').value || null;
       closeAllPanels();
       renderPublic();
+      syncFilterUrl();
       toast('Filtrlar qo\'llandi.');
     });
     document.getElementById('resetFiltersBtn').addEventListener('click', function(){
@@ -218,6 +249,7 @@
       document.getElementById('filterDistrict').value='';
       filterState.priceMin=null; filterState.priceMax=null; filterState.rooms=null; filterState.district=null;
       renderPublic();
+      syncFilterUrl();
     });
 
     document.getElementById('adminLoginForm').addEventListener('submit', loginAdmin);
@@ -255,20 +287,20 @@
     });
     ['aloqaBackBtn','yordamBackBtn','reklamaBackBtn','ofertaBackBtn'].forEach(function(id){
       var b = document.getElementById(id);
-      if(b) b.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+      if(b) b.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); updateUrl('/'); });
     });
 
     document.getElementById('avatarBtn').addEventListener('click', function(){
-      requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); });
+      requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); updateUrl('/profil'); });
     });
-    document.getElementById('myProfileBackBtn').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+    document.getElementById('myProfileBackBtn').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); updateUrl('/'); });
 
     // ---- mobil pastki panel (faqat telefon ekranida ko'rinadi) ----
     var mtabHomeBtn = document.getElementById('mtabHome');
-    if(mtabHomeBtn) mtabHomeBtn.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); });
+    if(mtabHomeBtn) mtabHomeBtn.addEventListener('click', function(){ showPage('pageHome'); renderPublic(); updateUrl('/'); });
     var mtabSearchBtn = document.getElementById('mtabSearch');
     if(mtabSearchBtn) mtabSearchBtn.addEventListener('click', function(){
-      showPage('pageHome'); renderPublic(); setMobileTab('Search');
+      showPage('pageHome'); renderPublic(); updateUrl('/'); setMobileTab('Search');
       var si = document.getElementById('searchInput');
       if(si){ si.scrollIntoView({block:'center'}); si.focus(); }
     });
@@ -283,11 +315,12 @@
         if(navItem) navItem.classList.add('active');
         switchProfileSub('xabarlar');
         setMobileTab('Messages');
+        updateUrl('/profil');
       });
     });
     var mtabProfileBtn = document.getElementById('mtabProfile');
     if(mtabProfileBtn) mtabProfileBtn.addEventListener('click', function(){
-      requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); setMobileTab('Profile'); });
+      requireAuth(function(){ showPage('pageMyProfile'); switchProfileSub('profil'); renderMyListings(); setMobileTab('Profile'); updateUrl('/profil'); });
     });
     document.querySelectorAll('.profile-nav-item[data-sub]').forEach(function(item){
       item.addEventListener('click', function(){
@@ -385,7 +418,7 @@
     }
     document.getElementById('threadSendBtn').addEventListener('click', sendThreadMessage);
     document.getElementById('threadInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendThreadMessage(); } });
-    document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; clearLoginStorage(); showPage('pageHome'); renderPublic(); });
+    document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; clearLoginStorage(); showPage('pageHome'); renderPublic(); updateUrl('/'); });
 
     function renderMyListings(){
       var username = document.getElementById('profileUsername').textContent.trim();
@@ -542,6 +575,7 @@
     document.getElementById('postAdBtn').addEventListener('click', function(){
       requireAuth(function(){
         showPage('pagePost');
+        updateUrl('/elon-joylash');
         editingListingId = null;
         postTier = 'regular';
         postPayMethod = 'card';
@@ -619,7 +653,7 @@
       if(!document.getElementById('postStep4').classList.contains('hidden')){ showPostStep(3); return; }
       if(!document.getElementById('postStep3').classList.contains('hidden')){ showPostStep(2); return; }
       if(!document.getElementById('postStep2').classList.contains('hidden')){ showPostStep(1); return; }
-      showPage('pageHome'); renderPublic();
+      showPage('pageHome'); renderPublic(); updateUrl('/');
     });
 
     var postLocSearchBtn = document.getElementById('postLocationSearchBtn');
