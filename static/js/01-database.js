@@ -64,6 +64,7 @@
     if(filterState.priceMin != null) params.set('priceMin', filterState.priceMin);
     if(filterState.priceMax != null) params.set('priceMax', filterState.priceMax);
     if(filterState.rooms != null) params.set('rooms', filterState.rooms);
+    if(filterState.search) params.set('q', filterState.search);
     var qs = params.toString();
     var newUrl = location.pathname + (qs ? '?' + qs : '');
     try{ history.replaceState({route: location.pathname}, '', newUrl); }catch(e){}
@@ -83,6 +84,7 @@
     if(params.has('priceMin')) filterState.priceMin = parseInt(params.get('priceMin'), 10) || null;
     if(params.has('priceMax')) filterState.priceMax = parseInt(params.get('priceMax'), 10) || null;
     if(params.has('rooms')) filterState.rooms = parseInt(params.get('rooms'), 10) || null;
+    if(params.has('q')) filterState.search = params.get('q');
   }
 
   function routeFromLocation(){
@@ -92,6 +94,7 @@
     if(m){ openDetail(Number(m[1]), false); return; }
     if(path === '/xarita'){ openMapFull(); return; }
     if(path === '/profil'){ var pb = document.getElementById('avatarBtn'); if(pb) pb.click(); return; }
+    if(path === '/xabarlar'){ var mb = document.getElementById('mtabMessages') || document.getElementById('notifBtn'); if(mb) mb.click(); return; }
     if(path === '/elon-joylash'){ var nb = document.getElementById('postAdBtn'); if(nb) nb.click(); return; }
     showPage('pageHome'); renderPublic();
   }

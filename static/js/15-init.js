@@ -45,6 +45,7 @@
     document.querySelectorAll('#filterPillsRow .pill[data-toggle]').forEach(function(p){
       p.classList.toggle('selected', !!filterState[p.getAttribute('data-filter')]);
     });
+    if(filterState.search) document.getElementById('searchInput').value = filterState.search;
     if(filterState.district) document.getElementById('filterDistrict').value = filterState.district;
     if(filterState.priceMin != null) document.getElementById('priceFromInput').value = filterState.priceMin;
     if(filterState.priceMax != null) document.getElementById('priceToInput').value = filterState.priceMax;
@@ -75,6 +76,7 @@
     document.getElementById('searchInput').addEventListener('input', function(e){
       filterState.search = e.target.value.trim();
       renderPublic();
+      syncFilterUrl();
     });
 
     var langBtn = document.getElementById('langBtn'), langMenu = document.getElementById('langMenu');
@@ -201,6 +203,7 @@
       requireAuth(function(){
         renderConversationsList('notifMessagesList');
         openPanel('notifPanel');
+        updateUrl('/xabarlar');
       });
     });
 
@@ -315,7 +318,7 @@
         if(navItem) navItem.classList.add('active');
         switchProfileSub('xabarlar');
         setMobileTab('Messages');
-        updateUrl('/profil');
+        updateUrl('/xabarlar');
       });
     });
     var mtabProfileBtn = document.getElementById('mtabProfile');
@@ -326,7 +329,10 @@
       item.addEventListener('click', function(){
         document.querySelectorAll('.profile-nav-item[data-sub]').forEach(function(i){ i.classList.remove('active'); });
         this.classList.add('active');
-        switchProfileSub(this.getAttribute('data-sub'));
+        var sub = this.getAttribute('data-sub');
+        switchProfileSub(sub);
+        if(sub === 'xabarlar') updateUrl('/xabarlar');
+        else if(sub === 'profil') updateUrl('/profil');
       });
     });
     function switchProfileSub(sub){
