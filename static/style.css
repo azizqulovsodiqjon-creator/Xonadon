@@ -568,12 +568,12 @@
   }
 
   /* ---------- xarita qidiruv va joylashuv ---------- */
-  .map-search-box{position:fixed;bottom:24px;right:24px;z-index:1000;display:flex;gap:8px;width:90%;max-width:360px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:8px;}
-  .yandex-map-fab{position:fixed;bottom:24px;left:24px;z-index:1000;display:flex;align-items:center;gap:8px;background:#fff;border:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:12px 16px;font-weight:700;font-size:13.5px;color:var(--teal-900);cursor:pointer;}
+  .map-search-box{position:fixed;bottom:24px;right:24px;z-index:35;display:flex;gap:8px;width:90%;max-width:360px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:8px;}
+  .yandex-map-fab{position:fixed;bottom:24px;left:24px;z-index:35;display:flex;align-items:center;gap:8px;background:#fff;border:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:12px 16px;font-weight:700;font-size:13.5px;color:var(--teal-900);cursor:pointer;}
   .yandex-map-fab:hover{filter:brightness(0.97);}
-  .near-me-fab{position:fixed;bottom:88px;right:24px;z-index:1000;display:flex;align-items:center;gap:8px;background:#fff;border:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:12px 16px;font-weight:700;font-size:13.5px;color:var(--teal-900);cursor:pointer;}
+  .near-me-fab{position:fixed;bottom:88px;right:24px;z-index:35;display:flex;align-items:center;gap:8px;background:#fff;border:none;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.28);padding:12px 16px;font-weight:700;font-size:13.5px;color:var(--teal-900);cursor:pointer;}
   .near-me-fab:hover{filter:brightness(0.97);}
-  .map-filter-bar{position:relative;z-index:900;display:flex;flex-direction:column;gap:10px;padding:12px 6vw;background:var(--card);border-bottom:1px solid var(--line);}
+  .map-filter-bar{position:relative;z-index:30;display:flex;flex-direction:column;gap:10px;padding:12px 6vw;background:var(--card);border-bottom:1px solid var(--line);}
   .map-search-row{display:flex;align-items:center;gap:10px;}
   .map-search-box2{flex:1;display:flex;align-items:center;gap:9px;background:var(--paper);border-radius:22px;padding:9px 16px;min-width:100px;}
   .map-search-box2 svg{width:16px;height:16px;color:rgba(var(--ink-rgb),0.5);flex-shrink:0;}
