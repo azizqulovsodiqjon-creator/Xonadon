@@ -154,6 +154,18 @@
       });
     });
     document.addEventListener('click', function(){ mapTypeDropdown.classList.remove('open'); });
+    document.querySelectorAll('#pageMapFull .pill[data-toggle]').forEach(function(p){
+      p.addEventListener('click', function(){
+        this.classList.toggle('selected');
+        var key = this.getAttribute('data-filter');
+        filterState[key] = this.classList.contains('selected');
+        var homePill = document.querySelector('#filterPillsRow .pill[data-filter="'+key+'"]');
+        if(homePill) homePill.classList.toggle('selected', filterState[key]);
+        refreshMapMarkers();
+        syncFilterUrl();
+      });
+    });
+    document.getElementById('mapFiltersBtn').addEventListener('click', function(){ openPanel('filtersPanel'); });
     document.getElementById('mapSearchBtn').addEventListener('click', doMapSearch);
     document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
     document.getElementById('openYandexMapBtn').addEventListener('click', function(){
@@ -273,6 +285,7 @@
       filterState.district = document.getElementById('filterDistrict').value || null;
       closeAllPanels();
       renderPublic();
+      if(fullMap) refreshMapMarkers();
       syncFilterUrl();
       toast('Filtrlar qo\'llandi.');
     });
@@ -283,6 +296,7 @@
       document.getElementById('filterDistrict').value='';
       filterState.priceMin=null; filterState.priceMax=null; filterState.rooms=null; filterState.district=null;
       renderPublic();
+      if(fullMap) refreshMapMarkers();
       syncFilterUrl();
     });
 

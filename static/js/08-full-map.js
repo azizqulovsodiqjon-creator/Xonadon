@@ -144,6 +144,9 @@
     document.querySelectorAll('#mapTypeDropdown button').forEach(function(b){ b.classList.toggle('active', b===typeBtn); });
     var typeLabelEl = document.getElementById('mapTypeLabel');
     if(typeLabelEl) typeLabelEl.textContent = typeBtn ? typeBtn.textContent : 'Barcha turlar';
+    document.querySelectorAll('#pageMapFull .pill[data-toggle]').forEach(function(p){
+      p.classList.toggle('selected', !!filterState[p.getAttribute('data-filter')]);
+    });
   }
 
   function stopLiveLocationIfUnused(){

@@ -240,28 +240,40 @@
 <div class="page" id="pageMapFull">
   <div class="navy-block"><header class="nav"><button class="back-btn" id="mapFullBackBtn">← Orqaga</button><div class="logo"><span class="logo-mark"><svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15.5 16 6l10 9.5"/><path d="M9 13v13h14V13"/><circle cx="16" cy="19.4" r="2.1"/><path d="M16 21.5v4.5M16 24h2.4M16 25.6h1.6"/></svg></span> Jizzax UyJoy</div></header></div>
   <div class="map-filter-bar">
-    <div class="segment" id="mapSegment">
-      <button class="active" data-deal="sotuv">Sotuv</button>
-      <button data-deal="ijara">Ijara</button>
-      <button data-deal="kunlik">Kunlik</button>
-    </div>
-    <div class="lang-wrap">
-      <button class="pill" id="mapPropertyTypePill">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>
-        <span id="mapTypeLabel">Barcha turlar</span>
-      </button>
-      <div class="type-dropdown" id="mapTypeDropdown">
-        <button data-type="all" class="active">Barcha turlar</button>
-        <button data-type="kvartira">Kvartira</button>
-        <button data-type="hovli">Hovli/dacha</button>
-        <button data-type="tijorat">Tijorat binolari</button>
-        <button data-type="yer">Yer</button>
+    <div class="map-search-row">
+      <div class="map-search-box2">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="text" id="mapSearchInput" placeholder="Mahalla yoki ko'cha nomini qidiring...">
+        <button id="mapSearchBtn">Qidirish</button>
       </div>
+      <button class="icon-btn" id="mapFiltersBtn" title="Filtrlar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      </button>
     </div>
-  </div>
-  <div class="map-search-box">
-    <input type="text" id="mapSearchInput" placeholder="Mahalla yoki ko'cha nomini qidiring...">
-    <button id="mapSearchBtn">Qidirish</button>
+    <div class="map-filter-row">
+      <div class="segment" id="mapSegment">
+        <button class="active" data-deal="sotuv">Sotuv</button>
+        <button data-deal="ijara">Ijara</button>
+        <button data-deal="kunlik">Kunlik</button>
+      </div>
+      <div class="lang-wrap">
+        <button class="pill" id="mapPropertyTypePill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>
+          <span id="mapTypeLabel">Barcha turlar</span>
+        </button>
+        <div class="type-dropdown" id="mapTypeDropdown">
+          <button data-type="all" class="active">Barcha turlar</button>
+          <button data-type="kvartira">Kvartira</button>
+          <button data-type="hovli">Hovli/dacha</button>
+          <button data-type="tijorat">Tijorat binolari</button>
+          <button data-type="yer">Yer</button>
+        </div>
+      </div>
+      <button class="pill" id="mapOwnerPill" data-toggle data-filter="owner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.9 3.1-6 7-6s7 2.1 7 6"/></svg>Egasi</button>
+      <button class="pill" id="mapMortgagePill" data-toggle data-filter="mortgage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>Ipotekaga mumkin</button>
+      <button class="pill" id="mapLastWeekPill" data-toggle data-filter="lastWeek"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Oxirgi hafta</button>
+      <button class="pill" id="mapLastMonthPill" data-toggle data-filter="lastMonth"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Oxirgi oy</button>
+    </div>
   </div>
   <button class="yandex-map-fab" id="openYandexMapBtn" title="Yandex xaritada ochish">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
