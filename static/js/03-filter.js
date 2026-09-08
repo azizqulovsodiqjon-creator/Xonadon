@@ -4,7 +4,16 @@
      FILTRLASH
   ==========================================================*/
   function matchesFilters(p, state){
-    if(state.deal && p.deal !== state.deal) return false;
+    // "Xaridorlar" (joymee's "Покупатели") isn't a real deal type - it
+    // shows buyers' own "qidiryapman" listings (is_wanted), regardless
+    // of which deal they picked for it. The other 3 tabs stay
+    // seller-only, so a buyer's listing doesn't show up twice.
+    if(state.deal === 'xaridor'){
+      if(!p.isWanted) return false;
+    } else if(state.deal){
+      if(p.deal !== state.deal) return false;
+      if(p.isWanted) return false;
+    }
     if(state.type !== 'all' && p.typeKey !== state.type) return false;
     if(state.owner && !p.owner) return false;
     if(state.mortgage && !p.mortgage) return false;
