@@ -13,6 +13,7 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
+from django.views.decorators.cache import never_cache
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
@@ -80,6 +81,7 @@ def sweep_expired_listings():
             listing.delete()
 
 
+@never_cache
 @ensure_csrf_cookie
 def index(request):
     # ensure_csrf_cookie guarantees the csrftoken cookie is set on first
@@ -87,6 +89,15 @@ def index(request):
     # a valid X-CSRFToken header. Also doubles as the periodic trigger for
     # sweep_expired_listings() - the keep-alive ping hits this every few
     # minutes, which is all the timing precision that needs.
+    # @never_cache: the HTML shell itself was never told not to be
+    # cached, so a browser could (heuristically, or via back/forward
+    # navigation) serve a stale copy of THIS page - which then keeps
+    # referencing whatever OLD hashed static/js/*.css file names it had
+    # baked in at the time, so every fix after that point stays
+    # invisible until a hard refresh or private window. The hashed
+    # static files themselves are still cached aggressively and safely
+    # (a content change gives them a new hash/URL) - only this shell
+    # needs to always be re-fetched fresh.
     try:
         sweep_expired_listings()
     except Exception as exc:
