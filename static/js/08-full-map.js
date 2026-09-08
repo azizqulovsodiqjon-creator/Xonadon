@@ -7,6 +7,17 @@
   var userLat = null, userLng = null, userMarker = null, routeLine = null;
   var geoWatchId = null, routeTargetListing = null;
 
+  // #mapFull's CSS height is dvh-based (tracks the real, live viewport),
+  // so it visibly changes as a mobile browser's address bar auto-hides
+  // on scroll/settle - but Leaflet only measures its container once at
+  // init. Without re-measuring on every such change, the map keeps
+  // rendering tiles for its STALE (usually shorter) original size,
+  // leaving a grey unrendered gap where the container grew into. Both
+  // listeners are harmless no-ops whenever the map isn't open.
+  function invalidateFullMapSize(){ if(fullMap) fullMap.invalidateSize(); }
+  window.addEventListener('resize', invalidateFullMapSize);
+  if(window.visualViewport) window.visualViewport.addEventListener('resize', invalidateFullMapSize);
+
   function fetchRoute(fromLat, fromLng, toLat, toLng, onSuccess, onError){
     var url = 'https://router.project-osrm.org/route/v1/driving/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + '?overview=full&geometries=geojson';
     fetch(url).then(function(r){ return r.json(); }).then(function(data){
