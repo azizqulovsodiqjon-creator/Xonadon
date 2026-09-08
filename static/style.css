@@ -385,7 +385,19 @@
   .offer-text p{font-size:13.5px;color:rgba(var(--ink-rgb),0.72);line-height:1.7;margin-bottom:14px;}
 
   /* ---------- full map view ---------- */
-  #mapFull{height:calc(100vh - 70px - 61px);width:100%;}
+  /* 100vh on mobile is the height as if the browser's address bar were
+     always hidden, even while it's showing - so the map (sized by vh)
+     ends up taller than what's actually visible right after load, and
+     as the address bar auto-hides/shows on scroll, the true visible
+     area keeps changing under it. The fixed Yandex/"Menga yaqin"
+     buttons (anchored to the real viewport bottom) then drift in and
+     out of view as that mismatch shifts - "bir ko'rinib bir
+     ko'rinmay". 100dvh tracks the actual visible viewport instead;
+     kept as a second declaration so browsers without dvh support just
+     keep the vh line above (they ignore the unknown unit and fall
+     back to the FIRST valid value already set, not defaulting to
+     nothing). */
+  #mapFull{height:calc(100vh - 70px - 61px);height:calc(100dvh - 70px - 61px);width:100%;}
   @media (max-width:820px){
     #mapFull .leaflet-bottom{margin-bottom:4px;}
   }
@@ -622,8 +634,10 @@
     .map-search-row{padding:10px 4vw;}
     /* header (70) + bottom tabbar w/ safety margin (76 incl. safe-area)
        + the search bar's own in-flow height (~58, now that it's no
-       longer fixed) all eat into the map's available space. */
-    #mapFull{height:calc(100vh - 70px - 76px - 58px - env(safe-area-inset-bottom));}
+       longer fixed) all eat into the map's available space. dvh (see
+       above) matters most exactly here - mobile is where the address
+       bar show/hide behavior actually happens. */
+    #mapFull{height:calc(100vh - 70px - 76px - 58px - env(safe-area-inset-bottom));height:calc(100dvh - 70px - 76px - 58px - env(safe-area-inset-bottom));}
 
     .mobile-tabbar{
       display:flex;align-items:stretch;justify-content:space-around;
