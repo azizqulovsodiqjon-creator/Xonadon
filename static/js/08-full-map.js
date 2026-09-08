@@ -91,7 +91,6 @@
   function openMapFull(){
     showPage('pageMapFull');
     updateUrl('/xarita');
-    syncMapFilterUi();
     fullMapToken++;
     var myToken = fullMapToken;
     routeTargetListing = null;
@@ -132,21 +131,6 @@
       popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
       m.bindPopup(popupEl);
       mapMarkers.push(m);
-    });
-  }
-  // Reflects the shared filterState onto the map page's OWN filter
-  // controls (a separate DOM set from the home toolbar's) - called
-  // whenever the map opens, so it doesn't silently disagree with
-  // whatever filters were already active.
-  function syncMapFilterUi(){
-    var deal = filterState.deal || 'sotuv';
-    document.querySelectorAll('#mapSegment button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-deal')===deal); });
-    var typeBtn = document.querySelector('#mapTypeDropdown button[data-type="'+(filterState.type||'all')+'"]');
-    document.querySelectorAll('#mapTypeDropdown button').forEach(function(b){ b.classList.toggle('active', b===typeBtn); });
-    var typeLabelEl = document.getElementById('mapTypeLabel');
-    if(typeLabelEl) typeLabelEl.textContent = typeBtn ? typeBtn.textContent : 'Barcha turlar';
-    document.querySelectorAll('#pageMapFull .pill[data-toggle]').forEach(function(p){
-      p.classList.toggle('selected', !!filterState[p.getAttribute('data-filter')]);
     });
   }
   function stopLiveLocationIfUnused(){
