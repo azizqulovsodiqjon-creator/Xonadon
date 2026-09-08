@@ -125,29 +125,9 @@
     document.getElementById('mapBtn').addEventListener('click', openMapFull);
     document.getElementById('mapSearchBtn').addEventListener('click', doMapSearch);
     document.getElementById('mapSearchInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ doMapSearch(); } });
-    document.getElementById('openYandexMapBtn').addEventListener('click', function(){
-      // Center Yandex on the user's REAL current location (with a pin
-      // marking it) when it's known, not just wherever the map
-      // happened to be panned to - starts locating if it isn't
-      // already, same as "Menga yaqin" does.
-      startLiveLocation(function(){
-        var zoom = fullMap ? fullMap.getZoom() : 14;
-        var lat, lng;
-        if(userLat != null){ lat = userLat; lng = userLng; }
-        else if(fullMap){ var c = fullMap.getCenter(); lat = c.lat; lng = c.lng; }
-        else { lat = JIZZAX_CENTER[0]; lng = JIZZAX_CENTER[1]; }
-        // Yandex Maps takes coordinates as "longitude,latitude" (reversed from Leaflet's lat/lng).
-        var url = 'https://yandex.com/maps/?ll=' + lng + ',' + lat + '&z=' + zoom;
-        if(userLat != null) url += '&pt=' + lng + ',' + lat + ',pm2gnm';
-        window.open(url, '_blank', 'noopener');
-      });
-    });
-    document.getElementById('nearMeBtn').addEventListener('click', function(){
-      startLiveLocation(function(){
-        if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
-        if(fullMap) fullMap.setView([userLat, userLng], 15);
-      });
-    });
+    // "Yandex xaritada ochish" / "Menga yaqin" are now real Leaflet map
+    // controls (see addMapCornerControls in 08-full-map.js), not
+    // static page buttons - no listeners to wire here anymore.
     document.getElementById('mapFullBackBtn').addEventListener('click', function(){
       if(fullMap){ try{ fullMap.remove(); }catch(e){} fullMap=null; }
       stopLiveLocationIfUnused();
