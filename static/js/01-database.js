@@ -36,8 +36,17 @@
     if(PANEL_ROUTE) return; // /panel/ manzili hech qachon o'zgarmasin
     if(typeof history === 'undefined' || !history.pushState) return;
     if(location.pathname === path) return; // aynan shu yo'lda turibmiz - qayta yozmaymiz
+    // Filtr so'rov parametrlari (?deal=..., ?q=...) faqat '/' bilan
+    // '/xarita' o'rtasida mazmunli - boshqa har qanday sahifadan
+    // (masalan /elon-joylash?step=2 dan /xarita ga) o'tishda ularni
+    // olib o'tish o'sha begona parametrni (masalan "step") noto'g'ri
+    // manzilga "sizib qolishiga" olib kelardi - shuning uchun HOZIRGI
+    // yo'l ham filtrga oid bo'lgandagina saqlanadi.
+    var FILTER_AWARE_PATHS = {'/': true, '/xarita': true};
+    var currentPath = location.pathname.replace(/\/+$/, '') || '/';
+    var qs = (FILTER_AWARE_PATHS[path] && FILTER_AWARE_PATHS[currentPath]) ? location.search : '';
     var fn = replaceOnly ? history.replaceState : history.pushState;
-    try{ fn.call(history, {route: path}, '', path + location.search); }catch(e){}
+    try{ fn.call(history, {route: path}, '', path + qs); }catch(e){}
   }
   // Orqaga/oldinga (brauzer tugmalari) bosilganda yoki sahifa birinchi
   // marta to'g'ridan-to'g'ri shu manzilda ochilganda qaysi ekranni
