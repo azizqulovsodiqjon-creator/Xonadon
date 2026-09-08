@@ -20,6 +20,14 @@
           errBox.style.display='none'; closeModal('adminLoginModal');
           document.getElementById('adminLoginForm').reset();
           if(res.data.isSuperAdmin){
+            // Deep-link support: a shared/refreshed /panel/?tab=profiles
+            // link should land straight on that tab, not always reset
+            // to the default "listings" one.
+            var tabFromUrl = new URLSearchParams(location.search).get('tab');
+            if(tabFromUrl && ['listings','profiles','stats'].indexOf(tabFromUrl) !== -1){
+              adminTab = tabFromUrl;
+              document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
+            }
             showPage('pageAdmin'); renderAdmin();
           } else {
             showPage('pageAdminStats'); renderAdminStatsOnly();
@@ -104,6 +112,14 @@
     adminTab = tab;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
     renderAdmin();
+    // Reflects the active tab as ?tab=... - only the QUERY string
+    // changes, never the path itself (still always exactly /panel/,
+    // per PANEL_ROUTE's own rule that this URL never reveals internal
+    // structure) - so back/forward and a shared link land on the
+    // right tab without weakening that.
+    if(typeof history !== 'undefined' && history.replaceState){
+      try{ history.replaceState(null, '', location.pathname + '?tab=' + tab); }catch(e){}
+    }
   }
   function renderAdminStats(){
     var vipCount = listings.filter(function(l){ return l.vip; }).length;
