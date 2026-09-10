@@ -52,6 +52,14 @@
   body.dark .icon-btn:hover{background:var(--accent2-soft);color:var(--accent);}
   body.dark .site-footer{background:#232120;}
   body.dark .site-footer, body.dark .site-footer div{color:var(--ink) !important;}
+  /* --teal-900 is really "strong ink" (dark in light mode, light cream
+     in dark mode) - these "black pill" buttons pair it with a hardcoded
+     white text colour that assumed it always stays dark, so in dark
+     mode the background flips to pale cream while the text stays white
+     on top of it - unreadable, looking like a blank off-white blob.
+     Pair the text colour with the same inversion so it keeps reading
+     right in both themes. */
+  body.dark .btn-black,body.dark .otp-choice.sms,body.dark .admin-fab{color:var(--paper);}
 
   /* ---------- top navbar ---------- */
   .navy-block{background:#ffffff;color:var(--ink);}
@@ -346,7 +354,13 @@
   .profile-meta{font-size:12px;color:rgba(var(--ink-rgb),0.55);margin-top:2px;}
   .profile-count{font-size:12.5px;color:var(--turquoise);font-weight:700;}
 
-  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--teal-900);color:#fff;padding:12px 22px;border-radius:999px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;}
+  /* --teal-900 inverts between light/dark mode (it's really "strong ink"
+     colour, dark in light mode / light cream in dark mode) - a toast
+     needs to stay readable in BOTH modes, so it can't ride that
+     variable: in dark mode it used to turn into a pale, off-white/cream
+     blob with white text on top of it. Pinned to the accent colour
+     instead, which is a strong, legible orange in both themes. */
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--accent2);color:#fff;padding:12px 22px;border-radius:999px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s ease;z-index:100;}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
   .overlay{position:fixed;inset:0;background:rgba(18,21,31,0.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:60;}
