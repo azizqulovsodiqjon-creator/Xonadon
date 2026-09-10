@@ -256,6 +256,7 @@
         '<div class="profile-info"><div class="profile-name">'+(p.full_name || p.username)+(p.verified?VERIFIED_TICK_HTML:'')+'</div>' +
         '<div class="profile-meta">ID: '+(p.public_id||p.id)+' · '+(p.phone || p.email || '—')+' · '+p.role+'</div></div>' +
         '<div class="profile-count">'+s.listing_count+" ta e'lon · 👁 "+(s.total_views||0)+' · 🤍 '+(s.total_likes||0)+' · '+paidHtml+'</div>' +
+        '<button class="qbtn" data-toggleverified="'+p.id+'" data-nowverified="'+(p.verified?'1':'0')+'" data-username="'+p.username+'" style="flex-shrink:0;">'+(p.verified?"Ishonchlilikni bekor qilish":"Ishonchli deb belgilash")+'</button>' +
         '<button class="qbtn" data-discount="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">Chegirma berish</button>' +
         '<button class="qbtn del" data-delprofile="'+p.id+'" data-username="'+p.username+'" style="flex-shrink:0;">O\'chirish</button>' +
         '<div class="discount-form hidden" id="discountForm-'+p.id+'" style="width:100%;"></div>' +
@@ -267,6 +268,27 @@
       row.addEventListener('click', function(e){
         if(e.target.closest('button') || e.target.closest('select') || e.target.closest('input')) return;
         openSellerProfile(this.getAttribute('data-seller'), true);
+      });
+    });
+    body.querySelectorAll('[data-toggleverified]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        var id = this.getAttribute('data-toggleverified');
+        var username = this.getAttribute('data-username');
+        var nextVerified = this.getAttribute('data-nowverified') !== '1';
+        var msg = nextVerified
+          ? "'" + username + "' ni ishonchli sotuvchi deb belgilaysizmi? (u so'rovnoma yubormagan bo'lsa ham)"
+          : "'" + username + "' dan ishonchli belgisini olib tashlaysizmi?";
+        if(!confirm(msg)) return;
+        fetch('/api/admin/profiles/' + id + '/set-verified/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({verified: nextVerified})
+        }).then(function(r){
+          if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+          toast(nextVerified ? "Ishonchli deb belgilandi." : "Ishonchlilik bekor qilindi.");
+          loadListings(function(){ renderAdmin(); });
+        }).catch(function(err){ console.error('set-verified xato:', err); toast("Xato yuz berdi."); });
       });
     });
     body.querySelectorAll('[data-delprofile]').forEach(function(btn){

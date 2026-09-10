@@ -33,6 +33,7 @@ urlpatterns = [
     path('api/verification/status/', views.verification_status, name='verification-status'),
     path('api/admin/verification-requests/', views.admin_verification_requests, name='admin-verification-requests'),
     path('api/admin/verification-requests/<int:request_id>/decide/', views.admin_verification_decide, name='admin-verification-decide'),
+    path('api/admin/profiles/<int:profile_id>/set-verified/', views.admin_set_verified, name='admin-set-verified'),
     path('api/admin/discounts/', views.admin_create_discount, name='admin-create-discount'),
     path('api/discounts/mine/', views.my_discounts, name='my-discounts'),
     path('api/currency-rate/', views.currency_rate, name='currency-rate'),

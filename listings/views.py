@@ -599,6 +599,25 @@ def admin_verification_decide(request, request_id):
     return Response({'ok': True})
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_set_verified(request, profile_id):
+    """Directly grant or revoke a profile's verified badge - independent
+    of the VerificationRequest flow (submit_verification/
+    admin_verification_decide above). Lets admin mark someone trusted
+    without them ever submitting ID photos, AND lets admin later take
+    the badge back (e.g. after a complaint), regardless of which path
+    originally granted it."""
+    verified = bool(request.data.get('verified'))
+    try:
+        profile = Profile.objects.get(id=profile_id)
+    except Profile.DoesNotExist:
+        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+    profile.verified = verified
+    profile.save(update_fields=['verified'])
+    return Response({'ok': True, 'verified': verified})
+
+
 DISCOUNT_TIER_LABELS = {'top': 'TOP', 'vip': 'VIP'}
 
 
