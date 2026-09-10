@@ -1,34 +1,37 @@
 :root{
-    /* Warm cream + near-black + a single burnt-terracotta accent - a
-       nod to Jizzax's earth/brick vernacular, not just "orange like the
-       reference site". See the approved design proposal for the full
-       rationale. Old variable NAMES are kept as-is (script.js and every
-       existing rule reference them) - only the values moved. */
-    --ink:#211C15;
-    --ink-rgb:33,28,21;
-    --paper:#F7F1E4;
+    /* Monochrome-blue identity: exactly one hue (navy/indigo, three
+       shades of it) plus true neutrals (graphite/white) - no second
+       competing color anywhere in the decorative palette. Replaces the
+       earlier warm-terracotta scheme. --red stays untouched: it's a
+       semantic/danger color (errors, "sold"), not a brand color, and
+       needs to stay visually distinct from the brand hue on purpose.
+       Old variable NAMES are kept as-is (script.js and every existing
+       rule reference them) - only the values moved. */
+    --ink:#1C2430;
+    --ink-rgb:28,36,48;
+    --paper:#F3F4F6;
     --card:#ffffff;
-    --card-2:#FFFCF5;
-    --teal-900:#17130D;
-    --teal-700:#5C5346;
-    --turquoise:#1F6E52; /* repurposed as the "verified" green */
-    --turquoise-soft:#D9EEE4;
+    --card-2:#F7F8FA;
+    --teal-900:#10151D;
+    --teal-700:#5B6472;
+    --turquoise:#33456B; /* repurposed into the blue family - was the "verified" green */
+    --turquoise-soft:#DDE6F1;
     --verified-blue:#1D9BF0; /* the classic blue checkmark color, same in both themes */
-    --accent:#D8551F;
-    --accent-rgb:216,85,31;
-    --accent-deep:#A83C11;
-    --accent-bright:#F0864A;
-    --accent-ink:#FFF9F2;
-    --accent2:#D8551F; /* one vivid accent now, not two - see changelog */
-    --accent2-soft:#F8DCC6;
-    --gold:#A9791E;
-    --gold-soft:#F1E2B8;
-    --gold-ink:#42340B;
+    --accent:#33456B;
+    --accent-rgb:51,69,107;
+    --accent-deep:#1C2E4D;
+    --accent-bright:#5B7CAD;
+    --accent-ink:#F5F8FC;
+    --accent2:#33456B; /* one vivid accent now, not two - see changelog */
+    --accent2-soft:#DDE6F1;
+    --gold:#5B7CAD; /* repurposed into the blue family - was gold/VIP */
+    --gold-soft:#E7EEF6;
+    --gold-ink:#1C2E4D;
     --red:#a13327;
     --red-soft:#f3ded9;
     --line: rgba(var(--ink-rgb),0.13);
     --card-line: rgba(var(--accent-rgb),0.3);
-    --shadow-rgb: 33,28,21;
+    --shadow-rgb: 28,36,48;
     --radius: 22px;
   }
   *{box-sizing:border-box;}
@@ -43,7 +46,7 @@
   .tile-rule{height:8px;width:100%;background-image:repeating-linear-gradient(135deg,var(--accent2) 0 10px,var(--turquoise) 10px 20px,var(--teal-900) 20px 30px);background-size:42px 42px;}
 
   /* ---------- dark mode ---------- */
-  body.dark{--paper:#16120C;--card:#211A11;--card-2:#281F14;--ink:#F3ECDC;--ink-rgb:243,236,220;--line:rgba(243,236,220,0.14);--card-line:rgba(240,134,74,0.35);--teal-900:#F7F1E4;--teal-700:#C7BCA4;--accent:#F0864A;--accent-rgb:240,134,74;--accent-deep:#FFA467;--accent-bright:#FFB07E;--accent-ink:#1D1109;--accent2:#F0864A;--accent2-soft:#3A2413;--gold:#D9B15C;--gold-soft:#3B300F;--gold-ink:#F3E4C0;--turquoise:#4FBE95;--turquoise-soft:#173026;--shadow-rgb:0,0,0;}
+  body.dark{--paper:#12161D;--card:#1A2029;--card-2:#20272F;--ink:#EAEDF2;--ink-rgb:234,237,242;--line:rgba(234,237,242,0.14);--card-line:rgba(110,143,194,0.35);--teal-900:#F3F4F6;--teal-700:#B8C0CC;--accent:#6E8FC2;--accent-rgb:110,143,194;--accent-deep:#8FACD6;--accent-bright:#A8C0E0;--accent-ink:#0E1826;--accent2:#6E8FC2;--accent2-soft:#22344A;--gold:#8FACD6;--gold-soft:#22344A;--gold-ink:#DCE6F2;--turquoise:#6E8FC2;--turquoise-soft:#22344A;--shadow-rgb:0,0,0;}
   body.dark .navy-block{background:var(--card);}
   body.dark .logo, body.dark .eyebrow, body.dark .footer-bottom div{color:var(--ink) !important;}
   body.dark .lang-menu, body.dark .type-dropdown{background:var(--card);border-color:var(--line);}
@@ -277,8 +280,8 @@
   .location-row{display:flex;align-items:center;gap:8px;margin-top:8px;color:rgba(var(--ink-rgb),0.65);font-size:13.5px;}
   .location-row .pin{color:var(--accent2);font-size:15px;}
   .detail-tag{background:var(--turquoise-soft);color:var(--teal-700);font-size:12.5px;font-weight:700;padding:6px 12px;border-radius:999px;}
-  .detail-tag.gold{background:#E3EEFB;color:#1C4F8A;}
-  .detail-tag.top{background:#FCE8CE;color:#8A5518;}
+  .detail-tag.gold{background:var(--gold-soft);color:var(--gold-ink);}
+  .detail-tag.top{background:var(--accent2-soft);color:var(--accent-deep);}
   .detail-section{margin-top:28px;}
   .detail-section h3{font-size:17px;color:var(--teal-900);margin-bottom:10px;}
   .detail-desc-text{font-size:14.5px;color:rgba(var(--ink-rgb),0.75);line-height:1.65;}
