@@ -24,7 +24,7 @@
             // link should land straight on that tab, not always reset
             // to the default "listings" one.
             var tabFromUrl = new URLSearchParams(location.search).get('tab');
-            if(tabFromUrl && ['listings','profiles','stats'].indexOf(tabFromUrl) !== -1){
+            if(tabFromUrl && ['listings','profiles','stats','houses'].indexOf(tabFromUrl) !== -1){
               adminTab = tabFromUrl;
               document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
             }
@@ -108,6 +108,39 @@
       wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';
     });
   }
+  // "Uylar statistikasi" - avvalgi "Sotilgan uylar" ro'yxatining o'z
+  // alohida bo'limi: bugun/shu hafta/shu oy sotilgan uylar soni, har
+  // birining pastida o'sha davrda sotilgan uylarning o'zi ko'rinadi.
+  function renderAdminHousesStats(){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch('/api/admin/stats/', {credentials:'same-origin'}).then(function(r){
+      if(!r.ok){ throw new Error('admin stats HTTP ' + r.status); }
+      return r.json();
+    }).then(function(s){
+      function houseRows(list){
+        return (list || []).map(function(row){
+          return '<div class="queue-row"><div class="queue-info">' +
+            '<div class="qdesc">' + row.title + ' · ' + row.district + '</div>' +
+            '<div class="qseller">' + displayName(row.seller) + ' · ' + row.price + '</div>' +
+            '</div></div>';
+        }).join('') || '<div class="empty-admin">Bu davrda sotilgan uy yo\'q.</div>';
+      }
+      wrap.innerHTML =
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + (s.soldTodayCount||0) + '</div><div class="l">Bugun sotilgan</div></div>' +
+          '<div class="astat"><div class="n">' + (s.soldWeekCount||0) + '</div><div class="l">Shu hafta sotilgan</div></div>' +
+          '<div class="astat"><div class="n">' + (s.soldMonthCount||0) + '</div><div class="l">Shu oy sotilgan</div></div>' +
+        '</div>' +
+        '<h3 style="margin:18px 0 10px;">Bugun sotilgan uylar</h3>' + houseRows(s.soldTodayDetail) +
+        '<h3 style="margin:18px 0 10px;">Shu hafta sotilgan uylar</h3>' + houseRows(s.soldWeekDetail) +
+        '<h3 style="margin:18px 0 10px;">Shu oy sotilgan uylar</h3>' + houseRows(s.soldMonthDetail) +
+        '<h3 style="margin:18px 0 10px;">Barcha vaqtdagi sotilgan uylar (jami narx: ' + (s.soldListingsTotalPriceNumber||0).toLocaleString('ru-RU') + ')</h3>' + houseRows(s.soldListingsDetail);
+    }).catch(function(err){
+      console.error('admin uylar statistikasi xato:', err);
+      wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';
+    });
+  }
   function setAdminTab(tab){
     adminTab = tab;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
@@ -144,6 +177,10 @@
       // Same rich statistics the stats-only admin sees - the full admin
       // (988912) shouldn't need a separate login to see them too.
       renderAdminStatsOnly('adminContent');
+      return;
+    }
+    if(adminTab==='houses'){
+      renderAdminHousesStats();
       return;
     }
     if(adminTab==='profiles'){

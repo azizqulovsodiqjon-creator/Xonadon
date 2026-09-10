@@ -848,9 +848,18 @@ def admin_stats(request):
     # right before deletion instead.
     sold_qs = SoldListingRecord.objects.all().order_by('-created_at')
     sold_detail = [
-        {'id': r.original_listing_id, 'title': r.title, 'price': r.price, 'seller': r.seller, 'district': r.district}
+        {
+            'id': r.original_listing_id, 'title': r.title, 'price': r.price,
+            'seller': r.seller, 'district': r.district, 'createdAt': r.created_at.isoformat(),
+        }
         for r in sold_qs
     ]
+    # "Uylar statistikasi" admin bo'limi uchun - bugun/shu hafta/shu oy
+    # sotilgan uylar soni, xuddi revenue_since bilan bir xil (oxirgi
+    # 24soat/7kun/30kun) oynalardan foydalanib.
+    sold_today = [d for d in sold_detail if d['createdAt'] >= day_ago.isoformat()]
+    sold_week = [d for d in sold_detail if d['createdAt'] >= week_ago.isoformat()]
+    sold_month = [d for d in sold_detail if d['createdAt'] >= month_ago.isoformat()]
     # price is a free-text field (mixes '$', so'm, spaces) - best-effort
     # numeric total by stripping everything but digits, same approach the
     # frontend's own priceNum() helper uses for filtering.
@@ -878,6 +887,14 @@ def admin_stats(request):
         'soldListings': sold_qs.count(),
         'soldListingsDetail': sold_detail,
         'soldListingsTotalPriceNumber': sold_total_number,
+        # "Uylar statistikasi" bo'limi uchun - bugun/hafta/oy kesimida
+        # sotilgan uylar soni va ro'yxati.
+        'soldTodayCount': len(sold_today),
+        'soldWeekCount': len(sold_week),
+        'soldMonthCount': len(sold_month),
+        'soldTodayDetail': sold_today,
+        'soldWeekDetail': sold_week,
+        'soldMonthDetail': sold_month,
         # Matches tierBreakdown below (current TOP+VIP listing counts),
         # not raw Stripe payment history - see the comment above
         # tier_breakdown for why those two can differ.
