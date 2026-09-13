@@ -116,7 +116,7 @@
       // one zoom level closer on narrow screens spreads them out.
       var isMobileMap = window.innerWidth <= 820;
       fullMap = L.map(el, {minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, isMobileMap ? 12 : 10);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap', maxZoom:18}).addTo(fullMap);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {attribution:'Tiles © Esri', maxZoom:18}).addTo(fullMap);
       addMapCornerControls(fullMap);
       refreshMapMarkers();
       startLiveLocation(function(){ updateUserMarkerOnMap(fullMap); });

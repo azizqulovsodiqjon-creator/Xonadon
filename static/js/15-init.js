@@ -1069,7 +1069,21 @@
         // showing the cached version, so the UI self-heals silently.
         if(savedProfile.id){
           fetch(PROFILE_API + savedProfile.id + '/')
-            .then(function(r){ return r.ok ? r.json() : null; })
+            .then(function(r){
+              if(r.status === 404){
+                // Admin deleted this profile - the client was still
+                // silently sitting "logged in" as a user that no longer
+                // exists server-side. Force this session out instead of
+                // leaving it that way until something else breaks.
+                clearLoginStorage();
+                isLoggedIn = false;
+                showPage('pageHome');
+                renderPublic();
+                toast("Profilingiz o'chirilgan. Iltimos, qayta ro'yxatdan o'ting.");
+                return null;
+              }
+              return r.ok ? r.json() : null;
+            })
             .then(function(fresh){
               if(fresh && fresh.username){
                 applyProfile(fresh);

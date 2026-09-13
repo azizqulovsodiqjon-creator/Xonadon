@@ -199,7 +199,7 @@
       if(typeof L === 'undefined'){ mapEl.innerHTML = '<div class="map-fallback">Xarita kutubxonasi yuklanmadi.</div>'; return; }
       try{
         currentMap = L.map(mapEl, {scrollWheelZoom:false, minZoom:8, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView([l.lat,l.lng],13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(currentMap);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',maxZoom:18}).addTo(currentMap);
         L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(l.title+'<br>'+trValue(l.district)).openPopup();
         setTimeout(function(){ if(currentMap) currentMap.invalidateSize(); },200);
       }catch(err){ mapEl.innerHTML = '<div class="map-fallback">Xaritani yuklab bo\'lmadi.</div>'; }
