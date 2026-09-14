@@ -92,10 +92,10 @@
         var i = Number(this.getAttribute('data-i'));
         postPhotos.splice(i,1);
         renderUploadThumbs();
-        document.getElementById('uploadCount').textContent = postPhotos.length + '/10';
+        document.getElementById('uploadCount').textContent = postPhotos.length + '/6';
       });
     });
-    document.getElementById('uploadTile').style.display = postPhotos.length >= 10 ? 'none' : 'flex';
+    document.getElementById('uploadTile').style.display = postPhotos.length >= 6 ? 'none' : 'flex';
   }
   function renderVoiceRecorder(){
     var box = document.getElementById('voiceRecorderBox');

@@ -375,7 +375,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         return Response({'ok': True, 'listing': ListingSerializer(listing).data})
 
 
-MAX_UPLOAD_IMAGES = 10
+MAX_UPLOAD_IMAGES = 6
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20MB per file, before compression - modern phone cameras (especially Android, or iPhone ProRAW/Live Photos) can exceed the old 8MB limit on a single full-resolution photo
 
 

@@ -40,7 +40,7 @@
 
     showPage('pagePost');
     renderUploadThumbs();
-    document.getElementById('uploadCount').textContent = postPhotos.length + '/10';
+    document.getElementById('uploadCount').textContent = postPhotos.length + '/6';
     document.getElementById('postTitle').value = l.title || '';
     document.getElementById('postDesc').value = l.desc || '';
     document.getElementById('postPhone').value = l.phone || '+998';

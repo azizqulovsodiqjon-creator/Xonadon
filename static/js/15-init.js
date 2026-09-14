@@ -597,7 +597,7 @@
         document.getElementById('priceRangeCurrencyToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-currency')==='ye'); });
         postPhotos = [];
         renderUploadThumbs();
-        document.getElementById('uploadCount').textContent = '0/10';
+        document.getElementById('uploadCount').textContent = '0/6';
         postVoiceNoteId = null; postVoiceNoteUrl = null;
         renderVoiceRecorder();
         document.getElementById('postTitle').value='';
@@ -734,14 +734,14 @@
     document.getElementById('postFileInput').addEventListener('change', function(e){
       var files = Array.from(e.target.files || []);
       files.forEach(function(file){
-        if(postPhotos.length >= 10) return;
+        if(postPhotos.length >= 6) return;
         if(!file.type || file.type.indexOf('image/') !== 0) return;
         var entry = {url: URL.createObjectURL(file), imageId: null, uploading: true, failed: false, existing: false};
         postPhotos.push(entry);
         uploadPhotoFile(file, entry); // uploads immediately - the actual bug being fixed
       });
       renderUploadThumbs();
-      document.getElementById('uploadCount').textContent = postPhotos.length + '/10';
+      document.getElementById('uploadCount').textContent = postPhotos.length + '/6';
       e.target.value = '';
     });
 
