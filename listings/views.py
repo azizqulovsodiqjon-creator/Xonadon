@@ -646,7 +646,7 @@ def admin_create_discount(request):
     discount = TierDiscount.objects.create(profile=profile, tier=tier, percent=percent)
     tier_label = DISCOUNT_TIER_LABELS[tier]
     Message.objects.create(
-        sender='Jizzax UyJoy',
+        sender='Joy-Jizzax',
         receiver=profile.username,
         text=f"Admin tomonidan sizga {tier_label}'ga e'lon qo'shishingiz uchun {percent}% chegirma berildi!",
     )
@@ -1283,7 +1283,7 @@ def create_balance_topup_session(request):
                 'price_data': {
                     'currency': 'usd',
                     'unit_amount': amount,
-                    'product_data': {'name': "Jizzax UyJoy - balansni to'ldirish"},
+                    'product_data': {'name': "Joy-Jizzax - balansni to'ldirish"},
                 },
                 'quantity': 1,
             }],
@@ -1681,7 +1681,7 @@ def telegram_webhook(request):
                     # share their contact again.
                     _telegram_api(
                         'sendMessage', chat_id=chat_id,
-                        text=f"Jizzax UyJoy tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
+                        text=f"Joy-Jizzax tasdiqlash kodi: {v.code}\n\nBu kodni hech kimga bermang.",
                     )
                 else:
                     # Don't trust "whoever clicked the link" - the code
@@ -1713,7 +1713,7 @@ def telegram_webhook(request):
                 v.save(update_fields=['code'])
                 _telegram_api(
                     'sendMessage', chat_id=chat_id,
-                    text=f"Jizzax UyJoy tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
+                    text=f"Joy-Jizzax tasdiqlash kodi: {code}\n\nBu kodni hech kimga bermang.",
                     reply_markup={'remove_keyboard': True},
                 )
             else:
