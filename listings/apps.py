@@ -44,6 +44,8 @@ class ListingsConfig(AppConfig):
         import urllib.request
         from django.conf import settings
 
+        if os.environ.get('TELEGRAM_WEBHOOK_DISABLED') == '1':
+            return
         token = settings.TELEGRAM_BOT_TOKEN
         base_url = settings.SITE_BASE_URL
         if not token or not base_url:
