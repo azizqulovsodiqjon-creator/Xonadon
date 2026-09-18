@@ -140,12 +140,33 @@ def sitemap_xml(request):
     return HttpResponse(xml, content_type='application/xml')
 
 
+def _telegram_multipart(method, fields, files):
+    """POST multipart/form-data to the Telegram Bot API. `files` is a list of
+    (field_name, filename, bytes). Returns the parsed JSON response."""
+    boundary = '----joyjizzax' + os.urandom(8).hex()
+    parts = []
+    for name, value in fields.items():
+        parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode('utf-8'))
+    for name, filename, data in files:
+        parts.append(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'
+            'Content-Type: image/jpeg\r\n\r\n'.encode('utf-8') + data + b'\r\n')
+    parts.append(f'--{boundary}--\r\n'.encode('utf-8'))
+    req = urllib.request.Request(
+        f'https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/{method}', data=b''.join(parts),
+        headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode('utf-8'))
+
+
 def _post_listing_to_channel(listing):
-    """Best-effort: announce a brand-new listing in the Telegram channel
-    (TELEGRAM_CHANNEL_ID, e.g. '@joyjizzax'). Message/photo are built here,
-    the slow HTTP call runs in a background thread so posting a listing is
-    never delayed or broken by Telegram. No-op unless bot token AND channel
-    id are configured."""
+    """Best-effort: announce a brand-new listing (with its photos) in the
+    Telegram channel (TELEGRAM_CHANNEL_ID, e.g. '@joyjizzax'). Listings
+    without photos are not posted. The message ids are saved on the listing
+    so the post can be removed when it is sold. Message/photos are built
+    here, the slow HTTP calls run in a background thread so posting a
+    listing is never delayed or broken by Telegram. No-op unless bot token
+    AND channel id are configured."""
     import base64
     import html
     import threading
@@ -156,10 +177,9 @@ def _post_listing_to_channel(listing):
     try:
         deal = {'sotuv': 'Sotuv', 'ijara': 'Ijara', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
         currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
-        head = "Xaridor qidiryapti" if listing.is_wanted else deal
         lines = [f"<b>{html.escape(listing.title)}</b>"]
-        if head:
-            lines.append(html.escape(head))
+        if deal:
+            lines.append(html.escape(deal))
         lines.append(f"Narxi: {html.escape(str(listing.price))} {currency}".strip())
         lines.append(f"Hudud: {html.escape(listing.district)}")
         details = []
@@ -173,39 +193,68 @@ def _post_listing_to_channel(listing):
         lines.append(f"\n{base}/elon/{listing.id}")
         caption = '\n'.join(lines)[:1000]
 
-        photo = None
-        first = listing.images.order_by('id').first()
-        if first and first.image.startswith('data:') and ',' in first.image:
-            try:
-                photo = base64.b64decode(first.image.split(',', 1)[1])
-            except Exception:
-                photo = None
+        photos = []
+        for img in listing.images.order_by('id')[:10]:
+            if img.image.startswith('data:') and ',' in img.image:
+                try:
+                    photos.append(base64.b64decode(img.image.split(',', 1)[1]))
+                except Exception:
+                    pass
     except Exception as exc:
         print(f"[channel post] build failed: {exc}")
         return
+    if not photos:
+        return
+    listing_id = listing.id
 
     def _send():
+        from django.db import close_old_connections
         try:
-            token = settings.TELEGRAM_BOT_TOKEN
-            if photo:
-                boundary = '----joyjizzax' + os.urandom(8).hex()
-                parts = []
-                for name, value in (('chat_id', channel), ('caption', caption), ('parse_mode', 'HTML')):
-                    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode('utf-8'))
-                parts.append(
-                    f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="listing.jpg"\r\n'
-                    'Content-Type: image/jpeg\r\n\r\n'.encode('utf-8') + photo + b'\r\n')
-                parts.append(f'--{boundary}--\r\n'.encode('utf-8'))
-                req = urllib.request.Request(
-                    f'https://api.telegram.org/bot{token}/sendPhoto', data=b''.join(parts),
-                    headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
-                urllib.request.urlopen(req, timeout=20).read()
+            if len(photos) == 1:
+                result = _telegram_multipart(
+                    'sendPhoto',
+                    {'chat_id': channel, 'caption': caption, 'parse_mode': 'HTML'},
+                    [('photo', 'listing.jpg', photos[0])])
+                message_ids = [result['result']['message_id']] if result.get('ok') else []
             else:
-                _telegram_api('sendMessage', chat_id=channel, text=caption, parse_mode='HTML')
+                media = []
+                for i in range(len(photos)):
+                    item = {'type': 'photo', 'media': f'attach://p{i}'}
+                    if i == 0:
+                        item['caption'] = caption
+                        item['parse_mode'] = 'HTML'
+                    media.append(item)
+                result = _telegram_multipart(
+                    'sendMediaGroup',
+                    {'chat_id': channel, 'media': json.dumps(media)},
+                    [(f'p{i}', f'p{i}.jpg', data) for i, data in enumerate(photos)])
+                message_ids = [m['message_id'] for m in result['result']] if result.get('ok') else []
+            if message_ids:
+                Listing.objects.filter(pk=listing_id).update(
+                    tg_message_ids=','.join(str(m) for m in message_ids))
         except Exception as exc:
             print(f"[channel post] failed: {exc}")
+        finally:
+            close_old_connections()
 
     threading.Thread(target=_send, daemon=True).start()
+
+
+def _delete_listing_channel_posts(listing):
+    """Remove a listing's Telegram channel post(s), if it has any (e.g. when
+    it is marked sold). Best-effort, runs in a background thread."""
+    import threading
+
+    channel = os.environ.get('TELEGRAM_CHANNEL_ID', '').strip()
+    ids = [i for i in (listing.tg_message_ids or '').split(',') if i.strip()]
+    if not channel or not ids or not settings.TELEGRAM_BOT_TOKEN:
+        return
+
+    def _run():
+        for message_id in ids:
+            _telegram_api('deleteMessage', chat_id=channel, message_id=int(message_id))
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 def _link_images_to_listing(image_ids, listing):
@@ -424,6 +473,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             district=listing.district, tier=listing.posted_tier,
             original_listing_id=listing.id,
         )
+        _delete_listing_channel_posts(listing)
         listing.delete()
         return Response({'ok': True, 'sold': True, 'deleted': True})
 

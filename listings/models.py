@@ -78,6 +78,9 @@ class Listing(models.Model):
     # the listing steps down a stage. Used to compute when it's next due
     # to downgrade or (at the final stage) be deleted.
     stage_started_at = models.DateTimeField(default=timezone.now)
+    # Telegram channel message ids (comma-separated) for this listing's post,
+    # kept so the post can be deleted when the listing is sold.
+    tg_message_ids = models.CharField(max_length=500, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
