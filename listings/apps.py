@@ -82,6 +82,8 @@ class ListingsConfig(AppConfig):
         # in through the same /api/admin/login/ flow) but NOT superuser,
         # so the frontend routes it to the stats-only view instead of the
         # full listings/profiles admin panel.
+        if os.environ.get('STATS_ADMIN_DISABLED') == '1':
+            return
         from django.contrib.auth import get_user_model
 
         User = get_user_model()
