@@ -159,6 +159,28 @@ def _telegram_multipart(method, fields, files):
         return json.loads(resp.read().decode('utf-8'))
 
 
+def _channel_caption(listing):
+    import html
+    deal = {'sotuv': 'Sotuv', 'ijara': 'Ijara', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
+    currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
+    lines = [f"<b>{html.escape(listing.title)}</b>"]
+    if deal:
+        lines.append(html.escape(deal))
+    lines.append(f"Narxi: {html.escape(str(listing.price))} {currency}".strip())
+    lines.append(f"Hudud: {html.escape(listing.district)}")
+    details = []
+    if listing.rooms:
+        details.append(f"{listing.rooms} xona")
+    if listing.area:
+        details.append(f"{listing.area} m²")
+    if details:
+        lines.append(', '.join(details))
+    base = settings.SITE_BASE_URL.rstrip('/')
+    lines.append(f"\n{base}/elon/{listing.id}")
+    caption = '\n'.join(lines)[:1000]
+    return caption
+
+
 def _post_listing_to_channel(listing):
     """Best-effort: announce a brand-new listing (with its photos) in the
     Telegram channel (TELEGRAM_CHANNEL_ID, e.g. '@joyjizzax'). Listings
@@ -175,23 +197,7 @@ def _post_listing_to_channel(listing):
     if not channel or not settings.TELEGRAM_BOT_TOKEN:
         return
     try:
-        deal = {'sotuv': 'Sotuv', 'ijara': 'Ijara', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
-        currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
-        lines = [f"<b>{html.escape(listing.title)}</b>"]
-        if deal:
-            lines.append(html.escape(deal))
-        lines.append(f"Narxi: {html.escape(str(listing.price))} {currency}".strip())
-        lines.append(f"Hudud: {html.escape(listing.district)}")
-        details = []
-        if listing.rooms:
-            details.append(f"{listing.rooms} xona")
-        if listing.area:
-            details.append(f"{listing.area} m²")
-        if details:
-            lines.append(', '.join(details))
-        base = settings.SITE_BASE_URL.rstrip('/')
-        lines.append(f"\n{base}/elon/{listing.id}")
-        caption = '\n'.join(lines)[:1000]
+        caption = _channel_caption(listing)
 
         photos = []
         for img in listing.images.order_by('id')[:10]:
@@ -255,6 +261,32 @@ def _delete_listing_channel_posts(listing):
             _telegram_api('deleteMessage', chat_id=channel, message_id=int(message_id))
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+def _refresh_listing_channel_post(listing, new_photos):
+    """Keep the channel post in step with an edited listing: new photos ->
+    replace the post with a fresh album; text-only edit -> update the album's
+    caption in place; never-posted listing that just got photos -> post it."""
+    import threading
+
+    channel = os.environ.get('TELEGRAM_CHANNEL_ID', '').strip()
+    if not channel or not settings.TELEGRAM_BOT_TOKEN:
+        return
+    ids = [i for i in (listing.tg_message_ids or '').split(',') if i.strip()]
+    if ids and new_photos:
+        _delete_listing_channel_posts(listing)
+        Listing.objects.filter(pk=listing.pk).update(tg_message_ids='')
+        listing.refresh_from_db()
+        _post_listing_to_channel(listing)
+    elif ids:
+        caption = _channel_caption(listing)
+        first_id = int(ids[0])
+        threading.Thread(
+            target=lambda: _telegram_api('editMessageCaption', chat_id=channel, message_id=first_id,
+                                         caption=caption, parse_mode='HTML'),
+            daemon=True).start()
+    elif new_photos:
+        _post_listing_to_channel(listing)
 
 
 def _link_images_to_listing(image_ids, listing):
@@ -333,6 +365,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             listing = Listing.objects.get(pk=response.data['id'])
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
+            _refresh_listing_channel_post(listing, bool(request.data.get('image_ids')))
             response.data = ListingSerializer(listing).data
         return response
 
