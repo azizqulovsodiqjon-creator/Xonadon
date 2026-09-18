@@ -140,6 +140,74 @@ def sitemap_xml(request):
     return HttpResponse(xml, content_type='application/xml')
 
 
+def _post_listing_to_channel(listing):
+    """Best-effort: announce a brand-new listing in the Telegram channel
+    (TELEGRAM_CHANNEL_ID, e.g. '@joyjizzax'). Message/photo are built here,
+    the slow HTTP call runs in a background thread so posting a listing is
+    never delayed or broken by Telegram. No-op unless bot token AND channel
+    id are configured."""
+    import base64
+    import html
+    import threading
+
+    channel = os.environ.get('TELEGRAM_CHANNEL_ID', '').strip()
+    if not channel or not settings.TELEGRAM_BOT_TOKEN:
+        return
+    try:
+        deal = {'sotuv': 'Sotuv', 'ijara': 'Ijara', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
+        currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
+        head = "Xaridor qidiryapti" if listing.is_wanted else deal
+        lines = [f"<b>{html.escape(listing.title)}</b>"]
+        if head:
+            lines.append(html.escape(head))
+        lines.append(f"Narxi: {html.escape(str(listing.price))} {currency}".strip())
+        lines.append(f"Hudud: {html.escape(listing.district)}")
+        details = []
+        if listing.rooms:
+            details.append(f"{listing.rooms} xona")
+        if listing.area:
+            details.append(f"{listing.area} m²")
+        if details:
+            lines.append(', '.join(details))
+        base = settings.SITE_BASE_URL.rstrip('/')
+        lines.append(f"\n{base}/elon/{listing.id}")
+        caption = '\n'.join(lines)[:1000]
+
+        photo = None
+        first = listing.images.order_by('id').first()
+        if first and first.image.startswith('data:') and ',' in first.image:
+            try:
+                photo = base64.b64decode(first.image.split(',', 1)[1])
+            except Exception:
+                photo = None
+    except Exception as exc:
+        print(f"[channel post] build failed: {exc}")
+        return
+
+    def _send():
+        try:
+            token = settings.TELEGRAM_BOT_TOKEN
+            if photo:
+                boundary = '----joyjizzax' + os.urandom(8).hex()
+                parts = []
+                for name, value in (('chat_id', channel), ('caption', caption), ('parse_mode', 'HTML')):
+                    parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode('utf-8'))
+                parts.append(
+                    f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="listing.jpg"\r\n'
+                    'Content-Type: image/jpeg\r\n\r\n'.encode('utf-8') + photo + b'\r\n')
+                parts.append(f'--{boundary}--\r\n'.encode('utf-8'))
+                req = urllib.request.Request(
+                    f'https://api.telegram.org/bot{token}/sendPhoto', data=b''.join(parts),
+                    headers={'Content-Type': f'multipart/form-data; boundary={boundary}'})
+                urllib.request.urlopen(req, timeout=20).read()
+            else:
+                _telegram_api('sendMessage', chat_id=channel, text=caption, parse_mode='HTML')
+        except Exception as exc:
+            print(f"[channel post] failed: {exc}")
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
 def _link_images_to_listing(image_ids, listing):
     """Attach previously-uploaded (still unlinked) ListingImage rows to a
     listing that was just created. Ignores ids that don't exist or are
@@ -201,6 +269,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             listing = Listing.objects.get(pk=response.data['id'])
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
+            _post_listing_to_channel(listing)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -1205,6 +1274,7 @@ def _finalize_pending_payment(pending):
     listing = serializer.save()
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
     _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
+    _post_listing_to_channel(listing)
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])
