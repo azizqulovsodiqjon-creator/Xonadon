@@ -32,6 +32,7 @@
     // Calling/messaging yourself makes no sense - hide those two
     // buttons entirely when the viewer owns this listing.
     var isOwnListing = !!(l.seller && myUsername() && l.seller === myUsername());
+    var SHARE_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
 
     document.getElementById('detailContent').innerHTML =
       '<div class="detail-top-row">' +
@@ -49,8 +50,8 @@
             '<span class="detail-tag">' + trValue(l.type) + '</span>' +
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
-          (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button><button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button></div>') +
-          '<div class="action-btns-row" style="margin-top:10px;"><button class="action-btn outline" id="shareListingBtn">🔗 ' + dict.share_btn + '</button></div>' +
+          '<div class="action-btns-row"><button class="action-btn outline" id="shareListingBtn">' + SHARE_ICON_SVG + dict.share_btn + '</button>' + (isOwnListing ? '' : '<button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button>') + '</div>' +
+          (isOwnListing ? '' : '<div class="action-btns-row" style="margin-top:10px;"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button></div>') +
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
