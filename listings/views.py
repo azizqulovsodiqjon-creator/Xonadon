@@ -105,6 +105,50 @@ def index(request):
     return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID})
 
 
+@never_cache
+@ensure_csrf_cookie
+def listing_page(request, listing_id):
+    """Same SPA shell as index(), but with per-listing Open Graph tags so a
+    shared /elon/<id> link previews with the listing's photo, title and
+    price in Telegram/Instagram/WhatsApp. Unknown ids fall back to the
+    normal shell (the SPA shows its own not-found state)."""
+    ctx = {'google_client_id': settings.GOOGLE_CLIENT_ID}
+    try:
+        listing = Listing.objects.get(pk=listing_id)
+        currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
+        parts = [f"{listing.price} {currency}".strip(), listing.district]
+        if listing.rooms:
+            parts.append(f"{listing.rooms} xona")
+        if listing.area:
+            parts.append(f"{listing.area} m²")
+        ctx['og_title'] = f"{listing.title} - Joy-Jizzax"
+        ctx['og_description'] = ' | '.join(p for p in parts if p)
+        ctx['og_url'] = request.build_absolute_uri(f'/elon/{listing.id}')
+        if listing.images.exists():
+            ctx['og_image'] = request.build_absolute_uri(f'/og/listing/{listing.id}.jpg')
+    except Listing.DoesNotExist:
+        pass
+    return render(request, 'index.html', ctx)
+
+
+def listing_og_image(request, listing_id):
+    """First photo of a listing as a real image file (photos live in the DB
+    as base64 data: URIs), for link-preview crawlers."""
+    import base64
+    first = ListingImage.objects.filter(listing_id=listing_id).order_by('id').first()
+    if not first or not first.image.startswith('data:') or ',' not in first.image:
+        return HttpResponse(status=404)
+    header, b64 = first.image.split(',', 1)
+    content_type = header[5:].split(';')[0] or 'image/jpeg'
+    try:
+        data = base64.b64decode(b64)
+    except Exception:
+        return HttpResponse(status=404)
+    response = HttpResponse(data, content_type=content_type)
+    response['Cache-Control'] = 'public, max-age=3600'
+    return response
+
+
 def robots_txt(request):
     # '/panel/' is the hidden admin-login entry point (same SPA page as
     # '/', just auto-opens the login modal) - not something that should

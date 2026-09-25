@@ -50,6 +50,7 @@
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
           (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button><button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button></div>') +
+          '<div class="action-btns-row" style="margin-top:10px;"><button class="action-btn outline" id="shareListingBtn">🔗 ' + dict.share_btn + '</button></div>' +
         '</div>' +
       '</div>' +
       '<div class="detail-title-block">' +
@@ -103,6 +104,34 @@
             document.getElementById('detailLikeCount').textContent = l.likesCount;
           });
         });
+      });
+    }
+
+    var shareBtn = document.getElementById('shareListingBtn');
+    if(shareBtn){
+      shareBtn.addEventListener('click', function(){
+        var shareUrl = location.origin + '/elon/' + l.id;
+        var shareText = l.title + ' - ' + formatPrice(l);
+        function fallbackCopy(){
+          var done = false;
+          try{
+            var ta = document.createElement('textarea');
+            ta.value = shareUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            done = document.execCommand('copy');
+            document.body.removeChild(ta);
+          }catch(e){}
+          toast(done ? "Havola nusxalandi" : shareUrl);
+        }
+        if(navigator.share){
+          navigator.share({title: l.title, text: shareText, url: shareUrl}).catch(function(err){
+            if(err && err.name !== 'AbortError') fallbackCopy();
+          });
+        } else if(navigator.clipboard && window.isSecureContext){
+          navigator.clipboard.writeText(shareUrl).then(function(){ toast("Havola nusxalandi"); }, fallbackCopy);
+        } else {
+          fallbackCopy();
+        }
       });
     }
 

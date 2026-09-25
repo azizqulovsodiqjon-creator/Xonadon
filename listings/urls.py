@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from .views import ListingViewSet, ProfileViewSet
@@ -9,6 +9,8 @@ router.register(r'profiles', ProfileViewSet)
 urlpatterns = [
     path('', views.index, name='index'),
     path('robots.txt', views.robots_txt, name='robots-txt'),
+    re_path(r'^elon/(?P<listing_id>\d+)/?$', views.listing_page, name='listing-page'),
+    path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap-xml'),
     # Google Search Console site-ownership verification (HTML-file method) -
     # the exact filename/content Google's dashboard generated for this
