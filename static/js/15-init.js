@@ -843,6 +843,7 @@
           }
           isLoggedIn = true;
           var p = res.data.profile;
+          if(res.data.loginCode) saveLoginCode(res.data.loginCode);
           applyProfile(p);
           saveLoginToStorage(p);
           loadProfilesDirectory();
@@ -885,6 +886,18 @@
       }catch(e){}
       toast(done ? "Kod nusxalandi" : "Kodni qo'lda yozib oling: " + code);
     });
+    document.getElementById('profileCodeCopyBtn').addEventListener('click', function(){
+      var code = loadLoginCode();
+      var done = false;
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        done = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){}
+      toast(done ? "Kod nusxalandi" : "Kodni qo'lda yozib oling: " + code);
+    });
     document.getElementById('loginCodeDoneBtn').addEventListener('click', function(){
       document.getElementById('loginCodeModal').classList.add('hidden');
       if(pendingAction){ pendingAction(); pendingAction=null; }
@@ -912,6 +925,7 @@
           }
           isLoggedIn = true;
           var p = res.data.profile;
+          saveLoginCode(code);
           applyProfile(p);
           saveLoginToStorage(p);
           loadProfilesDirectory();
