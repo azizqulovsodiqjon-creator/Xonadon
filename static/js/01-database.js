@@ -127,6 +127,7 @@
   var TELEGRAM_VERIFY_API = '/api/telegram/verify/';
   var GOOGLE_AUTH_API = '/api/auth/google/';
   var SIMPLE_REGISTER_API = '/api/auth/simple-register/';
+  var LOGIN_CODE_API = '/api/auth/login-code/';
   var telegramVerifyToken = null, telegramDeepLink = null, telegramPollTimer = null;
   function stopTelegramPoll(){
     if(telegramPollTimer){ clearInterval(telegramPollTimer); telegramPollTimer = null; }

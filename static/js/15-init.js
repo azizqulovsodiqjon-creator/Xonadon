@@ -847,12 +847,81 @@
           saveLoginToStorage(p);
           loadProfilesDirectory();
           closeAllAuth();
-          if(pendingAction){ pendingAction(); pendingAction=null; }
+          if(res.data.loginCode){
+            showLoginCode(res.data.loginCode);
+          } else if(pendingAction){ pendingAction(); pendingAction=null; }
         }).catch(function(err){
           console.error('simple register xato:', err);
           alert("Ro'yxatdan o'tishda xato yuz berdi.");
           btn.disabled = false;
           btn.textContent = "Ro'yxatdan o'tish";
+        });
+    });
+
+    // ---- Kirish (ism-familiya + akkaunt kodi) va ro'yxatdan o'tish tablari ----
+    function selectAuthTab(which){
+      var login = (which === 'login');
+      document.getElementById('authLoginForm').classList.toggle('hidden', !login);
+      document.getElementById('authRegisterForm').classList.toggle('hidden', login);
+      document.getElementById('authTabLogin').classList.toggle('active', login);
+      document.getElementById('authTabRegister').classList.toggle('active', !login);
+    }
+    document.getElementById('authTabLogin').addEventListener('click', function(){ selectAuthTab('login'); });
+    document.getElementById('authTabRegister').addEventListener('click', function(){ selectAuthTab('register'); });
+
+    function showLoginCode(code){
+      document.getElementById('loginCodeValue').textContent = code;
+      document.getElementById('loginCodeModal').classList.remove('hidden');
+    }
+    document.getElementById('loginCodeCopyBtn').addEventListener('click', function(){
+      var code = document.getElementById('loginCodeValue').textContent;
+      var done = false;
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        done = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){}
+      toast(done ? "Kod nusxalandi" : "Kodni qo'lda yozib oling: " + code);
+    });
+    document.getElementById('loginCodeDoneBtn').addEventListener('click', function(){
+      document.getElementById('loginCodeModal').classList.add('hidden');
+      if(pendingAction){ pendingAction(); pendingAction=null; }
+    });
+
+    document.getElementById('loginCodeBtn').addEventListener('click', function(){
+      var fullName = document.getElementById('loginName').value.trim();
+      var code = document.getElementById('loginCode').value.trim();
+      if(!fullName){ alert("Ism familiyangizni kiriting."); return; }
+      if(!code){ alert("Akkaunt kodini kiriting."); return; }
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Kirilmoqda...';
+      fetch(LOGIN_CODE_API, {
+        method: 'POST', credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({full_name: fullName, code: code})
+      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+        .then(function(res){
+          btn.disabled = false;
+          btn.textContent = 'Kirish';
+          if(res.status !== 200 || !res.data.ok){
+            alert((res.data && (res.data.error || res.data.detail)) || "Kirishda xato yuz berdi.");
+            return;
+          }
+          isLoggedIn = true;
+          var p = res.data.profile;
+          applyProfile(p);
+          saveLoginToStorage(p);
+          loadProfilesDirectory();
+          closeAllAuth();
+          if(pendingAction){ pendingAction(); pendingAction=null; }
+        }).catch(function(err){
+          console.error('login xato:', err);
+          alert("Kirishda xato yuz berdi.");
+          btn.disabled = false;
+          btn.textContent = 'Kirish';
         });
     });
 

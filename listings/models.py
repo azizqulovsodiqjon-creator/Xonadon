@@ -156,6 +156,10 @@ class Profile(models.Model):
     # True once an admin approves a VerificationRequest for this profile -
     # drives the checkmark shown next to their name across the site.
     verified = models.BooleanField(default=False)
+    # Hash of the account's login code, generated at sign-up and shown to
+    # the user exactly once. Empty for Google-only profiles and for
+    # profiles created before login codes existed.
+    login_code_hash = models.CharField(max_length=128, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):

@@ -590,10 +590,31 @@
     <div id="googleClientId" data-client-id="{{ google_client_id }}" class="hidden"></div>
     <div id="googleSignInBtn" style="display:flex;justify-content:center;margin-bottom:12px;"></div>
     <div style="text-align:center;color:rgba(var(--ink-rgb),0.5);font-size:12.5px;margin:14px 0;">yoki</div>
-    <input type="text" id="simpleRegName" placeholder="Ism familiya">
-    <input type="text" id="simpleRegPhone" placeholder="+998 90 123 45 67">
-    <button class="btn-full-black" id="simpleRegisterBtn" style="margin-top:0;margin-bottom:12px;">Ro'yxatdan o'tish</button>
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="authTabLogin">Kirish</button>
+      <button type="button" class="auth-tab" id="authTabRegister">Ro'yxatdan o'tish</button>
+    </div>
+    <div id="authLoginForm">
+      <input type="text" id="loginName" placeholder="Ism familiya" autocomplete="name">
+      <input type="text" id="loginCode" placeholder="Akkaunt kodi (masalan K7M2-X9PQ)" autocomplete="off" autocapitalize="characters">
+      <button class="btn-full-black" id="loginCodeBtn" style="margin-top:0;margin-bottom:12px;">Kirish</button>
+    </div>
+    <div id="authRegisterForm" class="hidden">
+      <input type="text" id="simpleRegName" placeholder="Ism familiya">
+      <input type="text" id="simpleRegPhone" placeholder="+998 90 123 45 67">
+      <button class="btn-full-black" id="simpleRegisterBtn" style="margin-top:0;margin-bottom:12px;">Ro'yxatdan o'tish</button>
+    </div>
     <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
+  </div>
+</div>
+
+<div class="auth-gate hidden" id="loginCodeModal">
+  <div class="auth-gate-box" style="max-width:380px;">
+    <h3>Akkaunt kodingiz</h3>
+    <p style="margin-bottom:6px;">Keyingi safar kirish uchun shu kod kerak bo'ladi. <b>Uni saqlab qo'ying</b>, u qayta ko'rsatilmaydi.</p>
+    <div class="login-code-box" id="loginCodeValue">XXXX-XXXX</div>
+    <button class="btn-black" id="loginCodeCopyBtn" style="width:100%;margin-bottom:10px;">Nusxalash</button>
+    <button class="btn-full-outline" id="loginCodeDoneBtn">Saqlab oldim</button>
   </div>
 </div>
 

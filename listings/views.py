@@ -1810,6 +1810,44 @@ def google_auth(request):
     return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
+_LOGIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+
+
+def _new_login_code():
+    import secrets
+    raw = ''.join(secrets.choice(_LOGIN_CODE_ALPHABET) for _ in range(8))
+    return f'{raw[:4]}-{raw[4:]}'
+
+
+def _normalize_login_code(value):
+    return re.sub(r'[^A-Z0-9]', '', str(value).upper())
+
+
+# The code is a random 40-bit secret (not a human-chosen password) and login
+# attempts are rate-limited, so a lighter PBKDF2 than Django's default is
+# plenty - the default takes seconds per hash on a small server.
+_CODE_HASH_ITERATIONS = 100000
+
+
+def _hash_login_code(code):
+    import hashlib
+    import secrets
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac('sha256', code.encode(), salt.encode(), _CODE_HASH_ITERATIONS).hex()
+    return f'pbkdf2_sha256${_CODE_HASH_ITERATIONS}${salt}${digest}'
+
+
+def _check_login_code(code, stored):
+    import hashlib
+    import hmac
+    try:
+        _algo, iterations, salt, digest = stored.split('$')
+        candidate = hashlib.pbkdf2_hmac('sha256', code.encode(), salt.encode(), int(iterations)).hex()
+    except Exception:
+        return False
+    return hmac.compare_digest(candidate, digest)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def simple_register(request):
@@ -1827,12 +1865,17 @@ def simple_register(request):
         return Response({'ok': False, 'error': "To'g'ri telefon raqam kiriting."}, status=400)
 
     profile = Profile.objects.filter(phone=phone).first()
+    if profile and profile.login_code_hash:
+        return Response({'ok': False, 'error': "Bu raqam allaqachon ro'yxatdan o'tgan. «Kirish» bo'limidan ism-familiya va akkaunt kodi bilan kiring."}, status=409)
     if profile:
-        # Welcome back - refresh the name in case it changed, keep everything else.
+        # Profile from before login codes existed: its owner claims it once
+        # by registering again - they get a code now and log in with it later.
+        code = _new_login_code()
+        profile.login_code_hash = _hash_login_code(_normalize_login_code(code))
         if full_name and profile.full_name != full_name:
             profile.full_name = full_name
-            profile.save(update_fields=['full_name'])
-        return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+        profile.save(update_fields=['login_code_hash', 'full_name'])
+        return Response({'ok': True, 'profile': ProfileSerializer(profile).data, 'loginCode': code})
 
     base_username = re.sub(r'[^a-z0-9_]', '', full_name.lower().replace(' ', '_')) or 'foydalanuvchi'
     username = base_username
@@ -1841,8 +1884,30 @@ def simple_register(request):
         suffix += 1
         username = f'{base_username}{suffix}'
 
-    profile = Profile.objects.create(phone=phone, username=username, full_name=full_name, role='Uy egasi')
-    return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
+    code = _new_login_code()
+    profile = Profile.objects.create(
+        phone=phone, username=username, full_name=full_name, role='Uy egasi',
+        login_code_hash=_hash_login_code(_normalize_login_code(code)))
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data, 'loginCode': code}, status=201)
+
+
+class LoginCodeThrottle(AnonRateThrottle):
+    scope = 'login_code'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([LoginCodeThrottle])
+def login_with_code(request):
+    """Log back in with full name + the account code shown at sign-up."""
+    full_name = ' '.join(str(request.data.get('full_name', '')).split())
+    code = _normalize_login_code(request.data.get('code', ''))
+    if not full_name or not code:
+        return Response({'ok': False, 'error': "Ism-familiya va akkaunt kodini kiriting."}, status=400)
+    for profile in Profile.objects.filter(full_name__iexact=full_name).exclude(login_code_hash=''):
+        if _check_login_code(code, profile.login_code_hash):
+            return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+    return Response({'ok': False, 'error': "Ism-familiya yoki akkaunt kodi noto'g'ri."}, status=400)
 
 
 @csrf_exempt
