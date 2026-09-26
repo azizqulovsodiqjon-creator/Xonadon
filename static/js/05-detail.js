@@ -158,11 +158,12 @@
     var detailRouteBtn = document.getElementById('detailRouteBtn');
     if(detailRouteBtn){
       detailRouteBtn.addEventListener('click', function(){
+        if(!canUseBrowserLocation()){ openExternalDirections(l); return; }
         if(!currentMap){ toast("Xarita hali yuklanmadi."); return; }
         routeTargetListing = l;
         detailRouteBtn.textContent = "Joylashuv aniqlanmoqda...";
         startLiveLocation(function(){
-          if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); detailRouteBtn.textContent = "Yo'nalishni ko'rsatish"; return; }
+          if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Xarita ilovasi ochilmoqda..."); detailRouteBtn.textContent = "Yo'nalishni ko'rsatish"; openExternalDirections(l); return; }
           updateUserMarkerOnMap(currentMap);
           detailRouteBtn.textContent = "Yo'nalish qidirilmoqda...";
           fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){

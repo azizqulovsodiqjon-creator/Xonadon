@@ -69,11 +69,21 @@
 
   function requestUserLocation(cb){ startLiveLocation(cb); }
 
+  // Browsers only give a page the visitor's GPS position on https. When that
+  // isn't available (or is denied), hand the trip to the phone's own maps app
+  // instead, which knows where the visitor is.
+  function canUseBrowserLocation(){ return !!(window.isSecureContext && navigator.geolocation); }
+  function openExternalDirections(l){
+    var url = 'https://www.google.com/maps/dir/?api=1&destination=' + l.lat + ',' + l.lng + '&travelmode=driving';
+    window.open(url, '_blank', 'noopener');
+  }
+
   function drawRouteToListing(l){
     routeTargetListing = l;
+    if(!canUseBrowserLocation()){ openExternalDirections(l); return; }
     toast("Joylashuvingiz aniqlanmoqda...");
     startLiveLocation(function(){
-      if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
+      if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Xarita ilovasi ochilmoqda..."); openExternalDirections(l); return; }
       fetchRoute(userLat, userLng, l.lat, l.lng, function(coords, km){
         if(routeLine){ fullMap.removeLayer(routeLine); routeLine = null; }
         routeLine = L.polyline(coords, {color:'#fdf90e', weight:6, opacity:0.9}).addTo(fullMap);
