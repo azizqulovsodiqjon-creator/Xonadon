@@ -102,7 +102,8 @@ def index(request):
         sweep_expired_listings()
     except Exception as exc:
         print(f'[sweep_expired_listings] failed: {exc}')
-    return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID})
+    return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID,
+                                          'site_base_url': settings.SITE_BASE_URL.rstrip('/')})
 
 
 @never_cache
@@ -112,7 +113,8 @@ def listing_page(request, listing_id):
     shared /elon/<id> link previews with the listing's photo, title and
     price in Telegram/Instagram/WhatsApp. Unknown ids fall back to the
     normal shell (the SPA shows its own not-found state)."""
-    ctx = {'google_client_id': settings.GOOGLE_CLIENT_ID}
+    ctx = {'google_client_id': settings.GOOGLE_CLIENT_ID,
+           'site_base_url': settings.SITE_BASE_URL.rstrip('/')}
     try:
         listing = Listing.objects.get(pk=listing_id)
         currency = {'ye': "y.e", 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
@@ -157,7 +159,7 @@ def robots_txt(request):
         'User-agent: *',
         'Allow: /',
         'Disallow: /panel/',
-        'Sitemap: https://xonadon.onrender.com/sitemap.xml',
+        f"Sitemap: {settings.SITE_BASE_URL.rstrip('/')}/sitemap.xml",
     ]
     return HttpResponse('\n'.join(lines), content_type='text/plain')
 
@@ -175,7 +177,7 @@ def sitemap_xml(request):
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         '  <url>\n'
-        '    <loc>https://xonadon.onrender.com/</loc>\n'
+        f"    <loc>{settings.SITE_BASE_URL.rstrip('/')}/</loc>\n"
         '    <changefreq>daily</changefreq>\n'
         '    <priority>1.0</priority>\n'
         '  </url>\n'
