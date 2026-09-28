@@ -116,6 +116,12 @@
   var displayCurrency = (function(){ try{ return localStorage.getItem('displayCurrency') || 'ye'; }catch(e){ return 'ye'; } })();
   var usdUzsRate = null;
   var CURRENCY_RATE_API = '/api/currency-rate/';
+  // MapTiler's key is meant to live in frontend code (that's how their
+  // API is designed to be used) - OpenStreetMap's own raw tile servers
+  // (tile.openstreetmap.org) are volunteer-run and repeatedly rate-limited
+  // this production site for not following their usage policy.
+  var MAPTILER_TILE_URL = 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=gDyjxAyIEO1NzP7pucUD';
+  var MAPTILER_ATTRIBUTION = '© <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
   function loadCurrencyRate(cb){
     fetch(CURRENCY_RATE_API).then(function(r){ return r.json(); }).then(function(d){
       if(d.ok && d.rate) usdUzsRate = d.rate;

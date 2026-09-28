@@ -241,7 +241,7 @@
       var el = document.getElementById('postLocationMap');
       if(!el || typeof L === 'undefined') return;
       postLocationMap = L.map(el, {scrollWheelZoom:false, minZoom:9, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView(JIZZAX_CENTER, 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap',subdomains:'abc', maxZoom:18}).addTo(postLocationMap);
+      L.tileLayer(MAPTILER_TILE_URL, {attribution: MAPTILER_ATTRIBUTION, maxZoom: 20}).addTo(postLocationMap);
       postLocationMarker = L.marker(JIZZAX_CENTER, {draggable:true}).addTo(postLocationMap);
       postLocationMap.on('click', function(e){ postLocationMarker.setLatLng(e.latlng); });
       setTimeout(function(){ postLocationMap.invalidateSize(); }, 60);
