@@ -437,6 +437,9 @@
   .my-location-dot{width:16px;height:16px;}
   .my-location-dot span{display:block;width:12px;height:12px;margin:2px;border-radius:50%;background:#2F6FED;border:2.5px solid #fff;box-shadow:0 0 0 4px rgba(47,111,237,0.28),0 2px 6px rgba(0,0,0,0.3);}
   .leaflet-price-pin::after{content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid var(--accent2);}
+  /* "Menga yaqin" - the closest listings to the user, same color as the "Men" pin */
+  .leaflet-price-pin.is-nearest{background:var(--turquoise);box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,0,0,0.35);}
+  .leaflet-price-pin.is-nearest::after{border-top-color:var(--turquoise);}
   .map-popup-link{display:inline-block;margin-top:6px;font-weight:800;color:var(--accent2);text-decoration:underline;cursor:pointer;}
 
   /* ---------- side panels ---------- */

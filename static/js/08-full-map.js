@@ -64,7 +64,88 @@
         }, function(){});
       }
       if(cb){ cb(); cb = null; }
-    }, function(err){ console.error('Joylashuv xatosi:', err); if(cb){ cb(); cb = null; } }, {enableHighAccuracy:true, maximumAge:5000});
+    }, function(err){
+      console.error('Joylashuv xatosi:', err);
+      // Drop the failed watch - otherwise geoWatchId stays set with no
+      // position, and every later call hits the early return above
+      // without ever running its callback (button silently dead).
+      if(geoWatchId != null){ navigator.geolocation.clearWatch(geoWatchId); geoWatchId = null; }
+      if(cb){ cb(); cb = null; }
+    }, {enableHighAccuracy:true, maximumAge:5000, timeout:15000});
+  }
+
+  function geoErrorMessage(err){
+    if(err && err.code === 1) return "Joylashuvga ruxsat berilmagan. Brauzer sozlamalarida ruxsat bering.";
+    if(err && err.code === 3) return "Joylashuvni aniqlash juda uzoq davom etdi. Qayta urinib ko'ring.";
+    return "Joylashuvingiz aniqlanmadi. GPS yoqilganini tekshiring.";
+  }
+
+  function distanceKm(lat1, lng1, lat2, lng2){
+    var R = 6371, toRad = Math.PI / 180;
+    var dLat = (lat2 - lat1) * toRad, dLng = (lng2 - lng1) * toRad;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLng/2) * Math.sin(dLng/2);
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  var NEAREST_COUNT = 5;
+
+  // "Menga yaqin": a one-shot position fix (with its own timeout, so the
+  // button always answers), then the user's pin plus the NEAREST_COUNT
+  // closest listings matching the current filters, highlighted and
+  // framed together on the map.
+  function showNearestListings(mapObj){
+    if(!window.isSecureContext){ toast("Joylashuv faqat https:// manzilda ishlaydi."); return; }
+    if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni aniqlay olmaydi."); return; }
+    toast("Joylashuvingiz aniqlanmoqda...");
+    navigator.geolocation.getCurrentPosition(function(pos){
+      if(mapObj !== fullMap) return;  // map was closed/rebuilt meanwhile
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      var here = L.latLng(userLat, userLng);
+
+      // The map is locked to Jizzax; if the user is outside it, widen the
+      // limits so their own pin can actually be shown.
+      var bounds = L.latLngBounds(JIZZAX_BOUNDS);
+      if(!bounds.contains(here)){
+        mapObj.setMinZoom(5);
+        mapObj.setMaxBounds(bounds.extend(here).pad(0.2));
+      }
+      updateUserMarkerOnMap(mapObj);
+      startLiveLocation();  // keep the "Men" pin following the user
+
+      var nearest = listings.filter(function(l){
+        return matchesFilters(l, filterState) && isFinite(l.lat) && isFinite(l.lng);
+      }).map(function(l){
+        return {listing: l, km: distanceKm(userLat, userLng, l.lat, l.lng)};
+      }).sort(function(a, b){ return a.km - b.km; }).slice(0, NEAREST_COUNT);
+
+      highlightNearestMarkers(nearest.map(function(n){ return n.listing.id; }));
+
+      if(!nearest.length){
+        mapObj.setView(here, 15);
+        toast("Yaqin atrofda e'lon topilmadi.");
+        return;
+      }
+      mapObj.invalidateSize();  // stale size -> fitBounds zooms all the way in
+      var frame = L.latLngBounds([here]);
+      nearest.forEach(function(n){ frame.extend([n.listing.lat, n.listing.lng]); });
+      mapObj.fitBounds(frame, {padding:[60,60], maxZoom:16});
+      toast("Eng yaqin " + nearest.length + " ta e'lon · eng yaqini " + nearest[0].km.toFixed(1) + " km");
+    }, function(err){
+      console.error('Joylashuv xatosi:', err);
+      toast(geoErrorMessage(err));
+    }, {enableHighAccuracy:true, timeout:15000, maximumAge:30000});
+  }
+
+  function highlightNearestMarkers(ids){
+    mapMarkers.forEach(function(m){
+      var el = m.getElement() && m.getElement().querySelector('.leaflet-price-pin');
+      if(!el) return;
+      var on = ids.indexOf(m.listingId) !== -1;
+      el.classList.toggle('is-nearest', on);
+      m.setZIndexOffset(on ? 500 : 0);
+    });
   }
 
   function requestUserLocation(cb){ startLiveLocation(cb); }
@@ -172,10 +253,7 @@
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.on(div.querySelector('a'), 'click', function(e){
           L.DomEvent.preventDefault(e);
-          startLiveLocation(function(){
-            if(userLat == null){ toast("Joylashuvingiz aniqlanmadi. Brauzer ruxsatini tekshiring."); return; }
-            mapObj.setView([userLat, userLng], 15);
-          });
+          showNearestListings(mapObj);
         });
         return div;
       }
@@ -197,6 +275,7 @@
     visible.forEach(function(l){
       var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
       var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
+      m.listingId = l.id;
       var popupEl = document.createElement('div');
       popupEl.innerHTML = '<b>'+l.title+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
       popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
