@@ -409,7 +409,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
             _post_listing_to_channel(listing)
-            social.publish_new_listing(listing)
+            social.publish_new_listing(listing, request)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -429,7 +429,7 @@ class ListingViewSet(viewsets.ModelViewSet):
                 # Listing posted without photos, photos added later -> it
                 # was skipped on Instagram/YouTube, post it now (no-op for
                 # platforms it's already on).
-                social.publish_new_listing(listing)
+                social.publish_new_listing(listing, request)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -1393,7 +1393,7 @@ def _apply_tier_upgrade(listing, tier):
     return listing
 
 
-def _finalize_pending_payment(pending):
+def _finalize_pending_payment(pending, request=None):
     """Idempotent: create the Listing for a paid pending row exactly once
     (or, for a tier-upgrade pending row, apply the upgrade exactly once).
 
@@ -1422,7 +1422,7 @@ def _finalize_pending_payment(pending):
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
     _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
     _post_listing_to_channel(listing)
-    social.publish_new_listing(listing)
+    social.publish_new_listing(listing, request)
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])
@@ -1460,7 +1460,7 @@ def confirm_payment(request):
     if session.payment_status != 'paid':
         return Response({'ok': False, 'status': session.payment_status})
 
-    listing = _finalize_pending_payment(pending)
+    listing = _finalize_pending_payment(pending, request)
     return Response({'ok': True, 'listing': ListingSerializer(listing).data})
 
 
@@ -1634,7 +1634,7 @@ def stripe_webhook(request):
         sid = session_obj['id']
         try:
             pending = PendingListingPayment.objects.get(stripe_session_id=sid)
-            _finalize_pending_payment(pending)
+            _finalize_pending_payment(pending, request)
         except PendingListingPayment.DoesNotExist:
             try:
                 topup = PendingBalanceTopup.objects.get(stripe_session_id=sid)

@@ -53,7 +53,24 @@ def _log(tag, msg):
     print(f'[{tag}] {msg}')
 
 
-def _site_url():
+def base_url_for(request=None):
+    """Public https origin of the site, used in captions and for the photo
+    URLs Instagram downloads. An explicit SITE_BASE_URL env var wins;
+    otherwise it's taken from the request the listing was created in, so
+    it follows whatever domain the site is served on without extra config.
+    That request origin is only trusted if it's in CSRF_TRUSTED_ORIGINS -
+    ALLOWED_HOSTS is '*', so a forged Host header could otherwise point
+    Instagram at someone else's server for the photos."""
+    if os.environ.get('SITE_BASE_URL') or os.environ.get('RENDER_EXTERNAL_URL'):
+        return settings.SITE_BASE_URL.rstrip('/')
+    if request is not None:
+        try:
+            origin = f'{request.scheme}://{request.get_host()}'
+        except Exception:
+            origin = None
+        trusted = [o.rstrip('/') for o in getattr(settings, 'CSRF_TRUSTED_ORIGINS', [])]
+        if origin in trusted:
+            return origin
     return settings.SITE_BASE_URL.rstrip('/')
 
 
@@ -69,7 +86,7 @@ def _listing_photos(listing_id, limit):
     return photos
 
 
-def _facts(listing):
+def _facts(listing, base):
     """Shared plain-text bits for captions/descriptions/video frames."""
     deal = {'sotuv': 'Sotiladi', 'ijara': 'Ijaraga', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
     currency = {'ye': 'y.e', 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
@@ -85,15 +102,16 @@ def _facts(listing):
         'price': f'{listing.price} {currency}'.strip(),
         'district': listing.district,
         'details': ', '.join(details),
-        'link': f'{_site_url()}/elon/{listing.id}',
+        'link': f'{base}/elon/{listing.id}',
+        'domain': urllib.parse.urlparse(base).netloc or base,
     }
 
 
 HASHTAGS = '#jizzax #jizzaxjoy #uyjoy #kvartira #uysotiladi #ijara #недвижимость'
 
 
-def _caption(listing):
-    f = _facts(listing)
+def _caption(listing, base):
+    f = _facts(listing, base)
     lines = [listing.title]
     if f['deal']:
         lines.append(f['deal'])
@@ -214,7 +232,7 @@ def _ig_wait_ready(container_id, token, timeout=90):
     raise RuntimeError(f'container {container_id} not ready after {timeout}s')
 
 
-def _post_to_instagram(listing_id):
+def _post_to_instagram(listing_id, base):
     listing = Listing.objects.filter(pk=listing_id).first()
     if not listing or listing.ig_media_id:
         return
@@ -223,8 +241,8 @@ def _post_to_instagram(listing_id):
         return
     token = _instagram_token()
     uid = _instagram_user_id(token)
-    caption = _caption(listing)[:2200]
-    urls = [f'{_site_url()}/og/listing/{listing_id}/ig/{i}.jpg' for i in range(count)]
+    caption = _caption(listing, base)[:2200]
+    urls = [f'{base}/og/listing/{listing_id}/ig/{i}.jpg' for i in range(count)]
 
     if count == 1:
         container = _ig_call('POST', f'{uid}/media', {
@@ -329,8 +347,7 @@ def _video_frame(photo_bytes, listing, facts, index, total):
     for line in info:
         draw.text((pad + 12, y), _frame_text(line), font=info_font, fill=(215, 222, 235))
         y += 42
-    domain = urllib.parse.urlparse(_site_url()).netloc or _site_url()
-    draw.text((pad + 12, y + 12), _frame_text(f'{domain}  •  {index + 1}/{total}'), font=_font(26), fill=(150, 165, 190))
+    draw.text((pad + 12, y + 12), _frame_text(f"{facts['domain']}  •  {index + 1}/{total}"), font=_font(26), fill=(150, 165, 190))
     return frame
 
 
@@ -342,7 +359,7 @@ def _ffmpeg_exe():
         return shutil.which('ffmpeg')
 
 
-def render_listing_video(listing):
+def render_listing_video(listing, base):
     """MP4 bytes of the listing's Shorts slideshow, or None without photos."""
     photos = _listing_photos(listing.id, YT_MAX_PHOTOS)
     if not photos:
@@ -350,7 +367,7 @@ def render_listing_video(listing):
     ffmpeg = _ffmpeg_exe()
     if not ffmpeg:
         raise RuntimeError('ffmpeg not found (pip install imageio-ffmpeg)')
-    facts = _facts(listing)
+    facts = _facts(listing, base)
     with tempfile.TemporaryDirectory() as tmp:
         for i, photo in enumerate(photos):
             _video_frame(photo, listing, facts, i, len(photos)).save(
@@ -387,8 +404,8 @@ def _youtube_access_token():
         return json.loads(resp.read().decode('utf-8'))['access_token']
 
 
-def _youtube_metadata(listing):
-    f = _facts(listing)
+def _youtube_metadata(listing, base):
+    f = _facts(listing, base)
     title = f"{f['price']} - {listing.title}"
     if len(title) > 90:
         title = title[:87].rstrip() + '...'
@@ -440,15 +457,15 @@ def _upload_youtube_video(video, metadata, access_token):
         return json.loads(resp.read().decode('utf-8'))['id']
 
 
-def _post_to_youtube(listing_id):
+def _post_to_youtube(listing_id, base):
     with _yt_lock:
         listing = Listing.objects.filter(pk=listing_id).first()
         if not listing or listing.yt_video_id:
             return
-        video = render_listing_video(listing)
+        video = render_listing_video(listing, base)
         if not video:
             return
-        video_id = _upload_youtube_video(video, _youtube_metadata(listing), _youtube_access_token())
+        video_id = _upload_youtube_video(video, _youtube_metadata(listing, base), _youtube_access_token())
         if not Listing.objects.filter(pk=listing_id).update(yt_video_id=video_id):
             # Sold/deleted while the video was rendering - don't leave an
             # orphan Short pointing at a dead listing.
@@ -477,14 +494,16 @@ def _in_background(tag, fn, *args):
     threading.Thread(target=run, daemon=True).start()
 
 
-def publish_new_listing(listing):
-    """Post a listing to every configured platform it isn't on yet."""
+def publish_new_listing(listing, request=None):
+    """Post a listing to every configured platform it isn't on yet.
+    `request` is the one the listing came in on - see base_url_for()."""
     if listing.is_wanted:
         return  # "qidiryapman" requests have no photos of a property to show
+    base = base_url_for(request)
     if os.environ.get('INSTAGRAM_ACCESS_TOKEN', '').strip() and not listing.ig_media_id:
-        _in_background('instagram', _post_to_instagram, listing.id)
+        _in_background('instagram', _post_to_instagram, listing.id, base)
     if _youtube_configured() and not listing.yt_video_id:
-        _in_background('youtube', _post_to_youtube, listing.id)
+        _in_background('youtube', _post_to_youtube, listing.id, base)
 
 
 @receiver(post_delete, sender=Listing)

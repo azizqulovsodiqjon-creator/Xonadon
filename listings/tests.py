@@ -3,7 +3,7 @@ import io
 import os
 from unittest import mock
 
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from PIL import Image
 
 from . import social
@@ -115,3 +115,20 @@ class YouTubePostTests(TestCase):
         with mock.patch.object(social, '_upload_youtube_video') as upload:
             social.publish_new_listing(_make_listing(is_wanted=True))
         upload.assert_not_called()
+
+
+@override_settings(SITE_BASE_URL='https://fallback.test', CSRF_TRUSTED_ORIGINS=['https://jizzaxjoy.test'])
+@mock.patch.dict(os.environ, {'SITE_BASE_URL': '', 'RENDER_EXTERNAL_URL': ''})
+class BaseUrlTests(TestCase):
+    def test_follows_trusted_request_origin(self):
+        request = RequestFactory().get('/', HTTP_HOST='jizzaxjoy.test', secure=True)
+        self.assertEqual(social.base_url_for(request), 'https://jizzaxjoy.test')
+
+    def test_forged_host_ignored(self):
+        request = RequestFactory().get('/', HTTP_HOST='evil.example', secure=True)
+        self.assertEqual(social.base_url_for(request), 'https://fallback.test')
+
+    def test_explicit_env_wins(self):
+        request = RequestFactory().get('/', HTTP_HOST='jizzaxjoy.test', secure=True)
+        with mock.patch.dict(os.environ, {'SITE_BASE_URL': 'https://set.test'}),                 override_settings(SITE_BASE_URL='https://set.test'):
+            self.assertEqual(social.base_url_for(request), 'https://set.test')
