@@ -1,27 +1,19 @@
 """
-Auto-posting new listings to Instagram and YouTube, alongside the existing
-Telegram channel post (views._post_listing_to_channel). Same rules as that
-one: best-effort, the slow network/video work runs in a background thread
-so creating a listing is never delayed or broken by it, listings without
-photos are skipped, and each platform is a no-op until its env vars are set.
+Auto-posting new listings to Instagram, alongside the existing Telegram
+channel post (views._post_listing_to_channel). Same rules as that one:
+best-effort, the network calls run in a background thread so creating a
+listing is never delayed or broken by it, listings without photos are
+skipped, and it's a no-op until INSTAGRAM_ACCESS_TOKEN is set (optional:
+INSTAGRAM_USER_ID).
 
-Instagram  - the listing's photos as a post (carousel for 2-10 photos), via
-             the Instagram API with Instagram Login. Instagram downloads the
-             photos itself from /og/listing/<id>/ig/<n>.jpg on this site.
-             Env: INSTAGRAM_ACCESS_TOKEN (+ optional INSTAGRAM_USER_ID).
-YouTube    - a vertical Shorts slideshow rendered from the photos (price,
-             district etc. drawn on each frame), uploaded via the YouTube
-             Data API. Env: YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET,
-             YOUTUBE_REFRESH_TOKEN (get the last one with
-             `python manage.py youtube_auth`), optional YOUTUBE_PRIVACY.
+The listing's photos go up as one post (carousel for 2-10 photos) via the
+Instagram API with Instagram Login. Instagram downloads the photos itself
+from /og/listing/<id>/ig/<n>.jpg on this site.
 """
 import base64
 import io
 import json
 import os
-import shutil
-import subprocess
-import tempfile
 import textwrap
 import threading
 import time
@@ -31,22 +23,12 @@ import urllib.request
 
 from django.conf import settings
 from django.db import close_old_connections
-from django.db.models.signals import post_delete
-from django.dispatch import receiver
 
 from .models import Listing, ListingImage, SiteSetting
 
 IG_API = 'https://graph.instagram.com/v23.0'
 IG_IMAGE_SIZE = (1080, 1350)  # 4:5 - Instagram rejects taller photos (most phone shots are 3:4)
 IG_MAX_PHOTOS = 10
-
-YT_FRAME_SIZE = (720, 1280)   # vertical 9:16 -> treated as a Short
-YT_MAX_PHOTOS = 8
-YT_SECONDS_PER_PHOTO = 3
-
-# One video render at a time - ffmpeg + Pillow on a small host would run
-# out of memory if several listings were posted at once.
-_yt_lock = threading.Lock()
 
 
 def _log(tag, msg):
@@ -87,7 +69,7 @@ def _listing_photos(listing_id, limit):
 
 
 def _facts(listing, base):
-    """Shared plain-text bits for captions/descriptions/video frames."""
+    """Plain-text bits for the caption."""
     deal = {'sotuv': 'Sotiladi', 'ijara': 'Ijaraga', 'kunlik': 'Kunlik ijara'}.get(listing.deal, '')
     currency = {'ye': 'y.e', 'usd': 'USD', 'uzs': "so'm"}.get(listing.currency, '')
     details = []
@@ -103,7 +85,6 @@ def _facts(listing, base):
         'district': listing.district,
         'details': ', '.join(details),
         'link': f'{base}/elon/{listing.id}',
-        'domain': urllib.parse.urlparse(base).netloc or base,
     }
 
 
@@ -131,18 +112,15 @@ def _caption(listing, base):
 
 # ---------------------------------------------------------------- images
 
-def _fit_on_canvas(photo_bytes, size, bg_blur=True):
+def _fit_on_canvas(photo_bytes, size):
     """Photo scaled to fit inside `size` (nothing cropped), centered on a
     blurred, darkened, cover-scaled copy of itself."""
     from PIL import Image, ImageFilter, ImageEnhance, ImageOps
 
     img = ImageOps.exif_transpose(Image.open(io.BytesIO(photo_bytes))).convert('RGB')
     w, h = size
-    if bg_blur:
-        bg = ImageOps.fit(img, size, Image.LANCZOS).filter(ImageFilter.GaussianBlur(28))
-        bg = ImageEnhance.Brightness(bg).enhance(0.55)
-    else:
-        bg = Image.new('RGB', size, (18, 22, 30))
+    bg = ImageOps.fit(img, size, Image.LANCZOS).filter(ImageFilter.GaussianBlur(28))
+    bg = ImageEnhance.Brightness(bg).enhance(0.55)
     fg = img.copy()
     fg.thumbnail(size, Image.LANCZOS)
     bg.paste(fg, ((w - fg.width) // 2, (h - fg.height) // 2))
@@ -264,223 +242,6 @@ def _post_to_instagram(listing_id, base):
     _log('instagram', f'listing {listing_id} posted as {media_id}')
 
 
-# --------------------------------------------------------------- YouTube
-
-_fallback_font_used = False
-
-
-def _font(size, bold=False):
-    global _fallback_font_used
-    from PIL import ImageFont
-    for name in (('DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'),
-                 ('LiberationSans-Bold.ttf' if bold else 'LiberationSans-Regular.ttf'),
-                 ('arialbd.ttf' if bold else 'arial.ttf')):
-        try:
-            return ImageFont.truetype(name, size)
-        except OSError:
-            continue
-    _fallback_font_used = True
-    return ImageFont.load_default(size=size)
-
-
-def _frame_text(text):
-    """Pillow's built-in fallback font (used only when the host has no
-    DejaVu/Liberation/Arial) lacks some glyphs - swap them for plain ones
-    instead of drawing empty boxes."""
-    if not _fallback_font_used:
-        return text
-    for a, b in (('²', '2'), ('•', '|'), ('‘', "'"), ('’', "'"), ('ʻ', "'"), ('ʼ', "'")):
-        text = text.replace(a, b)
-    return text
-
-
-def _wrap(draw, text, font, max_width, max_lines):
-    words, lines, line = text.split(), [], ''
-    for word in words:
-        trial = f'{line} {word}'.strip()
-        if draw.textlength(trial, font=font) <= max_width:
-            line = trial
-            continue
-        if line:
-            lines.append(line)
-        line = word
-        if len(lines) == max_lines:
-            break
-    if line and len(lines) < max_lines:
-        lines.append(line)
-    if len(lines) == max_lines and ' '.join(lines) != ' '.join(words):
-        lines[-1] = lines[-1].rstrip('.,') + '...'
-    return lines
-
-
-def _video_frame(photo_bytes, listing, facts, index, total):
-    from PIL import ImageDraw
-
-    w, h = YT_FRAME_SIZE
-    frame = _fit_on_canvas(photo_bytes, (w, h))
-    draw = ImageDraw.Draw(frame, 'RGBA')
-    pad = 36
-
-    # top: brand + deal type + photo counter
-    draw.rectangle([0, 0, w, 110], fill=(0, 0, 0, 120))
-    draw.text((pad, 34), 'Jizzax-Joy', font=_font(40, bold=True), fill=(255, 255, 255))
-    if facts['deal']:
-        deal_font = _font(26, bold=True)
-        tw = draw.textlength(facts['deal'], font=deal_font)
-        draw.rounded_rectangle([w - pad - tw - 28, 32, w - pad, 80], radius=22, fill=(253, 249, 14))
-        draw.text((w - pad - tw - 14, 40), facts['deal'], font=deal_font, fill=(20, 20, 20))
-
-    # bottom info card
-    title_font, price_font, info_font = _font(38, bold=True), _font(54, bold=True), _font(30)
-    title_lines = _wrap(draw, listing.title, title_font, w - 2 * pad, 2)
-    info = [facts['district']] + ([facts['details']] if facts['details'] else [])
-    card_h = 40 + len(title_lines) * 48 + 72 + len(info) * 42 + 70
-    top = h - card_h - 40
-    draw.rounded_rectangle([pad - 12, top, w - pad + 12, h - 40], radius=28, fill=(10, 14, 22, 205))
-    y = top + 28
-    for line in title_lines:
-        draw.text((pad + 12, y), _frame_text(line), font=title_font, fill=(255, 255, 255))
-        y += 48
-    y += 8
-    draw.text((pad + 12, y), facts['price'], font=price_font, fill=(253, 249, 14))
-    y += 72
-    for line in info:
-        draw.text((pad + 12, y), _frame_text(line), font=info_font, fill=(215, 222, 235))
-        y += 42
-    draw.text((pad + 12, y + 12), _frame_text(f"{facts['domain']}  •  {index + 1}/{total}"), font=_font(26), fill=(150, 165, 190))
-    return frame
-
-
-def _ffmpeg_exe():
-    try:
-        import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        return shutil.which('ffmpeg')
-
-
-def render_listing_video(listing, base):
-    """MP4 bytes of the listing's Shorts slideshow, or None without photos."""
-    photos = _listing_photos(listing.id, YT_MAX_PHOTOS)
-    if not photos:
-        return None
-    ffmpeg = _ffmpeg_exe()
-    if not ffmpeg:
-        raise RuntimeError('ffmpeg not found (pip install imageio-ffmpeg)')
-    facts = _facts(listing, base)
-    with tempfile.TemporaryDirectory() as tmp:
-        for i, photo in enumerate(photos):
-            _video_frame(photo, listing, facts, i, len(photos)).save(
-                os.path.join(tmp, f'f{i:03d}.jpg'), quality=90)
-        out = os.path.join(tmp, 'out.mp4')
-        duration = len(photos) * YT_SECONDS_PER_PHOTO
-        subprocess.run([
-            ffmpeg, '-y', '-loglevel', 'error',
-            '-framerate', f'1/{YT_SECONDS_PER_PHOTO}', '-i', os.path.join(tmp, 'f%03d.jpg'),
-            # silent audio track - some players/apps treat audio-less
-            # uploads oddly, and it costs nothing
-            '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-            '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast',
-            '-threads', '1', '-c:a', 'aac', '-shortest', '-t', str(duration),
-            '-movflags', '+faststart', out,
-        ], check=True, timeout=300)
-        with open(out, 'rb') as fh:
-            return fh.read()
-
-
-def _youtube_configured():
-    return all(os.environ.get(k, '').strip() for k in
-               ('YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REFRESH_TOKEN'))
-
-
-def _youtube_access_token():
-    data = urllib.parse.urlencode({
-        'client_id': os.environ['YOUTUBE_CLIENT_ID'].strip(),
-        'client_secret': os.environ['YOUTUBE_CLIENT_SECRET'].strip(),
-        'refresh_token': os.environ['YOUTUBE_REFRESH_TOKEN'].strip(),
-        'grant_type': 'refresh_token',
-    }).encode('utf-8')
-    with urllib.request.urlopen('https://oauth2.googleapis.com/token', data=data, timeout=30) as resp:
-        return json.loads(resp.read().decode('utf-8'))['access_token']
-
-
-def _youtube_metadata(listing, base):
-    f = _facts(listing, base)
-    title = f"{f['price']} - {listing.title}"
-    if len(title) > 90:
-        title = title[:87].rstrip() + '...'
-    title += ' #Shorts'
-    description = '\n'.join(filter(None, [
-        listing.title,
-        f['deal'],
-        f"Narxi: {f['price']}",
-        f"Hudud: {f['district']}",
-        f['details'],
-        '',
-        textwrap.shorten(listing.desc, 1500, placeholder='...') if listing.desc else '',
-        '',
-        f"Batafsil va aloqa: {f['link']}",
-        '',
-        HASHTAGS + ' #shorts',
-    ]))
-    return {
-        'snippet': {
-            # YouTube rejects titles/descriptions containing < or >
-            'title': title.replace('<', '').replace('>', ''),
-            'description': description.replace('<', '').replace('>', '')[:4900],
-            'tags': ['jizzax', 'uy-joy', 'kvartira', 'ko\'chmas mulk', 'Jizzax-Joy'],
-            'categoryId': os.environ.get('YOUTUBE_CATEGORY_ID', '22'),
-            'defaultLanguage': 'uz',
-        },
-        'status': {
-            'privacyStatus': os.environ.get('YOUTUBE_PRIVACY', 'public'),
-            'selfDeclaredMadeForKids': False,
-        },
-    }
-
-
-def _upload_youtube_video(video, metadata, access_token):
-    body = json.dumps(metadata).encode('utf-8')
-    start = urllib.request.Request(
-        'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',
-        data=body, method='POST', headers={
-            'Authorization': f'Bearer {access_token}',
-            'Content-Type': 'application/json; charset=UTF-8',
-            'X-Upload-Content-Type': 'video/mp4',
-            'X-Upload-Content-Length': str(len(video)),
-        })
-    with urllib.request.urlopen(start, timeout=60) as resp:
-        upload_url = resp.headers['Location']
-    put = urllib.request.Request(upload_url, data=video, method='PUT', headers={
-        'Authorization': f'Bearer {access_token}', 'Content-Type': 'video/mp4'})
-    with urllib.request.urlopen(put, timeout=300) as resp:
-        return json.loads(resp.read().decode('utf-8'))['id']
-
-
-def _post_to_youtube(listing_id, base):
-    with _yt_lock:
-        listing = Listing.objects.filter(pk=listing_id).first()
-        if not listing or listing.yt_video_id:
-            return
-        video = render_listing_video(listing, base)
-        if not video:
-            return
-        video_id = _upload_youtube_video(video, _youtube_metadata(listing, base), _youtube_access_token())
-        if not Listing.objects.filter(pk=listing_id).update(yt_video_id=video_id):
-            # Sold/deleted while the video was rendering - don't leave an
-            # orphan Short pointing at a dead listing.
-            _delete_youtube_video(video_id)
-        _log('youtube', f'listing {listing_id} uploaded as {video_id}')
-
-
-def _delete_youtube_video(video_id):
-    req = urllib.request.Request(
-        'https://www.googleapis.com/youtube/v3/videos?' + urllib.parse.urlencode({'id': video_id}),
-        method='DELETE', headers={'Authorization': f'Bearer {_youtube_access_token()}'})
-    with urllib.request.urlopen(req, timeout=30):
-        pass
-
-
 # ------------------------------------------------------------ public API
 
 def _in_background(tag, fn, *args):
@@ -495,21 +256,9 @@ def _in_background(tag, fn, *args):
 
 
 def publish_new_listing(listing, request=None):
-    """Post a listing to every configured platform it isn't on yet.
+    """Post a listing to Instagram unless it's already there.
     `request` is the one the listing came in on - see base_url_for()."""
     if listing.is_wanted:
         return  # "qidiryapman" requests have no photos of a property to show
-    base = base_url_for(request)
     if os.environ.get('INSTAGRAM_ACCESS_TOKEN', '').strip() and not listing.ig_media_id:
-        _in_background('instagram', _post_to_instagram, listing.id, base)
-    if _youtube_configured() and not listing.yt_video_id:
-        _in_background('youtube', _post_to_youtube, listing.id, base)
-
-
-@receiver(post_delete, sender=Listing)
-def remove_listing_posts(sender, instance, **kwargs):
-    """Runs whenever a listing is deleted (sold, expired, removed). YouTube
-    videos are deleted; the Instagram API has no delete call, so those
-    posts stay until removed by hand in the app."""
-    if instance.yt_video_id and _youtube_configured():
-        _in_background('youtube', _delete_youtube_video, instance.yt_video_id)
+        _in_background('instagram', _post_to_instagram, listing.id, base_url_for(request))

@@ -89,34 +89,6 @@ class InstagramPostTests(TestCase):
         self.assertEqual(self.client.get(f'/og/listing/{listing.id}/ig/5.jpg').status_code, 404)
 
 
-YT_ENV = {'YOUTUBE_CLIENT_ID': 'id', 'YOUTUBE_CLIENT_SECRET': 'secret', 'YOUTUBE_REFRESH_TOKEN': 'rt',
-          'INSTAGRAM_ACCESS_TOKEN': ''}
-
-
-@mock.patch.object(social, '_in_background', _run_inline)
-@mock.patch.object(social, '_youtube_access_token', return_value='access')
-@mock.patch.dict(os.environ, YT_ENV)
-class YouTubePostTests(TestCase):
-    def test_short_rendered_uploaded_and_deleted_with_listing(self, _token):
-        listing = _make_listing(photos=2)
-        with mock.patch.object(social, '_upload_youtube_video', return_value='VID1') as upload:
-            social.publish_new_listing(listing)
-        video, metadata, _ = upload.call_args.args
-        self.assertTrue(video[4:8] == b'ftyp')  # a real MP4 came out of ffmpeg
-        self.assertIn('#Shorts', metadata['snippet']['title'])
-        listing.refresh_from_db()
-        self.assertEqual(listing.yt_video_id, 'VID1')
-
-        with mock.patch.object(social, '_delete_youtube_video') as delete:
-            listing.delete()
-        delete.assert_called_once_with('VID1')
-
-    def test_wanted_listings_skipped(self, _token):
-        with mock.patch.object(social, '_upload_youtube_video') as upload:
-            social.publish_new_listing(_make_listing(is_wanted=True))
-        upload.assert_not_called()
-
-
 @override_settings(SITE_BASE_URL='https://fallback.test', CSRF_TRUSTED_ORIGINS=['https://jizzaxjoy.test'])
 @mock.patch.dict(os.environ, {'SITE_BASE_URL': '', 'RENDER_EXTERNAL_URL': ''})
 class BaseUrlTests(TestCase):

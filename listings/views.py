@@ -427,8 +427,8 @@ class ListingViewSet(viewsets.ModelViewSet):
             _refresh_listing_channel_post(listing, bool(request.data.get('image_ids')))
             if request.data.get('image_ids'):
                 # Listing posted without photos, photos added later -> it
-                # was skipped on Instagram/YouTube, post it now (no-op for
-                # platforms it's already on).
+                # was skipped on Instagram, post it now (no-op if it's
+                # already there).
                 social.publish_new_listing(listing, request)
             response.data = ListingSerializer(listing).data
         return response

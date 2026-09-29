@@ -81,10 +81,9 @@ class Listing(models.Model):
     # Telegram channel message ids (comma-separated) for this listing's post,
     # kept so the post can be deleted when the listing is sold.
     tg_message_ids = models.CharField(max_length=500, blank=True, default='')
-    # Auto-posted copies on Instagram / YouTube (see listings/social.py) -
+    # The listing's auto-posted Instagram copy (see listings/social.py) -
     # also what stops the same listing from being posted twice.
     ig_media_id = models.CharField(max_length=64, blank=True, default='')
-    yt_video_id = models.CharField(max_length=32, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):

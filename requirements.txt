@@ -4,7 +4,6 @@ Django==6.1
 django-cors-headers==4.9.0
 djangorestframework==3.18.0
 gunicorn==26.0.0
-imageio-ffmpeg==0.6.0
 packaging==26.3
 pillow==12.3.0
 pillow-heif==1.5.0
