@@ -12,6 +12,7 @@ class ListingsConfig(AppConfig):
     name = 'listings'
 
     def ready(self):
+        from . import social  # noqa: F401 - registers the post_delete hook that removes YouTube videos
         # Self-healing safety net: make sure the admin panel's login
         # account exists every time the app actually starts serving
         # traffic (gunicorn/runserver) - not just when a deploy's build

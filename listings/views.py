@@ -27,6 +27,7 @@ from .models import (
     VerificationRequest, PaymentEvent, TierDiscount,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
+from . import social
 
 try:
     # iPhones save photos as HEIC/HEIF by default, which stock Pillow
@@ -131,6 +132,17 @@ def listing_page(request, listing_id):
     except Listing.DoesNotExist:
         pass
     return render(request, 'index.html', ctx)
+
+
+def listing_instagram_image(request, listing_id, index):
+    """The listing's index-th photo reshaped to a 4:5 frame - the URL
+    Instagram downloads each photo from when auto-posting (social.py)."""
+    data = social.instagram_image_bytes(listing_id, index)
+    if data is None:
+        return HttpResponse(status=404)
+    response = HttpResponse(data, content_type='image/jpeg')
+    response['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 
 def listing_og_image(request, listing_id):
@@ -397,6 +409,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
             _post_listing_to_channel(listing)
+            social.publish_new_listing(listing)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -412,6 +425,11 @@ class ListingViewSet(viewsets.ModelViewSet):
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
             _refresh_listing_channel_post(listing, bool(request.data.get('image_ids')))
+            if request.data.get('image_ids'):
+                # Listing posted without photos, photos added later -> it
+                # was skipped on Instagram/YouTube, post it now (no-op for
+                # platforms it's already on).
+                social.publish_new_listing(listing)
             response.data = ListingSerializer(listing).data
         return response
 
@@ -1404,6 +1422,7 @@ def _finalize_pending_payment(pending):
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
     _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
     _post_listing_to_channel(listing)
+    social.publish_new_listing(listing)
     pending.paid = True
     pending.created_listing = listing
     pending.save(update_fields=['paid', 'created_listing'])

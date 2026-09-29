@@ -11,6 +11,7 @@ urlpatterns = [
     path('robots.txt', views.robots_txt, name='robots-txt'),
     re_path(r'^elon/(?P<listing_id>\d+)/?$', views.listing_page, name='listing-page'),
     path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),
+    path('og/listing/<int:listing_id>/ig/<int:index>.jpg', views.listing_instagram_image, name='listing-instagram-image'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap-xml'),
     # Google Search Console site-ownership verification (HTML-file method) -
     # the exact filename/content Google's dashboard generated for this

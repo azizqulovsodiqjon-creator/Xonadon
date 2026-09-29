@@ -81,6 +81,10 @@ class Listing(models.Model):
     # Telegram channel message ids (comma-separated) for this listing's post,
     # kept so the post can be deleted when the listing is sold.
     tg_message_ids = models.CharField(max_length=500, blank=True, default='')
+    # Auto-posted copies on Instagram / YouTube (see listings/social.py) -
+    # also what stops the same listing from being posted twice.
+    ig_media_id = models.CharField(max_length=64, blank=True, default='')
+    yt_video_id = models.CharField(max_length=32, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
@@ -366,6 +370,28 @@ class VerificationRequest(models.Model):
 
     def __str__(self):
         return f"verification for {self.profile} ({self.status})"
+
+
+class SiteSetting(models.Model):
+    """Tiny key/value store for values the app must update on its own at
+    runtime and keep across restarts/deploys - e.g. the Instagram access
+    token, which has to be refreshed before it expires every 60 days (an
+    env var can't be rewritten from inside the app)."""
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def get(cls, key, default=''):
+        row = cls.objects.filter(key=key).first()
+        return row.value if row else default
+
+    @classmethod
+    def put(cls, key, value):
+        cls.objects.update_or_create(key=key, defaults={'value': value})
+
+    def __str__(self):
+        return self.key
 
 
 class Like(models.Model):
