@@ -126,7 +126,9 @@ def listing_page(request, listing_id):
             parts.append(f"{listing.area} m²")
         ctx['og_title'] = f"{listing.title} - Jizzax-Joy"
         ctx['og_description'] = ' | '.join(p for p in parts if p)
-        ctx['og_url'] = request.build_absolute_uri(f'/elon/{listing.id}')
+        # Also the page's canonical URL - always on the public domain, even
+        # when the page was opened via the bare server IP.
+        ctx['og_url'] = f"{settings.SITE_BASE_URL.rstrip('/')}/elon/{listing.id}"
         if listing.images.exists():
             ctx['og_image'] = request.build_absolute_uri(f'/og/listing/{listing.id}.jpg')
     except Listing.DoesNotExist:
@@ -181,18 +183,28 @@ def google_site_verification(request):
 
 
 def sitemap_xml(request):
-    # Listings themselves have no server-rendered URL of their own (the
-    # whole site is a client-side SPA - opening a listing just toggles a
-    # div, the address bar never changes), so there's only one real page
-    # for a crawler to index right now: the homepage itself.
-    xml = (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    """The homepage plus every live listing's /elon/<id> page (see
+    listing_page() - each has its own title, description and canonical)."""
+    base = settings.SITE_BASE_URL.rstrip('/')
+    urls = [
         '  <url>\n'
-        f"    <loc>{settings.SITE_BASE_URL.rstrip('/')}/</loc>\n"
+        f'    <loc>{base}/</loc>\n'
         '    <changefreq>daily</changefreq>\n'
         '    <priority>1.0</priority>\n'
         '  </url>\n'
+    ]
+    listings = Listing.objects.filter(sold=False).order_by('-created_at').values_list('id', 'created_at')
+    for listing_id, created_at in listings:
+        urls.append(
+            '  <url>\n'
+            f'    <loc>{base}/elon/{listing_id}</loc>\n'
+            f'    <lastmod>{created_at.date().isoformat()}</lastmod>\n'
+            '    <priority>0.8</priority>\n'
+            '  </url>\n')
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + ''.join(urls) +
         '</urlset>\n'
     )
     return HttpResponse(xml, content_type='application/xml')

@@ -4,19 +4,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Jizzax-Joy — uy-joy e'lonlari</title>
-<meta name="description" content="Jizzax-Joy — Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari. To'g'ridan-to'g'ri egasidan, admin tomonidan tasdiqlangan, ishonchli e'lonlar. Bepul e'lon joylang yoki uy-joy qidiring.">
+<title>{{ og_title|default:"Jizzax-Joy — uy-joy e'lonlari" }}</title>
+<meta name="description" content="{% if og_title %}{{ og_description }}{% else %}Jizzax-Joy — Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari. To'g'ridan-to'g'ri egasidan, admin tomonidan tasdiqlangan, ishonchli e'lonlar. Bepul e'lon joylang yoki uy-joy qidiring.{% endif %}">
 <meta name="keywords" content="Jizzax uy joy, Jizzax kvartira, Jizzax ko'chmas mulk, Jizzax hovli sotiladi, Jizzax ijara, uy-joy e'lonlari Jizzax">
 <meta property="og:title" content="{{ og_title|default:"Jizzax-Joy — uy-joy e'lonlari" }}">
 <meta property="og:description" content="{{ og_description|default:"Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari — bitta manzilda." }}">
 <meta property="og:type" content="website">
-<meta property="og:url" content="{{ og_url|default:site_base_url }}">
+<meta property="og:url" content="{% if og_url %}{{ og_url }}{% else %}{{ site_base_url }}/{% endif %}">
 {% if og_image %}<meta property="og:image" content="{{ og_image }}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="{{ og_image }}">
 {% endif %}
 <meta property="og:locale" content="uz_UZ">
-<link rel="canonical" href="{{ site_base_url }}/">
+<link rel="canonical" href="{% if og_url %}{{ og_url }}{% else %}{{ site_base_url }}/{% endif %}">
+{% if not og_title %}<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "WebSite", "name": "Jizzax-Joy", "alternateName": ["Jizzax Joy", "JizzaxJoy"], "url": "{{ site_base_url }}/"}
+</script>{% endif %}
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2333456B'/%3E%3Crect x='6' y='12' width='4' height='14' rx='0.5' fill='%23fff'/%3E%3Crect x='14' y='6' width='4' height='20' rx='0.5' fill='%23fff'/%3E%3Crect x='22' y='13' width='4' height='13' rx='0.5' fill='%23fff'/%3E%3Cpath d='M3,25 L16,14 L29,25' stroke='%23fff' stroke-width='3' stroke-linejoin='round' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

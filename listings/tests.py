@@ -186,3 +186,26 @@ class PasswordAuthTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['profile']['id'], old.id)
         self.assertEqual(self._login('905554433', 'uyjoy2026').status_code, 200)
+
+
+@override_settings(SITE_BASE_URL='https://jizzax-joy.uz')
+class SeoTests(TestCase):
+    def test_sitemap_lists_every_listing_page(self):
+        listing = _make_listing(photos=0)
+        body = self.client.get('/sitemap.xml').content.decode()
+        self.assertIn('<loc>https://jizzax-joy.uz/</loc>', body)
+        self.assertIn(f'<loc>https://jizzax-joy.uz/elon/{listing.id}</loc>', body)
+
+    def test_listing_page_has_its_own_title_and_canonical(self):
+        listing = _make_listing(photos=0)
+        # opened via the bare server IP - canonical must still be the domain
+        body = self.client.get(f'/elon/{listing.id}', HTTP_HOST='46.101.249.199').content.decode()
+        self.assertIn('<title>3 xonali kvartira - Jizzax-Joy</title>', body)
+        self.assertIn(f'<link rel="canonical" href="https://jizzax-joy.uz/elon/{listing.id}">', body)
+        self.assertNotIn('application/ld+json', body)
+
+    def test_homepage_names_the_site(self):
+        body = self.client.get('/').content.decode()
+        self.assertIn("<title>Jizzax-Joy — uy-joy e'lonlari</title>", body)
+        self.assertIn('<link rel="canonical" href="https://jizzax-joy.uz/">', body)
+        self.assertIn('"name": "Jizzax-Joy"', body)
