@@ -102,5 +102,36 @@ class BaseUrlTests(TestCase):
 
     def test_explicit_env_wins(self):
         request = RequestFactory().get('/', HTTP_HOST='jizzaxjoy.test', secure=True)
-        with mock.patch.dict(os.environ, {'SITE_BASE_URL': 'https://set.test'}),                 override_settings(SITE_BASE_URL='https://set.test'):
+        with mock.patch.dict(os.environ, {'SITE_BASE_URL': 'https://set.test'}), \
+                override_settings(SITE_BASE_URL='https://set.test'):
             self.assertEqual(social.base_url_for(request), 'https://set.test')
+
+
+class UploadCsrfTests(TestCase):
+    """The site owner is logged into /panel/ in the same browser as they
+    post listings - with a session, DRF enforces CSRF on every write."""
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from django.test import Client
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.force_login(User.objects.create_superuser('boss', password='x'))
+        self.client.get('/')  # sets the csrftoken cookie, like a real page load
+        self.token = self.client.cookies['csrftoken'].value
+
+    def _upload(self, **headers):
+        buf = io.BytesIO()
+        Image.new('RGB', (40, 30), (1, 2, 3)).save(buf, 'JPEG')
+        buf.seek(0)
+        buf.name = 'p.jpg'
+        return self.client.post('/api/listing-images/', {'images': buf}, **headers)
+
+    def test_upload_without_token_is_rejected(self):
+        resp = self._upload()
+        self.assertEqual(resp.status_code, 403)
+        self.assertIn(b'CSRF', resp.content)
+
+    def test_upload_with_token_works(self):
+        resp = self._upload(HTTP_X_CSRFTOKEN=self.token)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])

@@ -203,4 +203,32 @@
     if(token) h['X-CSRFToken'] = token;
     return h;
   }
+  // Most write requests (photo/voice uploads, likes, creating a listing,
+  // payments...) were written without csrfHeaders(). That only works for
+  // anonymous visitors: once the browser also holds a Django session (the
+  // site owner logged into /panel/), DRF enforces CSRF and every one of
+  // those requests fails with 403 "CSRF token missing" - e.g. "Bitta rasm
+  // yuklanmadi" when posting a listing. Adding the token to every
+  // same-origin write here covers all of them, including future ones.
+  (function(){
+    var nativeFetch = window.fetch;
+    if(!nativeFetch) return;
+    function isSameOrigin(url){
+      if(/^[a-z][a-z0-9+.-]*:/i.test(url) || url.indexOf('//') === 0){
+        return url === location.origin || url.indexOf(location.origin + '/') === 0;
+      }
+      return true;  // relative URL
+    }
+    window.fetch = function(input, init){
+      var url = typeof input === 'string' ? input : (input && input.url) || '';
+      var method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      var token = getCookie('csrftoken');
+      if(token && isSameOrigin(url) && !/^(GET|HEAD|OPTIONS|TRACE)$/.test(method)){
+        var headers = new Headers((init && init.headers) || (typeof input !== 'string' && input && input.headers) || {});
+        if(!headers.has('X-CSRFToken')) headers.set('X-CSRFToken', token);
+        init = Object.assign({}, init, {headers: headers});
+      }
+      return nativeFetch.call(this, input, init);
+    };
+  })();
 
