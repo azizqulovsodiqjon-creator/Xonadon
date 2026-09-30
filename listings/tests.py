@@ -209,3 +209,27 @@ class SeoTests(TestCase):
         self.assertIn("<title>Jizzax-Joy — uy-joy e'lonlari</title>", body)
         self.assertIn('<link rel="canonical" href="https://jizzax-joy.uz/">', body)
         self.assertIn('"name": "Jizzax-Joy"', body)
+
+
+class ChannelPostCleanupTests(TestCase):
+    def test_any_listing_deletion_removes_its_channel_post(self):
+        from . import views
+        listing = _make_listing(photos=0, tg_message_ids='101,102')
+        with mock.patch.object(views, '_delete_listing_channel_posts') as delete_posts:
+            listing.delete()
+        delete_posts.assert_called_once()
+        self.assertEqual(delete_posts.call_args.args[0].tg_message_ids, '101,102')
+
+    @override_settings(TELEGRAM_BOT_TOKEN='t')
+    @mock.patch.dict(os.environ, {'TELEGRAM_CHANNEL_ID': '@kanal'})
+    def test_expired_listing_post_is_deleted_from_telegram(self):
+        import datetime
+        from django.utils import timezone
+        from . import views
+        listing = _make_listing(photos=0, tg_message_ids='555')
+        Listing.objects.filter(pk=listing.pk).update(stage_started_at=timezone.now() - datetime.timedelta(days=30))
+        with mock.patch.object(views, '_telegram_api') as tg, \
+                mock.patch('threading.Thread', side_effect=lambda target, daemon: mock.Mock(start=target)):
+            views.sweep_expired_listings()
+        self.assertFalse(Listing.objects.filter(pk=listing.pk).exists())
+        tg.assert_called_once_with('deleteMessage', chat_id='@kanal', message_id=555)

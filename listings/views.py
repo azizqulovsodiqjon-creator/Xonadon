@@ -21,6 +21,8 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from .models import (
     Listing, ListingImage, VoiceNote, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
@@ -317,8 +319,8 @@ def _post_listing_to_channel(listing):
 
 
 def _delete_listing_channel_posts(listing):
-    """Remove a listing's Telegram channel post(s), if it has any (e.g. when
-    it is marked sold). Best-effort, runs in a background thread."""
+    """Remove a listing's Telegram channel post(s), if it has any.
+    Best-effort, runs in a background thread."""
     import threading
 
     channel = os.environ.get('TELEGRAM_CHANNEL_ID', '').strip()
@@ -331,6 +333,15 @@ def _delete_listing_channel_posts(listing):
             _telegram_api('deleteMessage', chat_id=channel, message_id=int(message_id))
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+@receiver(post_delete, sender=Listing)
+def _remove_deleted_listing_from_channel(sender, instance, **kwargs):
+    """However a listing goes away - marked sold, expired in
+    sweep_expired_listings(), deleted by its owner or an admin - its
+    channel post goes with it, so the channel never advertises a listing
+    the site no longer has."""
+    _delete_listing_channel_posts(instance)
 
 
 def _refresh_listing_channel_post(listing, new_photos):
@@ -582,8 +593,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             district=listing.district, tier=listing.posted_tier,
             original_listing_id=listing.id,
         )
-        _delete_listing_channel_posts(listing)
-        listing.delete()
+        listing.delete()  # its channel post goes too - see _remove_deleted_listing_from_channel
         return Response({'ok': True, 'sold': True, 'deleted': True})
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser], url_path='set-tier')
