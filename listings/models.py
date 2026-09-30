@@ -163,6 +163,10 @@ class Profile(models.Model):
     # the user exactly once. Empty for Google-only profiles and for
     # profiles created before login codes existed.
     login_code_hash = models.CharField(max_length=128, blank=True, default='')
+    # The password the user chose at sign-up (Django's make_password format).
+    # Replaces the generated login code for new sign-ups; accounts that only
+    # have a login code can still log in with that code as their password.
+    password_hash = models.CharField(max_length=128, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):

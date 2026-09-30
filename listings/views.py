@@ -1831,19 +1831,12 @@ def google_auth(request):
     return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
-_LOGIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-
-
-def _new_login_code():
-    import secrets
-    raw = ''.join(secrets.choice(_LOGIN_CODE_ALPHABET) for _ in range(8))
-    return f'{raw[:4]}-{raw[4:]}'
-
-
 def _normalize_login_code(value):
     return re.sub(r'[^A-Z0-9]', '', str(value).upper())
 
 
+# Login codes were handed out at sign-up before users chose their own
+# passwords; accounts made then still log in with them (login_with_password).
 # The code is a random 40-bit secret (not a human-chosen password) and login
 # attempts are rate-limited, so a lighter PBKDF2 than Django's default is
 # plenty - the default takes seconds per hash on a small server.
@@ -1869,34 +1862,53 @@ def _check_login_code(code, stored):
     return hmac.compare_digest(candidate, digest)
 
 
+MIN_PASSWORD_LENGTH = 6
+
+
+def _password_hasher():
+    """Django's PBKDF2 at 300k rounds instead of the default 1.5M: the
+    default takes ~2s of the single server CPU per hash, which makes every
+    sign-up/login slow and lets a few scripted requests tie the server up.
+    Same algorithm name, so check_password() reads the rounds back from
+    the stored hash and verifies it with no extra setup."""
+    from django.contrib.auth.hashers import PBKDF2PasswordHasher
+
+    class ProfilePasswordHasher(PBKDF2PasswordHasher):
+        iterations = 300000
+    return ProfilePasswordHasher()
+
+
+class LoginThrottle(AnonRateThrottle):
+    scope = 'login_code'
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginThrottle])
 def simple_register(request):
-    """'Oddiy ro'yxatdan o'tish' - a friction-free alternative to Google
-    sign-in: just a name + phone number, no password, no code. Finds the
-    existing profile for that phone if there is one (same person
-    signing back in), otherwise creates a new one - exactly the
-    find-or-create-by-identity shape google_auth uses, keyed by phone
-    instead of email."""
-    full_name = str(request.data.get('full_name', '')).strip()
+    """Sign-up with name + phone number + a password the user picks."""
+    from django.contrib.auth.hashers import make_password
+
+    full_name = ' '.join(str(request.data.get('full_name', '')).split())
     phone = normalize_phone(request.data.get('phone', ''))
+    password = str(request.data.get('password', ''))
     if not full_name:
         return Response({'ok': False, 'error': "Ism familiyangizni kiriting."}, status=400)
     if len(phone) != 9:
         return Response({'ok': False, 'error': "To'g'ri telefon raqam kiriting."}, status=400)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return Response({'ok': False, 'error': f"Parol kamida {MIN_PASSWORD_LENGTH} ta belgidan iborat bo'lsin."}, status=400)
 
     profile = Profile.objects.filter(phone=phone).first()
-    if profile and profile.login_code_hash:
-        return Response({'ok': False, 'error': "Bu raqam allaqachon ro'yxatdan o'tgan. «Kirish» bo'limidan ism-familiya va akkaunt kodi bilan kiring."}, status=409)
+    if profile and (profile.password_hash or profile.login_code_hash):
+        return Response({'ok': False, 'error': "Bu raqam allaqachon ro'yxatdan o'tgan. «Kirish» bo'limidan telefon raqam va parol bilan kiring."}, status=409)
     if profile:
-        # Profile from before login codes existed: its owner claims it once
-        # by registering again - they get a code now and log in with it later.
-        code = _new_login_code()
-        profile.login_code_hash = _hash_login_code(_normalize_login_code(code))
-        if full_name and profile.full_name != full_name:
-            profile.full_name = full_name
-        profile.save(update_fields=['login_code_hash', 'full_name'])
-        return Response({'ok': True, 'profile': ProfileSerializer(profile).data, 'loginCode': code})
+        # Profile from before passwords/login codes existed: its owner
+        # claims it once by registering again with a password.
+        profile.password_hash = make_password(password, hasher=_password_hasher())
+        profile.full_name = full_name
+        profile.save(update_fields=['password_hash', 'full_name'])
+        return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
 
     base_username = re.sub(r'[^a-z0-9_]', '', full_name.lower().replace(' ', '_')) or 'foydalanuvchi'
     username = base_username
@@ -1905,30 +1917,34 @@ def simple_register(request):
         suffix += 1
         username = f'{base_username}{suffix}'
 
-    code = _new_login_code()
     profile = Profile.objects.create(
         phone=phone, username=username, full_name=full_name, role='Uy egasi',
-        login_code_hash=_hash_login_code(_normalize_login_code(code)))
-    return Response({'ok': True, 'profile': ProfileSerializer(profile).data, 'loginCode': code}, status=201)
-
-
-class LoginCodeThrottle(AnonRateThrottle):
-    scope = 'login_code'
+        password_hash=make_password(password, hasher=_password_hasher()))
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@throttle_classes([LoginCodeThrottle])
-def login_with_code(request):
-    """Log back in with full name + the account code shown at sign-up."""
-    full_name = ' '.join(str(request.data.get('full_name', '')).split())
-    code = _normalize_login_code(request.data.get('code', ''))
-    if not full_name or not code:
-        return Response({'ok': False, 'error': "Ism-familiya va akkaunt kodini kiriting."}, status=400)
-    for profile in Profile.objects.filter(full_name__iexact=full_name).exclude(login_code_hash=''):
-        if _check_login_code(code, profile.login_code_hash):
+@throttle_classes([LoginThrottle])
+def login_with_password(request):
+    """Log in with phone number + password. Accounts created while sign-up
+    still handed out a generated login code log in with that code."""
+    from django.contrib.auth.hashers import check_password
+
+    phone = normalize_phone(request.data.get('phone', ''))
+    password = str(request.data.get('password', ''))
+    if len(phone) != 9 or not password:
+        return Response({'ok': False, 'error': "Telefon raqam va parolni kiriting."}, status=400)
+    profile = Profile.objects.filter(phone=phone).first()
+    if profile:
+        if profile.password_hash:
+            valid = check_password(password, profile.password_hash)
+        else:
+            valid = bool(profile.login_code_hash) and _check_login_code(
+                _normalize_login_code(password), profile.login_code_hash)
+        if valid:
             return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
-    return Response({'ok': False, 'error': "Ism-familiya yoki akkaunt kodi noto'g'ri."}, status=400)
+    return Response({'ok': False, 'error': "Telefon raqam yoki parol noto'g'ri."}, status=400)
 
 
 @csrf_exempt

@@ -53,7 +53,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         # Rate-limit admin login attempts per IP to blunt password guessing.
         'admin_login': '5/min',
-        # Login-by-code attempts per IP (blunts guessing the account code).
+        # Login and sign-up attempts per IP (blunts password guessing, and
+        # each one costs a deliberately slow password hash).
         'login_code': '10/min',
         # Rate-limit how often one IP can trigger a new Telegram deep
         # link/verification row, to blunt spamming the bot.

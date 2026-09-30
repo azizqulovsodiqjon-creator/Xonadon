@@ -57,6 +57,6 @@ urlpatterns = [
     path('api/telegram/diagnostics/', views.telegram_diagnostics, name='telegram-diagnostics'),
     path('api/auth/google/', views.google_auth, name='google-auth'),
     path('api/auth/simple-register/', views.simple_register, name='simple-register'),
-    path('api/auth/login-code/', views.login_with_code, name='login-with-code'),
+    path('api/auth/login/', views.login_with_password, name='login'),
     path('api/', include(router.urls)),
 ]

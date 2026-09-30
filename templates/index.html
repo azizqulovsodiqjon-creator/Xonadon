@@ -296,7 +296,6 @@
         </div>
         <div style="font-weight:700;font-size:15px;margin-bottom:6px;" id="profileFullName">Ism Familiya</div>
         <div style="font-size:13px;color:rgba(var(--ink-rgb),0.55);margin-bottom:6px;" id="profilePhoneDisplay">+998 90 000 00 00</div>
-        <div id="profileCodeRow" style="display:none;font-size:13px;color:rgba(var(--ink-rgb),0.55);margin-bottom:10px;align-items:center;gap:8px;flex-wrap:wrap;">Akkaunt kodi: <b id="profileCodeValue" style="color:var(--ink);letter-spacing:0.08em;"></b><button type="button" class="auth-tab" id="profileCodeCopyBtn" style="flex:none;padding:5px 12px;font-size:12px;background:var(--paper);">Nusxalash</button></div>
         <div class="stat-grid">
           <div class="stat-box"><div class="num" id="myAdsCount">0</div><div class="label">E'lonlar</div></div>
           <div class="stat-box"><div class="num" id="myViewsCount">0</div><div class="label">Ko'rishlar</div></div>
@@ -595,27 +594,19 @@
       <button type="button" class="auth-tab active" id="authTabLogin">Kirish</button>
       <button type="button" class="auth-tab" id="authTabRegister">Ro'yxatdan o'tish</button>
     </div>
-    <div id="authLoginForm">
-      <input type="text" id="loginName" placeholder="Ism familiya" autocomplete="name">
-      <input type="text" id="loginCode" placeholder="Akkaunt kodi (masalan K7M2-X9PQ)" autocomplete="off" autocapitalize="characters">
-      <button class="btn-full-black" id="loginCodeBtn" style="margin-top:0;margin-bottom:12px;">Kirish</button>
-    </div>
-    <div id="authRegisterForm" class="hidden">
-      <input type="text" id="simpleRegName" placeholder="Ism familiya">
-      <input type="text" id="simpleRegPhone" placeholder="+998 90 123 45 67">
-      <button class="btn-full-black" id="simpleRegisterBtn" style="margin-top:0;margin-bottom:12px;">Ro'yxatdan o'tish</button>
-    </div>
+    <form id="authLoginForm" onsubmit="return false;">
+      <input type="tel" id="loginPhone" placeholder="+998 90 123 45 67" autocomplete="tel">
+      <input type="password" id="loginPassword" placeholder="Parol" autocomplete="current-password">
+      <button type="submit" class="btn-full-black" id="loginBtn" style="margin-top:0;margin-bottom:12px;">Kirish</button>
+    </form>
+    <form id="authRegisterForm" class="hidden" onsubmit="return false;">
+      <input type="text" id="simpleRegName" placeholder="Ism familiya" autocomplete="name">
+      <input type="tel" id="simpleRegPhone" placeholder="+998 90 123 45 67" autocomplete="tel">
+      <input type="password" id="simpleRegPassword" placeholder="Parol yarating (kamida 6 ta belgi)" autocomplete="new-password">
+      <input type="password" id="simpleRegPassword2" placeholder="Parolni takrorlang" autocomplete="new-password">
+      <button type="submit" class="btn-full-black" id="simpleRegisterBtn" style="margin-top:0;margin-bottom:12px;">Ro'yxatdan o'tish</button>
+    </form>
     <button class="btn-full-outline" id="guestBtn">Mehmon sifatida davom etish</button>
-  </div>
-</div>
-
-<div class="auth-gate hidden" id="loginCodeModal">
-  <div class="auth-gate-box" style="max-width:380px;">
-    <h3>Akkaunt kodingiz</h3>
-    <p style="margin-bottom:6px;">Keyingi safar kirish uchun shu kod kerak bo'ladi. <b>Uni saqlab qo'ying</b>, u qayta ko'rsatilmaydi.</p>
-    <div class="login-code-box" id="loginCodeValue">XXXX-XXXX</div>
-    <button class="btn-black" id="loginCodeCopyBtn" style="width:100%;margin-bottom:10px;">Nusxalash</button>
-    <button class="btn-full-outline" id="loginCodeDoneBtn">Saqlab oldim</button>
   </div>
 </div>
 

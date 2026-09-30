@@ -821,45 +821,53 @@
     });
     document.getElementById('authPhoneClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
     document.getElementById('guestBtn').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
-    document.getElementById('simpleRegisterBtn').addEventListener('click', function(){
-      var fullName = document.getElementById('simpleRegName').value.trim();
-      var phone = document.getElementById('simpleRegPhone').value.trim();
-      if(!fullName){ alert("Ism familiyangizni kiriting."); return; }
-      if(!phone){ alert("Telefon raqamingizni kiriting."); return; }
-      var btn = this;
+    // Shared by sign-up and login: both answer with {ok, profile} or {error}.
+    function submitAuth(btn, idleLabel, url, payload, fallbackError){
       btn.disabled = true;
       btn.textContent = 'Kirilmoqda...';
-      fetch(SIMPLE_REGISTER_API, {
+      fetch(url, {
         method: 'POST', credentials: 'same-origin',
         headers: csrfHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({full_name: fullName, phone: phone})
+        body: JSON.stringify(payload)
       }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
         .then(function(res){
           btn.disabled = false;
-          btn.textContent = "Ro'yxatdan o'tish";
+          btn.textContent = idleLabel;
           if((res.status !== 200 && res.status !== 201) || !res.data.ok){
-            alert((res.data && res.data.error) || "Ro'yxatdan o'tishda xato yuz berdi.");
+            alert((res.data && (res.data.error || res.data.detail)) || fallbackError);
             return;
           }
           isLoggedIn = true;
           var p = res.data.profile;
-          if(res.data.loginCode) saveLoginCode(res.data.loginCode);
           applyProfile(p);
           saveLoginToStorage(p);
           loadProfilesDirectory();
           closeAllAuth();
-          if(res.data.loginCode){
-            showLoginCode(res.data.loginCode);
-          } else if(pendingAction){ pendingAction(); pendingAction=null; }
+          ['loginPassword', 'simpleRegPassword', 'simpleRegPassword2'].forEach(function(id){ document.getElementById(id).value = ''; });
+          if(pendingAction){ pendingAction(); pendingAction=null; }
         }).catch(function(err){
-          console.error('simple register xato:', err);
-          alert("Ro'yxatdan o'tishda xato yuz berdi.");
+          console.error('auth xato:', err);
+          alert(fallbackError);
           btn.disabled = false;
-          btn.textContent = "Ro'yxatdan o'tish";
+          btn.textContent = idleLabel;
         });
+    }
+
+    document.getElementById('simpleRegisterBtn').addEventListener('click', function(){
+      var fullName = document.getElementById('simpleRegName').value.trim();
+      var phone = document.getElementById('simpleRegPhone').value.trim();
+      var password = document.getElementById('simpleRegPassword').value;
+      var password2 = document.getElementById('simpleRegPassword2').value;
+      if(!fullName){ alert("Ism familiyangizni kiriting."); return; }
+      if(!phone){ alert("Telefon raqamingizni kiriting."); return; }
+      if(password.length < 6){ alert("Parol kamida 6 ta belgidan iborat bo'lsin."); return; }
+      if(password !== password2){ alert("Parollar bir xil emas."); return; }
+      submitAuth(this, "Ro'yxatdan o'tish", SIMPLE_REGISTER_API,
+                 {full_name: fullName, phone: phone, password: password},
+                 "Ro'yxatdan o'tishda xato yuz berdi.");
     });
 
-    // ---- Kirish (ism-familiya + akkaunt kodi) va ro'yxatdan o'tish tablari ----
+    // ---- Kirish (telefon + parol) va ro'yxatdan o'tish tablari ----
     function selectAuthTab(which){
       var login = (which === 'login');
       document.getElementById('authLoginForm').classList.toggle('hidden', !login);
@@ -870,73 +878,12 @@
     document.getElementById('authTabLogin').addEventListener('click', function(){ selectAuthTab('login'); });
     document.getElementById('authTabRegister').addEventListener('click', function(){ selectAuthTab('register'); });
 
-    function showLoginCode(code){
-      document.getElementById('loginCodeValue').textContent = code;
-      document.getElementById('loginCodeModal').classList.remove('hidden');
-    }
-    document.getElementById('loginCodeCopyBtn').addEventListener('click', function(){
-      var code = document.getElementById('loginCodeValue').textContent;
-      var done = false;
-      try{
-        var ta = document.createElement('textarea');
-        ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        done = document.execCommand('copy');
-        document.body.removeChild(ta);
-      }catch(e){}
-      toast(done ? "Kod nusxalandi" : "Kodni qo'lda yozib oling: " + code);
-    });
-    document.getElementById('profileCodeCopyBtn').addEventListener('click', function(){
-      var code = loadLoginCode();
-      var done = false;
-      try{
-        var ta = document.createElement('textarea');
-        ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
-        document.body.appendChild(ta); ta.select();
-        done = document.execCommand('copy');
-        document.body.removeChild(ta);
-      }catch(e){}
-      toast(done ? "Kod nusxalandi" : "Kodni qo'lda yozib oling: " + code);
-    });
-    document.getElementById('loginCodeDoneBtn').addEventListener('click', function(){
-      document.getElementById('loginCodeModal').classList.add('hidden');
-      if(pendingAction){ pendingAction(); pendingAction=null; }
-    });
-
-    document.getElementById('loginCodeBtn').addEventListener('click', function(){
-      var fullName = document.getElementById('loginName').value.trim();
-      var code = document.getElementById('loginCode').value.trim();
-      if(!fullName){ alert("Ism familiyangizni kiriting."); return; }
-      if(!code){ alert("Akkaunt kodini kiriting."); return; }
-      var btn = this;
-      btn.disabled = true;
-      btn.textContent = 'Kirilmoqda...';
-      fetch(LOGIN_CODE_API, {
-        method: 'POST', credentials: 'same-origin',
-        headers: csrfHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({full_name: fullName, code: code})
-      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
-        .then(function(res){
-          btn.disabled = false;
-          btn.textContent = 'Kirish';
-          if(res.status !== 200 || !res.data.ok){
-            alert((res.data && (res.data.error || res.data.detail)) || "Kirishda xato yuz berdi.");
-            return;
-          }
-          isLoggedIn = true;
-          var p = res.data.profile;
-          saveLoginCode(code);
-          applyProfile(p);
-          saveLoginToStorage(p);
-          loadProfilesDirectory();
-          closeAllAuth();
-          if(pendingAction){ pendingAction(); pendingAction=null; }
-        }).catch(function(err){
-          console.error('login xato:', err);
-          alert("Kirishda xato yuz berdi.");
-          btn.disabled = false;
-          btn.textContent = 'Kirish';
-        });
+    document.getElementById('loginBtn').addEventListener('click', function(){
+      var phone = document.getElementById('loginPhone').value.trim();
+      var password = document.getElementById('loginPassword').value;
+      if(!phone){ alert("Telefon raqamingizni kiriting."); return; }
+      if(!password){ alert("Parolni kiriting."); return; }
+      submitAuth(this, 'Kirish', LOGIN_API, {phone: phone, password: password}, "Kirishda xato yuz berdi.");
     });
 
     // Phone -> code, no intermediate "choose method"/"open Telegram" step:

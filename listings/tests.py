@@ -7,7 +7,7 @@ from django.test import RequestFactory, TestCase, override_settings
 from PIL import Image
 
 from . import social
-from .models import Listing, ListingImage, SiteSetting
+from .models import Listing, ListingImage, Profile, SiteSetting
 
 
 def _photo_data_url(w, h):
@@ -135,3 +135,54 @@ class UploadCsrfTests(TestCase):
         resp = self._upload(HTTP_X_CSRFTOKEN=self.token)
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()['ok'])
+
+
+class PasswordAuthTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        cache.clear()  # login/sign-up rate limit counters live in the cache
+
+    def _register(self, **overrides):
+        data = {'full_name': 'Ali Valiyev', 'phone': '+998 90 123 45 67', 'password': 'uyjoy2026'}
+        data.update(overrides)
+        return self.client.post('/api/auth/simple-register/', data, content_type='application/json')
+
+    def _login(self, phone, password):
+        return self.client.post('/api/auth/login/', {'phone': phone, 'password': password},
+                                content_type='application/json')
+
+    def test_register_then_login_with_chosen_password(self):
+        resp = self._register()
+        self.assertEqual(resp.status_code, 201)
+        self.assertNotIn('loginCode', resp.json())
+        profile = Profile.objects.get(phone='901234567')
+        self.assertTrue(profile.password_hash.startswith('pbkdf2_sha256$300000$'))
+        self.assertNotIn('uyjoy2026', profile.password_hash)
+
+        ok = self._login('901234567', 'uyjoy2026')  # any phone format works
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(ok.json()['profile']['id'], profile.id)
+        self.assertNotIn('password_hash', ok.json()['profile'])
+        self.assertEqual(self._login('+998901234567', 'wrong-pass').status_code, 400)
+        self.assertEqual(self._login('+998911111111', 'uyjoy2026').status_code, 400)
+
+    def test_short_password_and_duplicate_phone_rejected(self):
+        self.assertEqual(self._register(password='123').status_code, 400)
+        self.assertEqual(self._register().status_code, 201)
+        dup = self._register(full_name='Boshqa Odam')
+        self.assertEqual(dup.status_code, 409)
+        self.assertIn('Kirish', dup.json()['error'])
+
+    def test_legacy_code_account_logs_in_with_code(self):
+        from .views import _hash_login_code
+        Profile.objects.create(phone='901112233', username='eski', full_name='Eski User',
+                               login_code_hash=_hash_login_code('K7M2X9PQ'))
+        self.assertEqual(self._login('+998 90 111 22 33', 'k7m2-x9pq').status_code, 200)
+        self.assertEqual(self._login('+998 90 111 22 33', 'K7M2-X9PA').status_code, 400)
+
+    def test_profile_without_credentials_is_claimed_by_registering(self):
+        old = Profile.objects.create(phone='905554433', username='tg_user', full_name='')
+        resp = self._register(phone='905554433', full_name='Yangi Ism')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['profile']['id'], old.id)
+        self.assertEqual(self._login('905554433', 'uyjoy2026').status_code, 200)

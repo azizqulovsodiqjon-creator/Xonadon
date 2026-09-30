@@ -19,7 +19,6 @@
     updateNotifBadge();
     updatePaymentSummary();
     loadMyLikes();
-    updateProfileCodeRow();
   }
   function saveLoginToStorage(p){
     try{ localStorage.setItem('xonadonProfile', JSON.stringify(p)); }catch(e){}
@@ -32,27 +31,11 @@
     }catch(e){ return null; }
   }
   function clearLoginStorage(){
-    try{ localStorage.removeItem('xonadonProfile'); localStorage.removeItem('xonadonLoginCode'); }catch(e){}
+    try{ localStorage.removeItem('xonadonProfile'); }catch(e){}
   }
-  // The account code is only stored hashed on the server, so it can't be
-  // read back from there - this device keeps the copy shown in the profile.
-  function formatLoginCode(raw){
-    var c = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    return c.length === 8 ? c.slice(0, 4) + '-' + c.slice(4) : c;
-  }
-  function saveLoginCode(code){
-    try{ localStorage.setItem('xonadonLoginCode', formatLoginCode(code)); }catch(e){}
-  }
-  function loadLoginCode(){
-    try{ return localStorage.getItem('xonadonLoginCode') || ''; }catch(e){ return ''; }
-  }
-  function updateProfileCodeRow(){
-    var row = document.getElementById('profileCodeRow');
-    if(!row) return;
-    var code = loadLoginCode();
-    row.style.display = code ? 'flex' : 'none';
-    document.getElementById('profileCodeValue').textContent = code;
-  }
+  // Devices of users who signed up while the site still handed out login
+  // codes kept a copy of that code (it doubled as their password) - drop it.
+  try{ localStorage.removeItem('xonadonLoginCode'); }catch(e){}
   function requireAuth(action){
     if(isLoggedIn){ action(); return; }
     pendingAction = action;
