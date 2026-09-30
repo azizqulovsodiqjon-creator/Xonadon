@@ -267,6 +267,7 @@
   .action-tags{display:flex;gap:8px;flex-wrap:wrap;}
   .action-btns-row{display:flex;gap:10px;flex-wrap:wrap;}
   .action-btn{flex:1;min-width:130px;padding:12px 14px;border-radius:999px;font-weight:800;font-size:13px;text-align:center;border:none;}
+  a.action-btn{display:block;text-decoration:none;cursor:pointer;}
   .action-btn.outline{background:#fff;border:1.5px solid var(--accent2);color:var(--accent2);}
   .action-btn.filled{background:var(--accent2);color:#fff;}
   .view-like-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}

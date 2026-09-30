@@ -17,6 +17,16 @@
   }
 
   var currentDetailListing = null; // {id, fromAdmin} while pageDetail is showing - lets applyLang() below refresh its translated text without re-opening it (which would double-count the view)
+  // A real <a href="tel:"> rather than a button that sets
+  // window.location from script: the in-app browsers of Instagram and
+  // Telegram (where most visitors arrive from) ignore script-initiated
+  // tel: navigation, so "Qo'ng'iroq qilish" silently did nothing there.
+  // They do open the dialer for a tel: link the user actually taps.
+  function callSellerButtonHtml(phone, label){
+    var digits = String(phone || '').replace(/[^\d+]/g, '');
+    var href = digits ? ' href="tel:' + digits + '"' : ' href="#"';
+    return '<a class="action-btn filled" id="callSellerBtn" role="button"' + href + '>' + label + '</a>';
+  }
   function openDetail(id, fromAdmin, isTranslationRefresh){
     var l = findListing(id);
     if(!l) return;
@@ -50,7 +60,7 @@
             '<span class="detail-tag">' + trValue(l.type) + '</span>' +
           '</div>' +
           '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
-          '<div class="action-btns-row"><button class="action-btn outline" id="shareListingBtn">' + SHARE_ICON_SVG + dict.share_btn + '</button>' + (isOwnListing ? '' : '<button class="action-btn filled" id="callSellerBtn">' + dict.call_seller + '</button>') + '</div>' +
+          '<div class="action-btns-row"><button class="action-btn outline" id="shareListingBtn">' + SHARE_ICON_SVG + dict.share_btn + '</button>' + (isOwnListing ? '' : callSellerButtonHtml(l.phone, dict.call_seller)) + '</div>' +
           (isOwnListing ? '' : '<div class="action-btns-row" style="margin-top:10px;"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button></div>') +
         '</div>' +
       '</div>' +
@@ -141,12 +151,13 @@
 
     var callBtn = document.getElementById('callSellerBtn');
     if(callBtn){
-      callBtn.addEventListener('click', function(){
-        if(l.phone){
-          toast("Telefon: " + l.phone);
-          callBtn.textContent = l.phone;
-          window.location.href = 'tel:' + l.phone;
-        } else { toast("Telefon raqami ko'rsatilmagan."); }
+      callBtn.addEventListener('click', function(e){
+        if(!l.phone){ e.preventDefault(); toast("Telefon raqami ko'rsatilmagan."); return; }
+        // No preventDefault: the tap on the real tel: link is what opens
+        // the dialer. Also show the number, in case the browser can't
+        // place calls at all (desktop) - it can still be read and dialled.
+        toast("Telefon: " + l.phone);
+        callBtn.textContent = l.phone;
       });
     }
     var msgBtn = document.getElementById('msgSellerBtn');
