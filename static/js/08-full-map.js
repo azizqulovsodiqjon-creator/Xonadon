@@ -88,12 +88,15 @@
     return 2 * R * Math.asin(Math.sqrt(a));
   }
 
-  var NEAREST_COUNT = 5;
+  var NEAR_RADIUS_KM = 3;
+  var nearCircle = null;
 
   // "Menga yaqin": a one-shot position fix (with its own timeout, so the
-  // button always answers), then the user's pin plus the NEAREST_COUNT
-  // closest listings matching the current filters, highlighted and
-  // framed together on the map.
+  // button always answers), then the user's pin plus only the listings
+  // within NEAR_RADIUS_KM that match the current filters - everything
+  // farther away is taken off the map, and the radius is drawn as a
+  // circle. refreshMapMarkers() (filter change / reopening the map)
+  // brings all listings back.
   function showNearestListings(mapObj){
     if(!window.isSecureContext){ toast("Joylashuv faqat https:// manzilda ishlaydi."); return; }
     if(!navigator.geolocation){ toast("Brauzeringiz joylashuvni aniqlay olmaydi."); return; }
@@ -114,37 +117,35 @@
       updateUserMarkerOnMap(mapObj);
       startLiveLocation();  // keep the "Men" pin following the user
 
-      var nearest = listings.filter(function(l){
-        return matchesFilters(l, filterState) && isFinite(l.lat) && isFinite(l.lng);
-      }).map(function(l){
-        return {listing: l, km: distanceKm(userLat, userLng, l.lat, l.lng)};
-      }).sort(function(a, b){ return a.km - b.km; }).slice(0, NEAREST_COUNT);
+      var nearIds = listings.filter(function(l){
+        return matchesFilters(l, filterState) && isFinite(l.lat) && isFinite(l.lng) &&
+               distanceKm(userLat, userLng, l.lat, l.lng) <= NEAR_RADIUS_KM;
+      }).map(function(l){ return l.id; });
+      showOnlyMarkers(nearIds);
 
-      highlightNearestMarkers(nearest.map(function(n){ return n.listing.id; }));
-
-      if(!nearest.length){
-        mapObj.setView(here, 15);
-        toast("Yaqin atrofda e'lon topilmadi.");
-        return;
-      }
+      if(nearCircle){ try{ mapObj.removeLayer(nearCircle); }catch(e){} }
+      nearCircle = L.circle(here, {radius: NEAR_RADIUS_KM * 1000, color: '#33456B', weight: 2,
+                                   fillColor: '#33456B', fillOpacity: 0.06, interactive: false}).addTo(mapObj);
       mapObj.invalidateSize();  // stale size -> fitBounds zooms all the way in
-      var frame = L.latLngBounds([here]);
-      nearest.forEach(function(n){ frame.extend([n.listing.lat, n.listing.lng]); });
-      mapObj.fitBounds(frame, {padding:[60,60], maxZoom:16});
-      toast("Eng yaqin " + nearest.length + " ta e'lon · eng yaqini " + nearest[0].km.toFixed(1) + " km");
+      var size = mapObj.getSize();
+      if(size.x && size.y) mapObj.fitBounds(nearCircle.getBounds(), {padding: [20, 20], maxZoom: 15});
+      else mapObj.setView(here, 13);
+      toast(nearIds.length
+        ? NEAR_RADIUS_KM + " km ichida " + nearIds.length + " ta e'lon"
+        : NEAR_RADIUS_KM + " km ichida e'lon topilmadi.");
     }, function(err){
       console.error('Joylashuv xatosi:', err);
       toast(geoErrorMessage(err));
     }, {enableHighAccuracy:true, timeout:15000, maximumAge:30000});
   }
 
-  function highlightNearestMarkers(ids){
+  function showOnlyMarkers(ids){
     mapMarkers.forEach(function(m){
-      var el = m.getElement() && m.getElement().querySelector('.leaflet-price-pin');
-      if(!el) return;
-      var on = ids.indexOf(m.listingId) !== -1;
-      el.classList.toggle('is-nearest', on);
-      m.setZIndexOffset(on ? 500 : 0);
+      var keep = ids.indexOf(m.listingId) !== -1;
+      if(keep){ if(!fullMap.hasLayer(m)) m.addTo(fullMap); }
+      else if(fullMap.hasLayer(m)){ fullMap.removeLayer(m); }
+      var el = keep && m.getElement() && m.getElement().querySelector('.leaflet-price-pin');
+      if(el) el.classList.add('is-nearest');
     });
   }
 
@@ -271,6 +272,7 @@
     if(!fullMap) return;
     mapMarkers.forEach(function(m){ try{ fullMap.removeLayer(m); }catch(e){} });
     mapMarkers = [];
+    if(nearCircle){ try{ nearCircle.remove(); }catch(e){} nearCircle = null; }
     var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
     visible.forEach(function(l){
       var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
