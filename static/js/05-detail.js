@@ -42,55 +42,65 @@
     // Calling/messaging yourself makes no sense - hide those two
     // buttons entirely when the viewer owns this listing.
     var isOwnListing = !!(l.seller && myUsername() && l.seller === myUsername());
-    var SHARE_ICON_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+    var SHARE_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
 
+    var dealLabel = {sotuv: dict.sotuv, ijara: dict.ijara, kunlik: dict.kunlik}[l.deal] || '';
+    var HEART_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
+
+    // Two columns, like the bigger listing sites: photos + seller on the
+    // left; actions, tags, title, price and every detail on the right.
     document.getElementById('detailContent').innerHTML =
-      '<div class="detail-top-row">' +
-        '<div style="position:relative;">' +
-          (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
-          '<div class="gallery-main"><img id="galleryMainImg" src="' + galleryPhotos[0] + '" alt="">' +
-            (galleryPhotos.length > 1 ? '<button class="gallery-arrow prev" id="galleryPrev">‹</button><button class="gallery-arrow next" id="galleryNext">›</button><div class="gallery-counter" id="galleryCounter">1/' + galleryPhotos.length + '</div>' : '') +
+      '<div class="detail-layout">' +
+        '<div class="detail-left">' +
+          '<div style="position:relative;">' +
+            (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
+            '<div class="gallery-main"><img id="galleryMainImg" src="' + galleryPhotos[0] + '" alt="">' +
+              (l.vip ? '<span class="tier-badge vip">★ VIP</span>' : (l.top ? '<span class="tier-badge top">▲ TOP</span>' : '')) +
+              (galleryPhotos.length > 1 ? '<button class="gallery-arrow prev" id="galleryPrev">‹</button><button class="gallery-arrow next" id="galleryNext">›</button><div class="gallery-counter" id="galleryCounter">1/' + galleryPhotos.length + '</div>' : '') +
+            '</div>' +
+            (galleryPhotos.length > 1 ? '<div class="gallery-thumbs" id="galleryThumbs">' + galleryPhotos.map(function(src,i){ return '<img data-i="'+i+'" src="'+src+'" class="'+(i===0?'active':'')+'">'; }).join('') + '</div>' : '') +
           '</div>' +
-          (galleryPhotos.length > 1 ? '<div class="gallery-thumbs" id="galleryThumbs">' + galleryPhotos.map(function(src,i){ return '<img data-i="'+i+'" src="'+src+'" class="'+(i===0?'active':'')+'">'; }).join('') + '</div>' : '') +
-        '</div>' +
-        '<div class="detail-actions-panel">' +
-          '<div class="action-tags">' +
-            (l.vip ? '<span class="detail-tag gold">★ VIP</span>' : '') +
-            (l.top ? '<span class="detail-tag top">▲ TOP</span>' : '') +
-            '<span class="detail-tag">' + trValue(l.type) + '</span>' +
+          '<div class="owner-card">' +
+            '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
+            '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
+            '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
           '</div>' +
-          '<div class="view-like-row"><span class="view-count">👁 ' + l.viewsCount + ' ko\'rildi</span><button class="like-btn" id="detailLikeBtn"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + (myLikedIds.indexOf(l.id)!==-1 ? '❤️' : '🤍') + ' <span id="detailLikeCount">' + l.likesCount + '</span></button></div>' +
-          '<div class="action-btns-row"><button class="action-btn outline" id="shareListingBtn">' + SHARE_ICON_SVG + dict.share_btn + '</button>' + (isOwnListing ? '' : callSellerButtonHtml(l.phone, dict.call_seller)) + '</div>' +
-          (isOwnListing ? '' : '<div class="action-btns-row" style="margin-top:10px;"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button></div>') +
         '</div>' +
-      '</div>' +
-      '<div class="detail-title-block">' +
-        '<div class="detail-price">' + formatPrice(l) + '</div>' +
-        '<div class="detail-title">' + l.title + '</div>' +
-        '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
-      '</div>' +
-      '<div class="detail-section"><h3>' + dict.desc + '</h3><div class="detail-desc-text">' + l.desc + '</div></div>' +
-      (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
-      '<div class="detail-section"><div class="info-list">' +
-        '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
-        '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
-        // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
-        // of its own to show - it's a budget, not a property.
-        (l.isWanted ? '' : (roomsRow + floorRows(l) +
-        '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
-        '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
-      '</div></div>' +
-      '<div class="detail-section">' +
-        '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
-        '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
-        '<div class="map-box" id="detailMap"></div>' +
-        '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
-        '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
-      '</div>' +
-      '<div class="owner-card">' +
-        '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
-        '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
-        '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
+        '<div class="detail-right">' +
+          (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button>' + callSellerButtonHtml(l.phone, dict.call_seller) + '</div>') +
+          '<div class="detail-tags-row">' +
+            '<div class="action-tags">' +
+              (dealLabel ? '<span class="detail-tag strong">' + dealLabel + '</span>' : '') +
+              '<span class="detail-tag strong">' + trValue(l.type) + '</span>' +
+              (l.mortgage ? '<span class="detail-tag">' + dict.mortgage + '</span>' : '') +
+            '</div>' +
+            '<div class="detail-icon-btns">' +
+              '<button class="detail-icon-btn like-btn" id="detailLikeBtn" title="Yoqdi"' + (myLikedIds.indexOf(l.id)!==-1 ? ' disabled' : '') + '>' + HEART_SVG + '<span id="detailLikeCount">' + l.likesCount + '</span></button>' +
+              '<button class="detail-icon-btn" id="shareListingBtn" title="' + dict.share_btn + '">' + SHARE_ICON_SVG + '</button>' +
+            '</div>' +
+          '</div>' +
+          '<h1 class="detail-title">' + l.title + '</h1>' +
+          '<div class="detail-price">' + formatPrice(l) + '</div>' +
+          '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '<span class="view-count">· 👁 ' + l.viewsCount + ' ko\'rildi</span></div>' +
+          '<div class="detail-desc-text">' + l.desc + '</div>' +
+          (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
+          '<div class="info-list">' +
+            '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
+            '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
+            // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
+            // of its own to show - it's a budget, not a property.
+            (l.isWanted ? '' : (roomsRow + floorRows(l) +
+            '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
+            '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
+          '</div>' +
+          '<div class="detail-section">' +
+            '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
+            '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
+            '<div class="map-box" id="detailMap"></div>' +
+            '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
+            '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
       '<div class="similar-section" id="similarSection"></div>';
 
@@ -109,7 +119,7 @@
         if(likeBtn.disabled) return;
         requireAuth(function(){
           likeBtn.disabled = true;
-          likeBtn.innerHTML = '❤️ <span id="detailLikeCount">' + (l.likesCount + 1) + '</span>';
+          likeBtn.querySelector('#detailLikeCount').textContent = l.likesCount + 1;
           likeListing(l.id, function(newCount){
             l.likesCount = (newCount != null) ? newCount : l.likesCount + 1;
             document.getElementById('detailLikeCount').textContent = l.likesCount;
