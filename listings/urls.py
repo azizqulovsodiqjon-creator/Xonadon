@@ -13,7 +13,10 @@ urlpatterns = [
     path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),
     path('og/listing/<int:listing_id>/ig/<int:index>.jpg', views.listing_instagram_image, name='listing-instagram-image'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap-xml'),
-    re_path(r'^(?P<name>favicon\.ico|favicon\.svg|favicon-(?:48|96|192|512)\.png|apple-touch-icon\.png)$',
+    path('manifest.webmanifest', views.web_manifest, name='web-manifest'),
+    path('sw.js', views.service_worker, name='service-worker'),
+    path('.well-known/assetlinks.json', views.asset_links, name='asset-links'),
+    re_path(r'^(?P<name>favicon\.ico|favicon\.svg|favicon-(?:48|96|192|512)\.png|apple-touch-icon\.png|maskable-(?:192|512)\.png)$',
             views.site_icon, name='site-icon'),
     # Google Search Console site-ownership verification (HTML-file method) -
     # the exact filename/content Google's dashboard generated for this

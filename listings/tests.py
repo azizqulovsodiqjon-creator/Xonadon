@@ -246,3 +246,33 @@ class SiteIconTests(TestCase):
         page = self.client.get('/').content.decode()
         self.assertIn('<link rel="icon" href="/favicon.ico" sizes="48x48">', page)
         self.assertNotIn('Admin tasdiqlagan', page)
+
+
+class InstallableAppTests(TestCase):
+    def test_manifest_describes_an_installable_app(self):
+        resp = self.client.get('/manifest.webmanifest')
+        self.assertEqual(resp['Content-Type'], 'application/manifest+json')
+        data = resp.json()
+        self.assertEqual(data['display'], 'standalone')
+        self.assertEqual(data['start_url'], '/')
+        sizes = {(i['sizes'], i['purpose']) for i in data['icons']}
+        self.assertIn(('512x512', 'maskable'), sizes)
+        for icon in data['icons']:
+            self.assertEqual(self.client.get(icon['src'])['Content-Type'], 'image/png')
+        page = self.client.get('/').content.decode()
+        self.assertIn('<link rel="manifest" href="/manifest.webmanifest">', page)
+        self.assertIn("navigator.serviceWorker.register('/sw.js')", page)
+
+    def test_service_worker_served_from_root(self):
+        resp = self.client.get('/sw.js')
+        self.assertEqual(resp['Content-Type'], 'application/javascript')
+        self.assertIn("addEventListener('fetch'", resp.content.decode())
+
+    def test_asset_links_empty_until_configured(self):
+        with mock.patch.dict(os.environ, {'ANDROID_APP_PACKAGE': '', 'ANDROID_CERT_SHA256': ''}):
+            self.assertEqual(self.client.get('/.well-known/assetlinks.json').json(), [])
+        with mock.patch.dict(os.environ, {'ANDROID_APP_PACKAGE': 'uz.jizzaxjoy.app',
+                                          'ANDROID_CERT_SHA256': 'aa:bb, CC:DD'}):
+            data = self.client.get('/.well-known/assetlinks.json').json()
+        self.assertEqual(data[0]['target']['package_name'], 'uz.jizzaxjoy.app')
+        self.assertEqual(data[0]['target']['sha256_cert_fingerprints'], ['AA:BB', 'CC:DD'])

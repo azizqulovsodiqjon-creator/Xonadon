@@ -191,6 +191,8 @@ _SITE_ICONS = {
     'favicon-192.png': 'image/png',
     'favicon-512.png': 'image/png',
     'apple-touch-icon.png': 'image/png',
+    'maskable-192.png': 'image/png',
+    'maskable-512.png': 'image/png',
 }
 
 
@@ -202,6 +204,98 @@ def site_icon(request, name):
         response = HttpResponse(fh.read(), content_type=content_type)
     response['Cache-Control'] = 'public, max-age=604800'
     return response
+
+
+def web_manifest(request):
+    """Makes the site an installable app (Android/iPhone "add to home
+    screen") and is what the Play Store Android app (a Trusted Web
+    Activity wrapping this site) is built from."""
+    manifest = {
+        'id': '/',
+        'name': "Jizzax-Joy — uy-joy e'lonlari",
+        'short_name': 'Jizzax-Joy',
+        'description': "Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari.",
+        'lang': 'uz',
+        'start_url': '/',
+        'scope': '/',
+        'display': 'standalone',
+        'orientation': 'portrait',
+        'background_color': '#F3F4F6',
+        'theme_color': '#33456B',
+        'categories': ['lifestyle', 'shopping'],
+        'icons': [
+            {'src': '/favicon-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'any'},
+            {'src': '/favicon-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'any'},
+            {'src': '/maskable-192.png', 'sizes': '192x192', 'type': 'image/png', 'purpose': 'maskable'},
+            {'src': '/maskable-512.png', 'sizes': '512x512', 'type': 'image/png', 'purpose': 'maskable'},
+        ],
+    }
+    response = JsonResponse(manifest, json_dumps_params={'ensure_ascii': False})
+    response['Content-Type'] = 'application/manifest+json'
+    response['Cache-Control'] = 'public, max-age=3600'
+    return response
+
+
+# Network-first, so the site always shows fresh listings; the only thing
+# it adds is a friendly page instead of the browser's own error screen
+# when there's no internet (opening the installed app offline), and
+# caching of the content-hashed /static/ files for faster loads.
+_SERVICE_WORKER_JS = """
+const STATIC_CACHE = 'jj-static-v1';
+const OFFLINE_HTML = '<!doctype html><html lang="uz"><head><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width,initial-scale=1"><title>Jizzax-Joy</title>' +
+  '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:sans-serif;' +
+  'background:#F3F4F6;color:#1C2430;text-align:center;padding:24px}b{display:block;font-size:20px;margin-bottom:8px}' +
+  'button{margin-top:18px;border:0;border-radius:999px;padding:12px 22px;background:#33456B;color:#fff;font-size:15px}</style>' +
+  '</head><body><div><b>Internet aloqasi yo‘q</b>Ulanishni tekshirib, qayta urinib ko‘ring.' +
+  '<br><button onclick="location.reload()">Qayta urinish</button></div></body></html>';
+
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.filter(k => k !== STATIC_CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+});
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+  if (req.mode === 'navigate') {
+    event.respondWith(fetch(req).catch(() =>
+      new Response(OFFLINE_HTML, {headers: {'Content-Type': 'text/html; charset=utf-8'}})));
+    return;
+  }
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(caches.open(STATIC_CACHE).then(cache => cache.match(req).then(hit =>
+      hit || fetch(req).then(res => { if (res.ok) cache.put(req, res.clone()); return res; }))));
+  }
+});
+"""
+
+
+def service_worker(request):
+    # Served from the site root (not /static/) so it controls every page.
+    response = HttpResponse(_SERVICE_WORKER_JS, content_type='application/javascript')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+def asset_links(request):
+    """Digital Asset Links: proves to Android that the Play Store app and
+    this site belong together, so the app opens the site full-screen with
+    no browser address bar. ANDROID_APP_PACKAGE is the app's package name,
+    ANDROID_CERT_SHA256 the SHA-256 fingerprint(s) of its signing key(s),
+    comma-separated (the upload key and Play's app-signing key)."""
+    package = os.environ.get('ANDROID_APP_PACKAGE', '').strip()
+    fingerprints = [f.strip().upper() for f in os.environ.get('ANDROID_CERT_SHA256', '').split(',') if f.strip()]
+    statements = []
+    if package and fingerprints:
+        statements.append({
+            'relation': ['delegate_permission/common.handle_all_urls'],
+            'target': {'namespace': 'android_app', 'package_name': package,
+                       'sha256_cert_fingerprints': fingerprints},
+        })
+    return JsonResponse(statements, safe=False)
 
 
 def google_site_verification(request):
