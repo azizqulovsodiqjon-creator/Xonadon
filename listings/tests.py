@@ -233,3 +233,16 @@ class ChannelPostCleanupTests(TestCase):
             views.sweep_expired_listings()
         self.assertFalse(Listing.objects.filter(pk=listing.pk).exists())
         tg.assert_called_once_with('deleteMessage', chat_id='@kanal', message_id=555)
+
+
+class SiteIconTests(TestCase):
+    def test_favicon_is_a_real_icon_not_the_spa_page(self):
+        ico = self.client.get('/favicon.ico')
+        self.assertEqual(ico.status_code, 200)
+        self.assertEqual(ico['Content-Type'], 'image/x-icon')
+        png = self.client.get('/favicon-192.png')
+        self.assertEqual(png['Content-Type'], 'image/png')
+        self.assertEqual(Image.open(io.BytesIO(png.content)).size, (192, 192))
+        page = self.client.get('/').content.decode()
+        self.assertIn('<link rel="icon" href="/favicon.ico" sizes="48x48">', page)
+        self.assertNotIn('Admin tasdiqlagan', page)

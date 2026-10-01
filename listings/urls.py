@@ -13,6 +13,8 @@ urlpatterns = [
     path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),
     path('og/listing/<int:listing_id>/ig/<int:index>.jpg', views.listing_instagram_image, name='listing-instagram-image'),
     path('sitemap.xml', views.sitemap_xml, name='sitemap-xml'),
+    re_path(r'^(?P<name>favicon\.ico|favicon\.svg|favicon-(?:48|96|192|512)\.png|apple-touch-icon\.png)$',
+            views.site_icon, name='site-icon'),
     # Google Search Console site-ownership verification (HTML-file method) -
     # the exact filename/content Google's dashboard generated for this
     # property. Never remove this once it's live, or Search Console loses

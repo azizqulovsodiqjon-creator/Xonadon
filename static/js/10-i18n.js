@@ -69,7 +69,6 @@
     document.getElementById('heroStatListingsLabel').textContent = dict.hero_stat_listings;
     document.getElementById('heroStatDistrictsLabel').textContent = dict.hero_stat_districts;
     document.getElementById('heroStatUsersLabel').textContent = dict.hero_stat_users;
-    document.getElementById('heroChipText').textContent = dict.hero_chip;
     ['postAdBtn', 'heroPostBtn'].forEach(function(id){
       var btn = document.getElementById(id);
       if(btn && btn.firstChild) btn.firstChild.textContent = dict.post_ad;

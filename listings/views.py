@@ -180,6 +180,30 @@ def robots_txt(request):
     return HttpResponse('\n'.join(lines), content_type='text/plain')
 
 
+# Site icons at fixed root URLs (not hashed /static/ ones): Google and
+# browsers ask for /favicon.ico on their own, and Google wants a stable,
+# crawlable icon URL to show next to the site in search results.
+_SITE_ICONS = {
+    'favicon.ico': 'image/x-icon',
+    'favicon.svg': 'image/svg+xml',
+    'favicon-48.png': 'image/png',
+    'favicon-96.png': 'image/png',
+    'favicon-192.png': 'image/png',
+    'favicon-512.png': 'image/png',
+    'apple-touch-icon.png': 'image/png',
+}
+
+
+def site_icon(request, name):
+    content_type = _SITE_ICONS.get(name)
+    if not content_type:
+        return HttpResponse(status=404)
+    with open(settings.BASE_DIR / 'static' / 'icons' / name, 'rb') as fh:
+        response = HttpResponse(fh.read(), content_type=content_type)
+    response['Cache-Control'] = 'public, max-age=604800'
+    return response
+
+
 def google_site_verification(request):
     return HttpResponse('google-site-verification: google2df38b97da6abe80.html', content_type='text/html')
 
