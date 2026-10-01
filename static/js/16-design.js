@@ -20,34 +20,12 @@
   function heroParts(){
     return ['heroTitle1', 'heroTitle2', 'heroTitleEm'].map(function(id){ return document.getElementById(id); });
   }
-  // The languages wrap to different numbers of lines (English is the
-  // longest), so reserve the tallest one's height up front - otherwise
-  // everything below the title would jump every time it switches.
-  function reserveHeroHeight(){
-    var parts = heroParts();
-    if(parts.some(function(el){ return !el; })) return;
-    var title = parts[0].parentNode;
-    if(!title.clientWidth) return;  // home page not showing - measured again on resize/next run
-    var probe = title.cloneNode(true);
-    probe.removeAttribute('id');
-    probe.style.cssText = 'position:absolute;visibility:hidden;left:-9999px;top:0;min-height:0;width:' + title.clientWidth + 'px;';
-    title.parentNode.appendChild(probe);
-    var tallest = 0;
-    HERO_LANGS.forEach(function(lang){
-      var texts = heroTexts(lang);
-      probe.innerHTML = '<span>' + texts[0] + '</span><br><span>' + texts[1] + '</span> <em>' + texts[2] + '</em><span class="type-caret"></span>';
-      tallest = Math.max(tallest, probe.offsetHeight);
-    });
-    probe.remove();
-    if(tallest) title.style.minHeight = tallest + 'px';
-  }
   function startHeroTitleLoop(){
     var parts = heroParts();
     if(parts.some(function(el){ return !el; })) return;
     var pageLang = (typeof currentLang !== 'undefined' && HERO_LANGS.indexOf(currentLang) !== -1) ? currentLang : 'UZ';
     parts[0].parentNode.setAttribute('aria-label', heroTexts(pageLang).join(' '));
     if(prefersReducedMotion) return;
-    reserveHeroHeight();
     var run = ++heroTypeRun;
     var langIdx = HERO_LANGS.indexOf(pageLang);
     var oldCaret = document.querySelector('.hero-title .type-caret');
@@ -99,11 +77,6 @@
       startHeroTitleLoop();
     };
   }
-  var heroResizeTimer = null;
-  window.addEventListener('resize', function(){
-    clearTimeout(heroResizeTimer);
-    heroResizeTimer = setTimeout(reserveHeroHeight, 200);
-  });
   startHeroTitleLoop();
 
   // Custom cursor: a small dot that follows the mouse exactly plus a ring
