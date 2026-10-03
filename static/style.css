@@ -750,24 +750,6 @@
     .hero-sub{max-width:none;}
   }
 
-  /* ---------- stats band: big numbers in their own full-width row ---------- */
-  .stats-band{border-top:1px solid var(--line);background:var(--card);}
-  .stats-band .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0;padding:0 var(--gutter);}
-  .stats-band .hero-stats > div{padding:34px 16px;text-align:center;border-left:1px solid var(--line);}
-  .stats-band .hero-stats > div:first-child{border-left:none;}
-  .stats-band .hero-stats div b{font-size:clamp(36px,4.6vw,64px);line-height:1;letter-spacing:-0.02em;}
-  .stats-band .hero-stats div b.accent{color:var(--accent);}
-  .stats-band .hero-stats div span{display:block;margin-top:12px;font-size:13px;letter-spacing:0.08em;}
-  @media (max-width:820px){
-    .stats-band .hero-stats{padding:0 4vw;}
-    .stats-band .hero-stats > div{padding:22px 6px;}
-    .stats-band .hero-stats div span{font-size:10.5px;letter-spacing:0.04em;}
-  }
-
-  /* ---------- typed hero title ---------- */
-  .type-caret{display:inline-block;width:0.08em;height:0.9em;margin-left:0.06em;background:var(--accent);vertical-align:-0.08em;border-radius:2px;animation:caretBlink 1s steps(1) infinite;}
-  @keyframes caretBlink{50%{opacity:0;}}
-
   /* ---------- gold VIP / TOP ---------- */
   .vip-badge,.top-badge,.tier-badge,.detail-tag.gold,.detail-tag.top{background:var(--tier-gold);color:var(--tier-gold-ink);font-weight:800;letter-spacing:0.05em;box-shadow:0 4px 12px -4px rgba(176,124,20,0.55), inset 0 1px 0 rgba(255,255,255,0.55);}
   .top-badge{background:linear-gradient(135deg,#FFF1C4 0%,#F0CB6A 50%,#D9A53A 100%);}
@@ -831,3 +813,7 @@
 
   /* ---------- page headers: the site name is the way back ---------- */
   header.nav .back-btn{display:none;}
+
+  /* ---------- "E'lon joylash" in the top-right corner of the header ---------- */
+  #postAdBtn{margin-left:6px;}
+  @media (max-width:820px){ #postAdBtn{display:none;} }  /* phones post via the bottom bar's + */

@@ -249,6 +249,8 @@ class SiteIconTests(TestCase):
         self.assertNotIn('heroEyebrowText', page)  # the "To'g'ridan-to'g'ri egasidan..." chip
         self.assertNotIn('class="vip-sub"', page)
         self.assertNotIn('id="heroSub"', page)
+        self.assertNotIn('heroSection', page)
+        self.assertIn('<button class="pill-btn cta" id="postAdBtn">', page)
 
 
 class InstallableAppTests(TestCase):

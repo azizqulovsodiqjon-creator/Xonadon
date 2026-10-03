@@ -74,14 +74,6 @@
       }
     });
 
-    // Hero buttons just proxy the real ones - same auth/scroll behavior,
-    // no duplicated logic.
-    document.getElementById('heroPostBtn').addEventListener('click', function(){ document.getElementById('postAdBtn').click(); });
-    document.getElementById('heroBrowseBtn').addEventListener('click', function(){
-      var target = document.querySelector('.vip-section') || document.querySelector('.toolbar');
-      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
-    });
-
     document.getElementById('searchInput').addEventListener('input', function(e){
       filterState.search = e.target.value.trim();
       renderPublic();

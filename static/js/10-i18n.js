@@ -60,14 +60,7 @@
     // Both buttons have a leading text node + a trailing arrow-icon
     // <span> (see .cta-arrow) - touch only the text node, or .textContent
     // would wipe the icon out.
-    document.getElementById('heroTitle1').textContent = dict.hero_title_1;
-    document.getElementById('heroTitle2').textContent = dict.hero_title_2;
-    document.getElementById('heroTitleEm').textContent = dict.hero_title_em;
-    document.getElementById('heroBrowseBtn').textContent = dict.hero_browse;
-    document.getElementById('heroStatListingsLabel').textContent = dict.hero_stat_listings;
-    document.getElementById('heroStatDistrictsLabel').textContent = dict.hero_stat_districts;
-    document.getElementById('heroStatUsersLabel').textContent = dict.hero_stat_users;
-    ['postAdBtn', 'heroPostBtn'].forEach(function(id){
+    ['postAdBtn'].forEach(function(id){
       var btn = document.getElementById(id);
       if(btn && btn.firstChild) btn.firstChild.textContent = dict.post_ad;
     });

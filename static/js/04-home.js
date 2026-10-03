@@ -4,8 +4,6 @@
      HOME: VIP + oddiy grid
   ==========================================================*/
   function renderPublic(){
-    var heroStat = document.getElementById('heroStatListings');
-    if(heroStat) heroStat.textContent = listings.length || '—';
     var vipWrap = document.getElementById('vipScroll');
     var regWrap = document.getElementById('regularGrid');
     var filtered = listings.filter(function(l){ return matchesFilters(l, filterState); });
