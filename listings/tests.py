@@ -246,6 +246,8 @@ class SiteIconTests(TestCase):
         page = self.client.get('/').content.decode()
         self.assertIn('<link rel="icon" href="/favicon.ico" sizes="48x48">', page)
         self.assertNotIn('Admin tasdiqlagan', page)
+        self.assertNotIn('heroEyebrowText', page)  # the "To'g'ridan-to'g'ri egasidan..." chip
+        self.assertNotIn('class="vip-sub"', page)
 
 
 class InstallableAppTests(TestCase):

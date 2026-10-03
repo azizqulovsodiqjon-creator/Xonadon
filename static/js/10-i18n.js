@@ -60,7 +60,6 @@
     // Both buttons have a leading text node + a trailing arrow-icon
     // <span> (see .cta-arrow) - touch only the text node, or .textContent
     // would wipe the icon out.
-    document.getElementById('heroEyebrowText').textContent = dict.hero_eyebrow;
     document.getElementById('heroTitle1').textContent = dict.hero_title_1;
     document.getElementById('heroTitle2').textContent = dict.hero_title_2;
     document.getElementById('heroTitleEm').textContent = dict.hero_title_em;
