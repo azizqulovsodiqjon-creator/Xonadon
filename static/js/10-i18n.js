@@ -63,7 +63,6 @@
     document.getElementById('heroTitle1').textContent = dict.hero_title_1;
     document.getElementById('heroTitle2').textContent = dict.hero_title_2;
     document.getElementById('heroTitleEm').textContent = dict.hero_title_em;
-    document.getElementById('heroSub').textContent = dict.hero_sub;
     document.getElementById('heroBrowseBtn').textContent = dict.hero_browse;
     document.getElementById('heroStatListingsLabel').textContent = dict.hero_stat_listings;
     document.getElementById('heroStatDistrictsLabel').textContent = dict.hero_stat_districts;

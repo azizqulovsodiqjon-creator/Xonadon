@@ -248,6 +248,7 @@ class SiteIconTests(TestCase):
         self.assertNotIn('Admin tasdiqlagan', page)
         self.assertNotIn('heroEyebrowText', page)  # the "To'g'ridan-to'g'ri egasidan..." chip
         self.assertNotIn('class="vip-sub"', page)
+        self.assertNotIn('id="heroSub"', page)
 
 
 class InstallableAppTests(TestCase):
