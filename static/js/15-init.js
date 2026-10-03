@@ -64,6 +64,15 @@
     document.getElementById('langCode').textContent = 'UZ';
 
     document.getElementById('logoHome').addEventListener('click', function(){ showPage('pageHome'); renderPublic(); updateUrl('/'); });
+    // Sub-page headers no longer show a separate "Orqaga" button - tapping
+    // the site name there does exactly what that button did.
+    document.querySelectorAll('header.nav').forEach(function(head){
+      var back = head.querySelector('.back-btn'), logo = head.querySelector('.logo');
+      if(back && logo && logo.id !== 'logoHome'){
+        logo.title = 'Orqaga';
+        logo.addEventListener('click', function(){ back.click(); });
+      }
+    });
 
     // Hero buttons just proxy the real ones - same auth/scroll behavior,
     // no duplicated logic.

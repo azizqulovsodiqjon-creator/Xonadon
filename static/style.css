@@ -44,8 +44,8 @@
     --tier-gold-ink:#3B2A05;
   }
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;overscroll-behavior-y:contain;}
-  body{background:var(--paper);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease;overscroll-behavior-y:contain;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);font-family:'Manrope',sans-serif;-webkit-font-smoothing:antialiased;transition:background .2s ease,color .2s ease;}
   h1,h2,h3{font-family:'Unbounded',sans-serif;font-weight:700;letter-spacing:-0.01em;margin:0;}
   button{font-family:'Manrope',sans-serif;cursor:pointer;}
   a{text-decoration:none;color:inherit;}
@@ -321,15 +321,6 @@
   .verified-tick svg{width:100%;height:100%;position:relative;z-index:1;}
   .owner-role{font-size:12.5px;color:rgba(var(--ink-rgb),0.55);margin-top:2px;}
   .owner-contact-btn{margin-left:auto;background:var(--accent2);color:#fff;border:1.5px solid var(--accent2);padding:11px 20px;border-radius:999px;font-weight:800;font-size:13.5px;}
-  .similar-section{margin-top:34px;}
-  .similar-scroll{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;}
-  .similar-card{flex:0 0 220px;background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:transform .2s ease;text-align:left;padding:0;font-family:'Manrope',sans-serif;}
-  .similar-card:hover{transform:translateY(-3px);}
-  .similar-card .thumb{height:130px;overflow:hidden;}
-  .similar-card .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-  .similar-card .body{padding:12px 14px 14px;}
-  .similar-card .price{font-family:'Unbounded',sans-serif;font-weight:700;font-size:17px;color:var(--teal-900);}
-  .similar-card .desc{font-size:12.5px;color:rgba(var(--ink-rgb),0.65);margin-top:3px;line-height:1.35;}
 
   /* ---------- seller profile ---------- */
   .seller-head-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px;}
@@ -824,3 +815,20 @@
     html.custom-cursor, html.custom-cursor body, html.custom-cursor a, html.custom-cursor button, html.custom-cursor [role="button"], html.custom-cursor .listing, html.custom-cursor .vip-card, html.custom-cursor .leaflet-container{cursor:none;}
     html.custom-cursor input, html.custom-cursor textarea, html.custom-cursor select{cursor:auto;}
   }
+
+  /* ---------- tap a listing photo: full-screen viewer ---------- */
+  #galleryMainImg{cursor:zoom-in;}
+  .photo-viewer{position:fixed;inset:0;z-index:2000;background:rgba(8,11,18,0.94);display:none;align-items:center;justify-content:center;}
+  .photo-viewer.open{display:flex;}
+  .photo-viewer img{max-width:94vw;max-height:86vh;object-fit:contain;border-radius:10px;user-select:none;}
+  .pv-close,.pv-arrow{position:absolute;border:none;background:rgba(255,255,255,0.14);color:#fff;border-radius:50%;display:grid;place-items:center;}
+  .pv-close{top:16px;right:16px;width:44px;height:44px;font-size:20px;}
+  .pv-arrow{top:50%;transform:translateY(-50%);width:50px;height:50px;font-size:28px;}
+  .pv-arrow.prev{left:14px;}
+  .pv-arrow.next{right:14px;}
+  .pv-close:hover,.pv-arrow:hover{background:rgba(255,255,255,0.28);}
+  .pv-counter{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;font-weight:700;font-size:14px;background:rgba(255,255,255,0.14);padding:5px 12px;border-radius:999px;}
+  .pv-counter:empty{display:none;}
+
+  /* ---------- page headers: the site name is the way back ---------- */
+  header.nav .back-btn{display:none;}

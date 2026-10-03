@@ -82,8 +82,26 @@
   // Reverse of the above - reads whatever filter query params the page
   // was opened with (a shared/bookmarked filtered link) back into
   // filterState, before the first render.
+  // A page refresh starts from a clean, unfiltered list (only the language
+  // is kept) - so a refresh is the quick way back from any combination of
+  // filters. Opening a shared filtered link still applies its filters.
+  var FILTER_URL_KEYS = ['deal', 'type', 'owner', 'mortgage', 'lastWeek', 'lastMonth', 'district', 'priceMin', 'priceMax', 'rooms', 'q'];
+  function isPageReload(){
+    try{
+      var nav = performance.getEntriesByType('navigation')[0];
+      if(nav) return nav.type === 'reload';
+      return !!(performance.navigation && performance.navigation.type === 1);
+    }catch(e){ return false; }
+  }
   function applyFilterParamsFromUrl(){
     var params = new URLSearchParams(location.search);
+    if(isPageReload() && FILTER_URL_KEYS.some(function(k){ return params.has(k); })){
+      FILTER_URL_KEYS.forEach(function(k){ params.delete(k); });
+      var rest = params.toString();
+      try{ history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '')); }catch(e){}
+      if(params.has('lang') && t[params.get('lang')]) applyLang(params.get('lang'));
+      return;
+    }
     if(params.has('deal')) filterState.deal = params.get('deal');
     if(params.has('type')) filterState.type = params.get('type');
     if(params.has('owner')) filterState.owner = params.get('owner') === '1';

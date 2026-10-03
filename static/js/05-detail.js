@@ -101,14 +101,12 @@
             '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
           '</div>' +
         '</div>' +
-      '</div>' +
-      '<div class="similar-section" id="similarSection"></div>';
+      '</div>';
 
     showPage('pageDetail');
     if(!isTranslationRefresh) updateUrl('/elon/' + id);
     initDetailMap(l);
     initGallery();
-    renderSimilarListings(l);
     if(!isTranslationRefresh){
       recordListingView(l.id);
     }
@@ -206,6 +204,57 @@
     if(nextBtn) nextBtn.addEventListener('click', function(){ goToPhoto(galleryIndex+1); });
     var thumbs = document.getElementById('galleryThumbs');
     if(thumbs){ thumbs.querySelectorAll('img').forEach(function(t){ t.addEventListener('click', function(){ goToPhoto(Number(this.getAttribute('data-i'))); }); }); }
+    var mainImg = document.getElementById('galleryMainImg');
+    if(mainImg) mainImg.addEventListener('click', function(){ openPhotoViewer(galleryIndex); });
+  }
+
+  // Full-screen photo viewer: tap the listing photo to see it large;
+  // arrows / swipe / keyboard to move, tap outside or the X / Esc to close.
+  var photoViewer = null, viewerIndex = 0;
+  function openPhotoViewer(index){
+    if(!galleryPhotos.length) return;
+    if(!photoViewer){
+      photoViewer = document.createElement('div');
+      photoViewer.className = 'photo-viewer';
+      photoViewer.innerHTML = '<button class="pv-close" aria-label="Yopish">\u2715</button>' +
+        '<button class="pv-arrow prev" aria-label="Oldingi">\u2039</button><img alt="">' +
+        '<button class="pv-arrow next" aria-label="Keyingi">\u203A</button><div class="pv-counter"></div>';
+      document.body.appendChild(photoViewer);
+      photoViewer.querySelector('.pv-close').addEventListener('click', closePhotoViewer);
+      photoViewer.querySelector('.prev').addEventListener('click', function(e){ e.stopPropagation(); showViewerPhoto(viewerIndex - 1); });
+      photoViewer.querySelector('.next').addEventListener('click', function(e){ e.stopPropagation(); showViewerPhoto(viewerIndex + 1); });
+      photoViewer.addEventListener('click', function(e){ if(e.target === photoViewer) closePhotoViewer(); });
+      var touchX = null;
+      photoViewer.addEventListener('touchstart', function(e){ touchX = e.touches[0].clientX; }, {passive: true});
+      photoViewer.addEventListener('touchend', function(e){
+        if(touchX == null) return;
+        var dx = e.changedTouches[0].clientX - touchX;
+        if(Math.abs(dx) > 40) showViewerPhoto(viewerIndex + (dx < 0 ? 1 : -1));
+        touchX = null;
+      });
+      document.addEventListener('keydown', function(e){
+        if(!photoViewer.classList.contains('open')) return;
+        if(e.key === 'Escape') closePhotoViewer();
+        else if(e.key === 'ArrowLeft') showViewerPhoto(viewerIndex - 1);
+        else if(e.key === 'ArrowRight') showViewerPhoto(viewerIndex + 1);
+      });
+    }
+    var many = galleryPhotos.length > 1;
+    photoViewer.querySelectorAll('.pv-arrow').forEach(function(b){ b.style.display = many ? '' : 'none'; });
+    photoViewer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    showViewerPhoto(index);
+  }
+  function showViewerPhoto(i){
+    var n = galleryPhotos.length;
+    viewerIndex = (i + n) % n;
+    photoViewer.querySelector('img').src = galleryPhotos[viewerIndex];
+    photoViewer.querySelector('.pv-counter').textContent = n > 1 ? (viewerIndex + 1) + '/' + n : '';
+  }
+  function closePhotoViewer(){
+    photoViewer.classList.remove('open');
+    document.body.style.overflow = '';
+    goToPhoto(viewerIndex);  // the page gallery follows what was viewed
   }
   function goToPhoto(i){
     if(i<0) i = galleryPhotos.length-1;
@@ -216,26 +265,6 @@
     if(counter) counter.textContent = (i+1)+'/'+galleryPhotos.length;
     var thumbs = document.getElementById('galleryThumbs');
     if(thumbs){ thumbs.querySelectorAll('img').forEach(function(t){ t.classList.toggle('active', Number(t.getAttribute('data-i'))===i); }); }
-  }
-
-  function renderSimilarListings(l){
-    var wrap = document.getElementById('similarSection');
-    if(!wrap) return;
-    var basePrice = priceNum(l.price), baseArea = l.area || 0;
-    var scored = listings.filter(function(o){ return o.id !== l.id; }).map(function(o){
-      var pd = Math.abs(priceNum(o.price)-basePrice)/(basePrice||1);
-      var ad = Math.abs((o.area||0)-baseArea)/(baseArea||1);
-      return {item:o, score:pd+ad};
-    }).sort(function(a,b){ return a.score-b.score; }).slice(0,4).map(function(s){ return s.item; });
-    if(!scored.length){ wrap.innerHTML=''; return; }
-    wrap.innerHTML = '<h3>Narxi va maydoniga o\'xshash uylar</h3><div class="similar-scroll">' +
-      scored.map(function(o){
-        return '<button class="similar-card" data-id="'+o.id+'"><div class="thumb"><img src="'+o.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+formatPrice(o)+'</div><div class="desc">'+o.title+', '+o.district+'</div></div></button>';
-      }).join('') + '</div>';
-    wrap.querySelectorAll('[data-id]').forEach(function(el){
-      el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), lastPage==='pageAdmin'); });
-    });
   }
 
   function initDetailMap(l){
