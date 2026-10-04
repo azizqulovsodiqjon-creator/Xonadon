@@ -227,6 +227,7 @@
     "Xaritani kattalashtirish": {RU: "Увеличить карту", EN: "Enlarge map"},
     "Xaritadan uyingiz joylashgan nuqtani belgilang (bosing yoki belgini suring).": {RU: "Отметьте на карте, где находится ваш дом (нажмите или перетащите метку).", EN: "Mark where your home is on the map (tap, or drag the pin)."},
     "Sizning joylashuvingiz": {RU: "Ваше местоположение", EN: "Your location"},
+    "Mening joylashuvim": {RU: "Моё местоположение", EN: "My location"},
     "Davom etish": {RU: "Продолжить", EN: "Continue"},
     "E'lon turini tanlang": {RU: "Выберите тип объявления", EN: "Choose the listing type"},
     "Oddiy": {RU: "Обычное", EN: "Regular"},

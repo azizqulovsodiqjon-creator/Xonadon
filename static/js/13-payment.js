@@ -229,7 +229,7 @@
           // the property pin jumps to the searched spot too (fine-tune
           // by dragging afterwards) - the separate "sizning
           // joylashuvingiz" dot is its own marker and is untouched.
-          if(postLocationMarker) postLocationMarker.setLatLng(latlng);
+          if(postLocationMarker){ postLocationMarker.setLatLng(latlng); postPinMovedByUser = true; }
         } else {
           toast("Joy topilmadi.");
         }
@@ -245,25 +245,73 @@
       postLocationMarker = L.marker(JIZZAX_CENTER, {draggable:true}).addTo(postLocationMap);
       postLocationMap.on('click', function(e){ postLocationMarker.setLatLng(e.latlng); });
       setTimeout(function(){ postLocationMap.invalidateSize(); }, 60);
-      // Center on the user's real current location if they allow it,
-      // instead of always defaulting to the Jizzax city center. This
-      // marks it with its own small fixed dot - separate from the
-      // draggable property pin - so it stays visible even after the
-      // property pin gets moved somewhere else (they're not always the
-      // same place: posting a listing for a house you don't currently
-      // live in/near is normal).
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(function(pos){
-          var latlng = [pos.coords.latitude, pos.coords.longitude];
-          var meIcon = L.divIcon({className:'my-location-dot', html:'<span></span>', iconSize:[16,16], iconAnchor:[8,8]});
-          L.marker(latlng, {icon: meIcon, interactive:false, keyboard:false, zIndexOffset:-100})
-            .addTo(postLocationMap)
-            .bindTooltip("Sizning joylashuvingiz");
-          postLocationMarker.setLatLng(latlng); // property pin still starts here, for convenience - drag it to the real spot
-          postLocationMap.setView(latlng, 14);
-        }, function(){ /* denied/unavailable - keep the default Jizzax center */ }, {enableHighAccuracy:true, timeout:8000});
-      }
+      addPostLocateControl();
+      locateForPost(false);
     }, 60);
+  }
+  // Puts the user's current position on the posting map: a small fixed
+  // "you are here" dot, and the draggable property pin moved there unless
+  // the user already placed it. Asks for a quick network fix first, then
+  // refines with GPS, so a slow GPS lock indoors no longer leaves the map
+  // silently on the city centre; failures say why. `manual` = the user
+  // pressed the button: always move the pin and report problems.
+  var postMeMarker = null, postPinMovedByUser = false;
+  function placePostLocation(pos, movePin){
+    var latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    var bounds = L.latLngBounds(JIZZAX_BOUNDS);
+    if(!bounds.contains(latlng)){
+      // outside the region: widen the limits so the dot can still show
+      postLocationMap.setMinZoom(5);
+      postLocationMap.setMaxBounds(bounds.extend(latlng).pad(0.2));
+    }
+    if(!postMeMarker){
+      var meIcon = L.divIcon({className:'my-location-dot', html:'<span></span>', iconSize:[16,16], iconAnchor:[8,8]});
+      postMeMarker = L.marker(latlng, {icon: meIcon, interactive:false, keyboard:false, zIndexOffset:-100})
+        .addTo(postLocationMap).bindTooltip("Sizning joylashuvingiz");
+    } else {
+      postMeMarker.setLatLng(latlng);
+    }
+    if(movePin){
+      postLocationMarker.setLatLng(latlng);
+      postLocationMap.setView(latlng, Math.max(postLocationMap.getZoom(), 15));
+    }
+  }
+  function locateForPost(manual){
+    if(!postLocationMap) return;
+    if(!window.isSecureContext || !navigator.geolocation){
+      if(manual) toast(!window.isSecureContext ? "Joylashuv faqat https:// manzilda ishlaydi." : "Brauzeringiz joylashuvni aniqlay olmaydi.");
+      return;
+    }
+    if(manual) toast("Joylashuvingiz aniqlanmoqda...");
+    var gotOne = false;
+    function onFix(pos){
+      gotOne = true;
+      placePostLocation(pos, manual || !postPinMovedByUser);
+    }
+    function onError(err){
+      if(gotOne) return;  // the quick fix already worked
+      if(manual || (err && err.code === 1)) toast(geoErrorMessage(err));
+    }
+    // 1) quick, approximate (network / recently known) position
+    navigator.geolocation.getCurrentPosition(onFix, function(){}, {enableHighAccuracy:false, timeout:10000, maximumAge:300000});
+    // 2) precise GPS fix, which can take a while
+    navigator.geolocation.getCurrentPosition(onFix, onError, {enableHighAccuracy:true, timeout:20000, maximumAge:0});
+  }
+  function addPostLocateControl(){
+    var LocateControl = L.Control.extend({
+      options: {position: 'topright'},
+      onAdd: function(){
+        var div = L.DomUtil.create('div', 'leaflet-bar map-corner-btn');
+        div.innerHTML = '<a href="#" role="button" title="Mening joylashuvim" aria-label="Mening joylashuvim">&#128205;</a>';
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.on(div.querySelector('a'), 'click', function(e){ L.DomEvent.preventDefault(e); locateForPost(true); });
+        return div;
+      }
+    });
+    postLocationMap.addControl(new LocateControl());
+    // once the user places the pin themselves, a late GPS fix must not move it
+    postLocationMarker.on('dragend', function(){ postPinMovedByUser = true; });
+    postLocationMap.on('click', function(){ postPinMovedByUser = true; });
   }
   function showPostStep(n){
     [1,2,3,4].forEach(function(i){ document.getElementById('postStep'+i).classList.toggle('hidden', i!==n); });
