@@ -436,9 +436,16 @@ def _post_listing_to_channel(listing):
     threading.Thread(target=_send, daemon=True).start()
 
 
-def _delete_listing_channel_posts(listing):
+CHANNEL_POST_DELETED_NOTE = "❌ Bu e'lon o'chirilgan"
+CHANNEL_POST_REPLACED_NOTE = "🔄 Bu e'lon yangilandi - yangi versiyasi kanalda pastroqda"
+
+
+def _delete_listing_channel_posts(listing, note=CHANNEL_POST_DELETED_NOTE):
     """Remove a listing's Telegram channel post(s), if it has any.
-    Best-effort, runs in a background thread."""
+    Telegram only lets a bot delete messages less than 48 hours old - for
+    an older post the album stays, so its caption is replaced with `note`
+    instead, and the channel never keeps advertising a listing the site
+    no longer has. Best-effort, runs in a background thread."""
     import threading
 
     channel = os.environ.get('TELEGRAM_CHANNEL_ID', '').strip()
@@ -447,8 +454,10 @@ def _delete_listing_channel_posts(listing):
         return
 
     def _run():
-        for message_id in ids:
-            _telegram_api('deleteMessage', chat_id=channel, message_id=int(message_id))
+        deleted = [bool((_telegram_api('deleteMessage', chat_id=channel, message_id=int(m)) or {}).get('ok'))
+                   for m in ids]
+        if not deleted[0]:
+            _telegram_api('editMessageCaption', chat_id=channel, message_id=int(ids[0]), caption=note)
 
     threading.Thread(target=_run, daemon=True).start()
 
@@ -473,7 +482,7 @@ def _refresh_listing_channel_post(listing, new_photos):
         return
     ids = [i for i in (listing.tg_message_ids or '').split(',') if i.strip()]
     if ids and new_photos:
-        _delete_listing_channel_posts(listing)
+        _delete_listing_channel_posts(listing, note=CHANNEL_POST_REPLACED_NOTE)
         Listing.objects.filter(pk=listing.pk).update(tg_message_ids='')
         listing.refresh_from_db()
         _post_listing_to_channel(listing)

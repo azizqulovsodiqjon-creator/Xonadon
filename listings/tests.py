@@ -281,3 +281,29 @@ class InstallableAppTests(TestCase):
             data = self.client.get('/.well-known/assetlinks.json').json()
         self.assertEqual(data[0]['target']['package_name'], 'uz.jizzaxjoy.app')
         self.assertEqual(data[0]['target']['sha256_cert_fingerprints'], ['AA:BB', 'CC:DD'])
+
+
+@override_settings(TELEGRAM_BOT_TOKEN='t')
+@mock.patch.dict(os.environ, {'TELEGRAM_CHANNEL_ID': '@kanal'})
+@mock.patch('threading.Thread', side_effect=lambda target, daemon: mock.Mock(start=target))
+class OldChannelPostTests(TestCase):
+    def test_post_older_than_48h_is_marked_deleted_instead(self, _thread):
+        from . import views
+        listing = _make_listing(photos=0, tg_message_ids='70,71')
+        calls = []
+
+        def fake_api(method, **kw):
+            calls.append((method, kw))
+            return {'ok': False} if method == 'deleteMessage' else {'ok': True}
+        with mock.patch.object(views, '_telegram_api', side_effect=fake_api):
+            listing.delete()
+        self.assertEqual([c[0] for c in calls], ['deleteMessage', 'deleteMessage', 'editMessageCaption'])
+        self.assertEqual(calls[-1][1]['message_id'], 70)
+        self.assertIn("o'chirilgan", calls[-1][1]['caption'])
+
+    def test_fresh_post_is_simply_deleted(self, _thread):
+        from . import views
+        listing = _make_listing(photos=0, tg_message_ids='80')
+        with mock.patch.object(views, '_telegram_api', return_value={'ok': True}) as api:
+            listing.delete()
+        api.assert_called_once_with('deleteMessage', chat_id='@kanal', message_id=80)
