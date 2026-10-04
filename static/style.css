@@ -784,18 +784,17 @@
     .detail-left .gallery-main{height:320px;}
   }
 
-  /* ---------- custom cursor (mouse/trackpad only) ---------- */
-  .cursor-dot,.cursor-ring{position:fixed;top:0;left:0;pointer-events:none;z-index:2147483000;border-radius:50%;opacity:0;transition:opacity .2s ease;will-change:transform;}
-  .cursor-dot{width:7px;height:7px;margin:-3.5px 0 0 -3.5px;background:var(--accent);}
-  .cursor-ring{width:34px;height:34px;margin:-17px 0 0 -17px;border:1.5px solid rgba(var(--accent-rgb),0.55);transition:opacity .2s ease,width .2s ease,height .2s ease,margin .2s ease,background-color .2s ease,border-color .2s ease;}
-  .cursor-on .cursor-dot,.cursor-on .cursor-ring{opacity:1;}
-  .cursor-hover .cursor-ring{width:54px;height:54px;margin:-27px 0 0 -27px;background:rgba(var(--accent-rgb),0.08);border-color:var(--accent);}
-  .cursor-hover .cursor-dot{opacity:0;}
-  .cursor-down .cursor-ring{width:26px;height:26px;margin:-13px 0 0 -13px;}
-  @media (hover:hover) and (pointer:fine){
-    html.custom-cursor, html.custom-cursor body, html.custom-cursor a, html.custom-cursor button, html.custom-cursor [role="button"], html.custom-cursor .listing, html.custom-cursor .vip-card, html.custom-cursor .leaflet-container{cursor:none;}
-    html.custom-cursor input, html.custom-cursor textarea, html.custom-cursor select{cursor:auto;}
-  }
+
+  /* ---------- similar listings under the listing page ---------- */
+  .similar-section{margin-top:34px;}
+  .similar-scroll{display:flex;gap:16px;overflow-x:auto;padding-bottom:12px;}
+  .similar-card{flex:0 0 220px;background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--line);cursor:pointer;transition:transform .2s ease;text-align:left;padding:0;font-family:'Manrope',sans-serif;}
+  .similar-card:hover{transform:translateY(-3px);}
+  .similar-card .thumb{height:130px;overflow:hidden;}
+  .similar-card .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .similar-card .body{padding:12px 14px 14px;}
+  .similar-card .price{font-family:'Unbounded',sans-serif;font-weight:700;font-size:17px;color:var(--teal-900);}
+  .similar-card .desc{font-size:12.5px;color:rgba(var(--ink-rgb),0.65);margin-top:3px;line-height:1.35;}
 
   /* ---------- tap a listing photo: full-screen viewer ---------- */
   #galleryMainImg{cursor:zoom-in;}

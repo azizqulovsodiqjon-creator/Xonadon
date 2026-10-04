@@ -101,12 +101,14 @@
             '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
           '</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      '<div class="similar-section" id="similarSection"></div>';
 
     showPage('pageDetail');
     if(!isTranslationRefresh) updateUrl('/elon/' + id);
     initDetailMap(l);
     initGallery();
+    renderSimilarListings(l);
     if(!isTranslationRefresh){
       recordListingView(l.id);
     }
@@ -250,6 +252,25 @@
     viewerIndex = (i + n) % n;
     photoViewer.querySelector('img').src = galleryPhotos[viewerIndex];
     photoViewer.querySelector('.pv-counter').textContent = n > 1 ? (viewerIndex + 1) + '/' + n : '';
+  }
+  function renderSimilarListings(l){
+    var wrap = document.getElementById('similarSection');
+    if(!wrap) return;
+    var basePrice = priceNum(l.price), baseArea = l.area || 0;
+    var scored = listings.filter(function(o){ return o.id !== l.id; }).map(function(o){
+      var pd = Math.abs(priceNum(o.price)-basePrice)/(basePrice||1);
+      var ad = Math.abs((o.area||0)-baseArea)/(baseArea||1);
+      return {item:o, score:pd+ad};
+    }).sort(function(a,b){ return a.score-b.score; }).slice(0,4).map(function(s){ return s.item; });
+    if(!scored.length){ wrap.innerHTML=''; return; }
+    wrap.innerHTML = '<h3>Narxi va maydoniga o\'xshash uylar</h3><div class="similar-scroll">' +
+      scored.map(function(o){
+        return '<button class="similar-card" data-id="'+o.id+'"><div class="thumb"><img src="'+o.img+'" alt=""></div>' +
+          '<div class="body"><div class="price">'+formatPrice(o)+'</div><div class="desc">'+o.title+', '+trValue(o.district)+'</div></div></button>';
+      }).join('') + '</div>';
+    wrap.querySelectorAll('[data-id]').forEach(function(el){
+      el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), lastPage==='pageAdmin'); });
+    });
   }
   function closePhotoViewer(){
     photoViewer.classList.remove('open');
