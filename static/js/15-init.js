@@ -207,7 +207,7 @@
       }
       wrap.innerHTML = mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+trValue(l.district)+'</div></div></div>';
+          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+lt(l,'title')+', '+trValue(l.district)+'</div></div></div>';
       }).join('');
       wrap.querySelectorAll('[data-id]').forEach(function(el){
         el.addEventListener('click', function(){ closeAllPanels(); openDetail(Number(this.getAttribute('data-id')), false); });
@@ -439,7 +439,7 @@
       }
       box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
         return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+'</div>' +
+          '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+lt(l,'title')+'</div>' +
           '<div class="meta" style="gap:8px;"><button type="button" class="qbtn" data-edit="'+l.id+'">Tahrirlash</button>' +
           '<button type="button" class="qbtn del" data-delmine="'+l.id+'">O\'chirish</button></div></div></div>';
       }).join('') + '</div>';
@@ -479,7 +479,7 @@
         }
         box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
           return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt=""></div>' +
-            '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+'</div></div></div>';
+            '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+lt(l,'title')+'</div></div></div>';
         }).join('') + '</div>';
         box.querySelectorAll('[data-id]').forEach(function(el){
           el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), false); });

@@ -21,7 +21,7 @@
         '<div class="vip-badge">★ VIP</div>' +
         (filterState.owner ? '<div class="owner-badge" style="top:44px;">' + displayName(l.seller) + '</div>' : '') +
         '<div class="vip-info"><div class="vip-price">' + formatPrice(l) + '</div>' +
-        '<div class="vip-place">' + l.title + ' · ' + trValue(l.district) + '</div></div>' +
+        '<div class="vip-place">' + lt(l,'title') + ' · ' + trValue(l.district) + '</div></div>' +
       '</button>';
     }).join('') : '<div class="empty-note">Hozircha VIP e\'lon yo\'q.</div>';
 
@@ -40,7 +40,7 @@
             '<div class="type-badge">' + trValue(l.type) + '</div>' +
           '</div>' +
           '<div class="body"><div class="price">' + formatPrice(l) + '</div>' +
-          '<div class="desc">' + l.title + ', ' + trValue(l.district) + '</div>' +
+          '<div class="desc">' + lt(l,'title') + ', ' + trValue(l.district) + '</div>' +
           '<div class="meta"><span>' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</span></div></div>' +
         '</button>';
       }).join('');

@@ -84,6 +84,9 @@ class Listing(models.Model):
     # The listing's auto-posted Instagram copy (see listings/social.py) -
     # also what stops the same listing from being posted twice.
     ig_media_id = models.CharField(max_length=64, blank=True, default='')
+    # Machine translations of title/desc into the other site languages -
+    # see listings/translate.py for the shape and how it's kept fresh.
+    translations = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):

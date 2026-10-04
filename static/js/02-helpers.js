@@ -34,8 +34,17 @@
       photos: imgs.length ? imgs : (isWanted ? [WANTED_PLACEHOLDER_IMG] : []),
       img: imgs.length ? imgs[0] : (isWanted ? WANTED_PLACEHOLDER_IMG : ''),
       voiceNote: item.voice_note ? {id: item.voice_note.id, url: item.voice_note.audio} : null,
-      isWanted: isWanted
+      isWanted: isWanted,
+      translations: item.translations || {}
     };
+  }
+  // A listing's own title/description in the chosen language - the
+  // server machine-translates them (listings/translate.py); until that's
+  // done, or in the language they were written in, the original shows.
+  function lt(l, field){
+    var lang = (typeof currentLang !== 'undefined' ? currentLang : 'UZ').toLowerCase();
+    var tr = l.translations && l.translations[lang];
+    return (tr && tr[field]) || l[field];
   }
   function loadListings(cb){
     fetch(API_BASE).then(function(r){ return r.json(); }).then(function(data){

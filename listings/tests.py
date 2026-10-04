@@ -6,7 +6,12 @@ from unittest import mock
 from django.test import RequestFactory, TestCase, override_settings
 from PIL import Image
 
-from . import social
+from . import social, translate
+
+# No real calls to the translation service from tests: a fake translator
+# that just tags the text, run inline instead of in a background thread.
+translate._call = lambda text, src, dst: f'[{dst}] {text}'
+translate.translate_in_background = translate.translate_listing
 from .models import Listing, ListingImage, Profile, SiteSetting
 
 
@@ -307,3 +312,47 @@ class OldChannelPostTests(TestCase):
         with mock.patch.object(views, '_telegram_api', return_value={'ok': True}) as api:
             listing.delete()
         api.assert_called_once_with('deleteMessage', chat_id='@kanal', message_id=80)
+
+
+class ListingTranslationTests(TestCase):
+    def test_language_detection(self):
+        self.assertEqual(translate.detect_lang("3 xonali kvartira sotiladi"), 'uz')
+        self.assertEqual(translate.detect_lang("Продаётся 3-комнатная квартира"), 'ru')
+        self.assertEqual(translate.detect_lang("Уй сотилади, ҳовли катта"), 'uz')  # Uzbek Cyrillic
+
+    def test_new_listing_is_translated_into_the_other_languages(self):
+        listing = _make_listing(photos=0)
+        listing.refresh_from_db()
+        tr = listing.translations
+        self.assertEqual(tr['_lang'], 'uz')
+        self.assertEqual(tr['ru']['title'], '[ru] 3 xonali kvartira')
+        self.assertEqual(tr['en']['title'], '[en] 3 xonali kvartira')
+        self.assertNotIn('uz', tr)
+        data = self.client.get(f'/api/listings/{listing.id}/').json()
+        self.assertEqual(data['translations']['en']['title'], '[en] 3 xonali kvartira')
+
+    def test_only_retranslated_when_the_text_changes(self):
+        listing = _make_listing(photos=0)
+        with mock.patch.object(translate, '_call', side_effect=lambda t, s, d: f'<{d}> {t}') as call:
+            Listing.objects.get(pk=listing.pk).save()          # nothing changed
+            self.assertEqual(call.call_count, 0)
+            listing.refresh_from_db()
+            listing.title = 'Hovli sotiladi'
+            listing.save()
+            self.assertGreater(call.call_count, 0)
+        listing.refresh_from_db()
+        self.assertEqual(listing.translations['ru']['title'], '<ru> Hovli sotiladi')
+
+    def test_long_text_is_sent_in_pieces(self):
+        long_desc = ' '.join(['Bu juda uzun tavsif jumlasi.'] * 40)
+        pieces = translate._chunks(long_desc)
+        self.assertGreater(len(pieces), 1)
+        self.assertTrue(all(len(p) <= translate.CHUNK for p in pieces))
+        self.assertEqual(' '.join(pieces), long_desc)
+
+    def test_quota_exhausted_leaves_listing_untranslated_for_retry(self):
+        with mock.patch.object(translate, '_call', side_effect=translate.QuotaExceeded()):
+            with self.assertRaises(translate.QuotaExceeded):
+                _make_listing(photos=0)
+        listing = Listing.objects.latest('id')
+        self.assertTrue(translate.needs_translation(listing))

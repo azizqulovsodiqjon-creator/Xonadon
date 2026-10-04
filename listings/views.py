@@ -105,6 +105,11 @@ def index(request):
         sweep_expired_listings()
     except Exception as exc:
         print(f'[sweep_expired_listings] failed: {exc}')
+    try:
+        from . import translate
+        translate.retry_missing()
+    except Exception as exc:
+        print(f'[translate.retry_missing] failed: {exc}')
     return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID,
                                           'site_base_url': settings.SITE_BASE_URL.rstrip('/')})
 

@@ -27,7 +27,7 @@
     gridWrap.innerHTML = mine.length ? mine.map(function(l){
       return '<div class="listing" data-id="'+l.id+'"><div class="thumb"><img src="'+l.img+'" alt="">' +
         (l.top ? '<div class="top-badge">▲ TOP</div>' : '') + '<div class="type-badge">'+trValue(l.type)+'</div></div>' +
-        '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+l.title+', '+trValue(l.district)+'</div>' +
+        '<div class="body"><div class="price">'+formatPrice(l)+'</div><div class="desc">'+lt(l,'title')+', '+trValue(l.district)+'</div>' +
         '<div class="meta"><span>'+(l.vip?'★ VIP':(l.top?'▲ TOP':'Oddiy'))+'</span></div></div></div>';
     }).join('') : '<div class="empty-note">Hali e\'lon joylamagan.</div>';
     gridWrap.querySelectorAll('[data-id]').forEach(function(el){

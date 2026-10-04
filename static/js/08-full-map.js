@@ -279,7 +279,7 @@
       var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
       m.listingId = l.id;
       var popupEl = document.createElement('div');
-      popupEl.innerHTML = '<b>'+l.title+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
+      popupEl.innerHTML = '<b>'+lt(l,'title')+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
       popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
       popupEl.querySelector('[data-a="route"]').addEventListener('click', function(){ drawRouteToListing(l); });
       m.bindPopup(popupEl);

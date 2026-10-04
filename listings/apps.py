@@ -13,6 +13,7 @@ class ListingsConfig(AppConfig):
 
     def ready(self):
         from . import views  # noqa: F401 - registers the post_delete hook that clears channel posts
+        from . import translate  # noqa: F401 - registers the post_save hook that translates listings
 
         # Self-healing safety net: make sure the admin panel's login
         # account exists every time the app actually starts serving

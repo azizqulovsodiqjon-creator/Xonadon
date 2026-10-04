@@ -79,10 +79,10 @@
               '<button class="detail-icon-btn" id="shareListingBtn" title="' + dict.share_btn + '">' + SHARE_ICON_SVG + '</button>' +
             '</div>' +
           '</div>' +
-          '<h1 class="detail-title">' + l.title + '</h1>' +
+          '<h1 class="detail-title">' + lt(l,'title') + '</h1>' +
           '<div class="detail-price">' + formatPrice(l) + '</div>' +
           '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '<span class="view-count">· 👁 ' + l.viewsCount + ' ko\'rildi</span></div>' +
-          '<div class="detail-desc-text">' + l.desc + '</div>' +
+          '<div class="detail-desc-text">' + lt(l,'desc') + '</div>' +
           (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
           '<div class="info-list">' +
             '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
@@ -132,7 +132,7 @@
     if(shareBtn){
       shareBtn.addEventListener('click', function(){
         var shareUrl = location.origin + '/elon/' + l.id;
-        var shareText = l.title + ' - ' + formatPrice(l);
+        var shareText = lt(l,'title') + ' - ' + formatPrice(l);
         function fallbackCopy(){
           var done = false;
           try{
@@ -145,7 +145,7 @@
           toast(done ? "Havola nusxalandi" : shareUrl);
         }
         if(navigator.share){
-          navigator.share({title: l.title, text: shareText, url: shareUrl}).catch(function(err){
+          navigator.share({title: lt(l,'title'), text: shareText, url: shareUrl}).catch(function(err){
             if(err && err.name !== 'AbortError') fallbackCopy();
           });
         } else if(navigator.clipboard && window.isSecureContext){
@@ -266,7 +266,7 @@
     wrap.innerHTML = '<h3>Narxi va maydoniga o\'xshash uylar</h3><div class="similar-scroll">' +
       scored.map(function(o){
         return '<button class="similar-card" data-id="'+o.id+'"><div class="thumb"><img src="'+o.img+'" alt=""></div>' +
-          '<div class="body"><div class="price">'+formatPrice(o)+'</div><div class="desc">'+o.title+', '+trValue(o.district)+'</div></div></button>';
+          '<div class="body"><div class="price">'+formatPrice(o)+'</div><div class="desc">'+lt(o,'title')+', '+trValue(o.district)+'</div></div></button>';
       }).join('') + '</div>';
     wrap.querySelectorAll('[data-id]').forEach(function(el){
       el.addEventListener('click', function(){ openDetail(Number(this.getAttribute('data-id')), lastPage==='pageAdmin'); });
@@ -301,7 +301,7 @@
       try{
         currentMap = L.map(mapEl, {scrollWheelZoom:false, minZoom:8, maxBounds:JIZZAX_BOUNDS, maxBoundsViscosity:1.0}).setView([l.lat,l.lng],13);
         L.tileLayer(MAPTILER_TILE_URL, {attribution: MAPTILER_ATTRIBUTION, maxZoom: 20}).addTo(currentMap);
-        L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(l.title+'<br>'+trValue(l.district)).openPopup();
+        L.marker([l.lat,l.lng]).addTo(currentMap).bindPopup(lt(l,'title')+'<br>'+trValue(l.district)).openPopup();
         setTimeout(function(){ if(currentMap) currentMap.invalidateSize(); },200);
       }catch(err){ mapEl.innerHTML = '<div class="map-fallback">Xaritani yuklab bo\'lmadi.</div>'; }
     },60);

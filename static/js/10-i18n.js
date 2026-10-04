@@ -81,5 +81,82 @@
     if(currentDetailListing && document.getElementById('pageDetail').classList.contains('show')){
       openDetail(currentDetailListing.id, currentDetailListing.fromAdmin, true);
     }
+    translatePage(document.body);
   }
 
+  /* ---------- page-wide phrase translation (see 10-i18n-phrases.js) ----------
+     Every text node / placeholder / title whose Uzbek wording is in PHRASES
+     is swapped for the chosen language. The Uzbek original is remembered
+     per node, so switching back (or on to a third language) always starts
+     from it. A MutationObserver handles whatever is added later - panels,
+     modals, toasts, freshly rendered listings. */
+  var phraseOrig = new WeakMap(), phraseShown = new WeakMap();
+  var PHRASE_ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+  function translatePhrase(uz, lang){
+    if(!uz || lang === 'UZ') return null;
+    var key = uz.trim();
+    var hit = PHRASES[key];
+    if(hit && hit[lang]) return uz.replace(key, hit[lang]);
+    for(var i = 0; i < PHRASE_PATTERNS.length; i++){
+      var m = key.match(PHRASE_PATTERNS[i][0]);
+      if(m && PHRASE_PATTERNS[i][1][lang]) return uz.replace(key, key.replace(PHRASE_PATTERNS[i][0], PHRASE_PATTERNS[i][1][lang]));
+    }
+    return null;
+  }
+  function translateString(s){ return translatePhrase(String(s), currentLang) || s; }
+  function translateTextNode(node, lang){
+    var current = node.nodeValue;
+    var orig = phraseOrig.get(node);
+    // first sight, or code changed the text since we last touched it:
+    // whatever is there now is the (Uzbek) source
+    if(orig === undefined || current !== phraseShown.get(node)){ orig = current; phraseOrig.set(node, orig); }
+    var out = translatePhrase(orig, lang);
+    var next = out === null ? orig : out;
+    if(next !== current) node.nodeValue = next;
+    phraseShown.set(node, next);
+  }
+  function translateAttrs(el, lang){
+    PHRASE_ATTRS.forEach(function(a){
+      if(!el.hasAttribute(a)) return;
+      var store = phraseOrig.get(el) || {};
+      var cur = el.getAttribute(a);
+      if(store[a] === undefined || cur !== store[a + ':shown']) store[a] = cur;
+      var out = translatePhrase(store[a], lang);
+      var next = out === null ? store[a] : out;
+      if(next !== cur) el.setAttribute(a, next);
+      store[a + ':shown'] = next;
+      phraseOrig.set(el, store);
+    });
+  }
+  function translatePage(root){
+    if(!root) return;
+    var lang = currentLang;
+    if(root.nodeType === 3){ translateTextNode(root, lang); return; }
+    if(root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA)$/.test(root.tagName)) return;
+    // An <option> with no value attribute submits its text - pin the Uzbek
+    // text as the value before translating, so filters and new listings
+    // keep storing "Jizzax shahri", not "г. Джизак".
+    (root.tagName === 'OPTION' ? [root] : Array.prototype.slice.call(root.querySelectorAll('option:not([value])')))
+      .forEach(function(o){ if(!o.hasAttribute('value')) o.setAttribute('value', o.textContent); });
+    translateAttrs(root, lang);
+    root.querySelectorAll('[placeholder],[title],[aria-label],[alt]').forEach(function(el){ translateAttrs(el, lang); });
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: function(n){
+      var p = n.parentNode;
+      return (p && /^(SCRIPT|STYLE|TEXTAREA)$/.test(p.nodeName)) || !n.nodeValue.trim()
+        ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+    }});
+    var nodes = [];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function(n){ translateTextNode(n, lang); });
+  }
+  if(window.MutationObserver){
+    new MutationObserver(function(muts){
+      if(currentLang === 'UZ') return;
+      muts.forEach(function(m){ m.addedNodes.forEach(function(n){ translatePage(n); }); });
+    }).observe(document.documentElement, {childList: true, subtree: true});
+  }
+  (function(){
+    var nativeAlert = window.alert, nativeConfirm = window.confirm;
+    window.alert = function(msg){ return nativeAlert.call(window, translateString(msg)); };
+    window.confirm = function(msg){ return nativeConfirm.call(window, translateString(msg)); };
+  })();

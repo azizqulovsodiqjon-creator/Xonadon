@@ -16,7 +16,8 @@
     if(state.district && p.district !== state.district) return false;
     if(state.search){
       var q = state.search.toLowerCase();
-      var hay = (p.title + ' ' + p.district + ' ' + p.desc).toLowerCase();
+      var trs = p.translations || {};
+      var hay = [p.title, p.district, p.desc].concat(Object.keys(trs).map(function(k){ return (trs[k].title || '') + ' ' + (trs[k].desc || ''); })).join(' ').toLowerCase();
       if(hay.indexOf(q) === -1) return false;
     }
     return true;
