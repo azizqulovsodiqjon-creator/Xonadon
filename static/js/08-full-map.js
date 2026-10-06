@@ -148,7 +148,7 @@
       // whether it ends up on its own or inside a cluster
       m.setIcon(listingPinIcon(m.listing, true));
     });
-    mapCluster.addLayers(keep);
+    keep.forEach(function(m){ mapCluster.addLayer(m); });
   }
 
   function requestUserLocation(cb){ startLiveLocation(cb); }
@@ -267,7 +267,8 @@
   var mapMarkers = [];
   var mapCluster = null;
   // Yellow price label with a small black pin under it, its tip on the
-  // spot; zoomed out, nearby ones merge into a navy bubble with a count.
+  // spot. Every listing always stays on its own spot - no merging into
+  // count bubbles when zoomed out.
   var MAP_PIN_SVG = '<svg class="mpm-pin" viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.5 4 9.9 4 15.6 12 22 12 22s8-6.4 8-12.1C20 5.5 16.4 2 12 2z"/><circle cx="12" cy="9.8" r="3.1" fill="#fff"/></svg>';
   function listingPinIcon(l, nearest){
     return L.divIcon({
@@ -276,18 +277,7 @@
       iconSize: [0, 0]
     });
   }
-  function makeMapCluster(){
-    return L.markerClusterGroup({
-      showCoverageOnHover: false,
-      maxClusterRadius: 60,
-      spiderfyOnMaxZoom: true,
-      iconCreateFunction: function(cluster){
-        var n = cluster.getChildCount();
-        var size = n < 10 ? 40 : (n < 100 ? 48 : 56);
-        return L.divIcon({className: 'map-cluster', html: '<span>' + n + '</span>', iconSize: [size, size]});
-      }
-    });
-  }
+  function makeMapCluster(){ return L.layerGroup(); }
   // Re-draws just the listing pins against the CURRENT filterState,
   // without tearing down/recreating the whole map (keeps whatever
   // pan/zoom the user already has) - called on first open AND every
@@ -311,7 +301,7 @@
       m.bindPopup(popupEl);
       mapMarkers.push(m);
     });
-    mapCluster.addLayers(mapMarkers);
+    mapMarkers.forEach(function(m){ mapCluster.addLayer(m); });
     fullMap.addLayer(mapCluster);
   }
   function stopLiveLocationIfUnused(){
