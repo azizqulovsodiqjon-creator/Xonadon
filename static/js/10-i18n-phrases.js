@@ -55,6 +55,7 @@
     // --- footer / info pages ---
     "Jizzax viloyati bo'ylab uy-joy sotish, sotib olish va topish uchun onlayn platforma. To'g'ridan-to'g'ri egasidan, tekshirilgan e'lonlar.": {RU: "Онлайн-платформа для продажи, покупки и поиска жилья по Джизакской области. Проверенные объявления напрямую от владельцев.", EN: "An online platform for selling, buying and finding homes across the Jizzakh region. Verified listings straight from the owners."},
     "Havolalar": {RU: "Ссылки", EN: "Links"},
+    "Ijtimoiy tarmoqlar": {RU: "Мы в соцсетях", EN: "Follow us"},
     "Aloqa": {RU: "Контакты", EN: "Contact"},
     "Yordam": {RU: "Помощь", EN: "Help"},
     "Reklama va hamkorlik": {RU: "Реклама и сотрудничество", EN: "Advertising and partnership"},

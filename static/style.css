@@ -390,7 +390,9 @@
   .footer-col h4{font-size:12.5px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#fff;margin-bottom:14px;}
   .footer-col a{display:block;font-size:13.5px;color:#fff;margin-bottom:10px;}
   .footer-col a:hover{text-decoration:underline;}
-  .footer-social{display:flex;gap:10px;margin-top:14px;}
+  .footer-social{display:flex;gap:10px;margin-top:4px;}
+  .footer-social a{width:42px !important;height:42px !important;}
+  .footer-social svg{width:19px !important;height:19px !important;}
   .footer-social a{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.3);color:#fff;transition:background .15s ease,transform .15s ease;}
   .footer-social a:hover{background:rgba(255,255,255,0.3);transform:translateY(-2px);}
   .footer-social svg{width:17px;height:17px;}
