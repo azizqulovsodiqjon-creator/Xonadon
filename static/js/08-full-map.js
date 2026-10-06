@@ -140,13 +140,15 @@
   }
 
   function showOnlyMarkers(ids){
-    mapMarkers.forEach(function(m){
-      var keep = ids.indexOf(m.listingId) !== -1;
-      if(keep){ if(!fullMap.hasLayer(m)) m.addTo(fullMap); }
-      else if(fullMap.hasLayer(m)){ fullMap.removeLayer(m); }
-      var el = keep && m.getElement() && m.getElement().querySelector('.leaflet-price-pin');
-      if(el) el.classList.add('is-nearest');
+    if(!mapCluster) return;
+    var keep = mapMarkers.filter(function(m){ return ids.indexOf(m.listingId) !== -1; });
+    mapCluster.clearLayers();
+    keep.forEach(function(m){
+      // marked before it's (re)added, so the pin is drawn highlighted
+      // whether it ends up on its own or inside a cluster
+      m.setIcon(listingPinIcon(m.listing, true));
     });
+    mapCluster.addLayers(keep);
   }
 
   function requestUserLocation(cb){ startLiveLocation(cb); }
@@ -263,6 +265,29 @@
     mapObj.addControl(new NearMeControl());
   }
   var mapMarkers = [];
+  var mapCluster = null;
+  // Yellow price label with a small black pin under it, its tip on the
+  // spot; zoomed out, nearby ones merge into a navy bubble with a count.
+  var MAP_PIN_SVG = '<svg class="mpm-pin" viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.5 4 9.9 4 15.6 12 22 12 22s8-6.4 8-12.1C20 5.5 16.4 2 12 2z"/><circle cx="12" cy="9.8" r="3.1" fill="#fff"/></svg>';
+  function listingPinIcon(l, nearest){
+    return L.divIcon({
+      className: 'map-price-marker' + (nearest ? ' is-nearest' : ''),
+      html: '<div class="leaflet-price-pin' + (nearest ? ' is-nearest' : '') + '">' + formatPrice(l) + '</div>' + MAP_PIN_SVG,
+      iconSize: [0, 0]
+    });
+  }
+  function makeMapCluster(){
+    return L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 60,
+      spiderfyOnMaxZoom: true,
+      iconCreateFunction: function(cluster){
+        var n = cluster.getChildCount();
+        var size = n < 10 ? 40 : (n < 100 ? 48 : 56);
+        return L.divIcon({className: 'map-cluster', html: '<span>' + n + '</span>', iconSize: [size, size]});
+      }
+    });
+  }
   // Re-draws just the listing pins against the CURRENT filterState,
   // without tearing down/recreating the whole map (keeps whatever
   // pan/zoom the user already has) - called on first open AND every
@@ -270,14 +295,15 @@
   // "faqat shu turdagi uylar" actually updates live.
   function refreshMapMarkers(){
     if(!fullMap) return;
-    mapMarkers.forEach(function(m){ try{ fullMap.removeLayer(m); }catch(e){} });
+    if(mapCluster){ try{ fullMap.removeLayer(mapCluster); }catch(e){} }
+    mapCluster = makeMapCluster();
     mapMarkers = [];
     if(nearCircle){ try{ nearCircle.remove(); }catch(e){} nearCircle = null; }
     var visible = listings.filter(function(l){ return matchesFilters(l, filterState); });
     visible.forEach(function(l){
-      var icon = L.divIcon({className:'', html:'<div class="leaflet-price-pin">'+formatPrice(l)+'</div>', iconSize:[0,0]});
-      var m = L.marker([l.lat, l.lng], {icon:icon}).addTo(fullMap);
+      var m = L.marker([l.lat, l.lng], {icon: listingPinIcon(l, false)});
       m.listingId = l.id;
+      m.listing = l;
       var popupEl = document.createElement('div');
       popupEl.innerHTML = '<b>'+lt(l,'title')+'</b><br>'+trValue(l.district)+'<br><span class="map-popup-link" data-a="detail">Batafsil</span> · <span class="map-popup-link" data-a="route">Yo\'nalish</span>';
       popupEl.querySelector('[data-a="detail"]').addEventListener('click', function(){ openDetail(l.id, false); });
@@ -285,6 +311,8 @@
       m.bindPopup(popupEl);
       mapMarkers.push(m);
     });
+    mapCluster.addLayers(mapMarkers);
+    fullMap.addLayer(mapCluster);
   }
   function stopLiveLocationIfUnused(){
     if(!fullMap && !currentMap && geoWatchId != null){

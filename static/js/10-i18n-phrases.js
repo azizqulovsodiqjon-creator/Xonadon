@@ -60,6 +60,7 @@
     "Yordam": {RU: "Помощь", EN: "Help"},
     "Reklama va hamkorlik": {RU: "Реклама и сотрудничество", EN: "Advertising and partnership"},
     "Ommaviy oferta": {RU: "Публичная оферта", EN: "Public offer"},
+    "Qo'llab-quvvatlash": {RU: "Поддержка", EN: "Support"},
     "© 2026 It Group. Barcha huquqlar himoyalangan.": {RU: "© 2026 It Group. Все права защищены.", EN: "© 2026 It Group. All rights reserved."},
     "Jizzax, O'zbekiston": {RU: "Джизак, Узбекистан", EN: "Jizzakh, Uzbekistan"},
     "← Orqaga": {RU: "← Назад", EN: "← Back"},

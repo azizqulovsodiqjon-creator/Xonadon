@@ -382,6 +382,18 @@
   .submit-btn{width:100%;background:var(--ink);color:var(--paper);border:none;padding:13px;border-radius:999px;font-weight:800;font-size:14.5px;margin-top:6px;}
   .error-text{color:var(--red);font-size:12.5px;margin-top:-8px;margin-bottom:10px;display:none;}
 
+  /* ---------- slim footer under a listing ---------- */
+  .slim-footer{display:flex;align-items:center;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;background:var(--accent);color:#fff;padding:22px var(--gutter);margin-top:40px;}
+  .slim-copy{font-size:12.5px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:rgba(255,255,255,0.85);}
+  .slim-links{display:flex;gap:8px 26px;flex-wrap:wrap;}
+  .slim-links a{font-size:13.5px;font-weight:700;color:#fff;}
+  .slim-links a:hover{text-decoration:underline;}
+  .slim-social{display:flex;gap:10px;}
+  .slim-social a{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.16);color:#fff;transition:background .15s ease;}
+  .slim-social a:hover{background:rgba(255,255,255,0.32);}
+  .slim-social svg{width:16px;height:16px;}
+  @media (max-width:640px){.slim-footer{flex-direction:column;align-items:flex-start;}}
+  body.dark .slim-footer{background:#232120;}
   /* ---------- footer ---------- */
   .site-footer{background:var(--accent);color:#fff;padding:40px var(--gutter) 24px;margin-top:20px;}
   .footer-top{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:28px;padding-bottom:26px;border-bottom:1px solid rgba(255,255,255,0.22);}
@@ -435,15 +447,20 @@
   @media (max-width:820px){
     #mapFull .leaflet-bottom{margin-bottom:4px;}
   }
-  .leaflet-price-pin{background:var(--accent2);color:#fff;font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:16px;box-shadow:0 4px 10px rgba(0,0,0,0.25);white-space:nowrap;cursor:pointer;transform:translateY(-6px);position:relative;font-family:'Manrope',sans-serif;}
+  /* Map listing marker: yellow price label + small black pin whose tip sits on the spot */
+  .map-price-marker{width:0;height:0;}
+  .map-price-marker > *{position:absolute;left:0;transform:translateX(-50%);}
+  .map-price-marker .mpm-pin{bottom:0;width:22px;height:22px;fill:#111;filter:drop-shadow(0 2px 2px rgba(0,0,0,0.3));}
+  .map-price-marker .leaflet-price-pin{bottom:20px;}
+  .leaflet-price-pin{background:#FFD21F;color:#111;font-weight:800;font-size:12.5px;padding:5px 11px;border-radius:999px;box-shadow:0 3px 8px rgba(0,0,0,0.22);white-space:nowrap;cursor:pointer;font-family:'Manrope',sans-serif;line-height:1.25;}
+  .map-cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accent2);border:3px solid rgba(255,255,255,0.9);box-shadow:0 3px 10px rgba(0,0,0,0.3);color:#fff;font-weight:800;font-size:14px;font-family:'Manrope',sans-serif;}
   /* "Sizning joylashuvingiz" fixed dot on the post-listing location map -
      stays put once the separate draggable property pin is moved away. */
   .my-location-dot{width:16px;height:16px;}
   .my-location-dot span{display:block;width:12px;height:12px;margin:2px;border-radius:50%;background:#2F6FED;border:2.5px solid #fff;box-shadow:0 0 0 4px rgba(47,111,237,0.28),0 2px 6px rgba(0,0,0,0.3);}
-  .leaflet-price-pin::after{content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:6px solid var(--accent2);}
   /* "Menga yaqin" - the closest listings to the user, same color as the "Men" pin */
   .leaflet-price-pin.is-nearest{background:var(--turquoise);box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,0,0,0.35);}
-  .leaflet-price-pin.is-nearest::after{border-top-color:var(--turquoise);}
+  .leaflet-price-pin.is-nearest{color:#fff;}
   .map-popup-link{display:inline-block;margin-top:6px;font-weight:800;color:var(--accent2);text-decoration:underline;cursor:pointer;}
 
   /* ---------- side panels ---------- */
