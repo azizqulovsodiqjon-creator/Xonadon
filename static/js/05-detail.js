@@ -6,14 +6,17 @@
   var galleryPhotos = [], galleryIndex = 0;
   var detailRouteLine = null;
 
+  // One details-table row, or nothing at all when the poster left that
+  // field empty - the listing page shows only what was actually filled in.
+  function infoRow(label, value){
+    var v = (value == null) ? '' : String(value).trim();
+    if(!v || v === '—' || v === '0') return '';
+    return '<div class="info-row"><span class="il">' + label + '</span><span class="iv">' + v + '</span></div>';
+  }
   function floorRows(l){
     var dict = t[currentLang] || t.UZ;
-    if(l.floor && l.floor.indexOf('/') !== -1){
-      var parts = l.floor.split('/');
-      return '<div class="info-row"><span class="il">' + dict.floor_label + '</span><span class="iv">' + parts[0] + '</span></div>' +
-             '<div class="info-row"><span class="il">' + dict.floors_total_label + '</span><span class="iv">' + parts[1] + '</span></div>';
-    }
-    return '<div class="info-row"><span class="il">' + dict.floor_label + '</span><span class="iv">' + (l.floor || '—') + '</span></div>';
+    var parts = String(l.floor || '').split('/');  // "3/9", "3", "—/9" or ""
+    return infoRow(dict.floor_label, parts[0]) + infoRow(dict.floors_total_label, parts[1]);
   }
 
   var currentDetailListing = null; // {id, fromAdmin} while pageDetail is showing - lets applyLang() below refresh its translated text without re-opening it (which would double-count the view)
@@ -38,7 +41,7 @@
       l.viewsCount++; // reflect this open immediately, before rendering
     }
     var dict = t[currentLang] || t.UZ;
-    var roomsRow = l.rooms ? '<div class="info-row"><span class="il">' + dict.rooms_count + '</span><span class="iv">' + l.rooms + '</span></div>' : '';
+    var roomsRow = infoRow(dict.rooms_count, l.rooms);
     // Calling/messaging yourself makes no sense - hide those two
     // buttons entirely when the viewer owns this listing.
     var isOwnListing = !!(l.seller && myUsername() && l.seller === myUsername());
@@ -72,8 +75,9 @@
               // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
               // of its own to show - it's a budget, not a property.
             (l.isWanted ? '' : (roomsRow + floorRows(l) +
-              '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
-              '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
+              infoRow(dict.area_label, l.area) +
+              infoRow(dict.repair_label, trValue(l.repair)) +
+              infoRow('Holati', trValue(l.condition)))) +
             '</div>' +
           '</div>' +
         '</div>' +

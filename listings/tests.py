@@ -356,3 +356,14 @@ class ListingTranslationTests(TestCase):
                 _make_listing(photos=0)
         listing = Listing.objects.latest('id')
         self.assertTrue(translate.needs_translation(listing))
+
+
+class OptionalConditionTests(TestCase):
+    def test_listing_without_condition_is_accepted(self):
+        resp = self.client.post('/api/listings/', {
+            'title': 'Hovli', 'desc': '', 'price': '50000', 'currency': 'ye', 'district': 'Zomin tumani',
+            'lat': 39.96, 'lng': 68.39, 'type': 'Hovli/dacha', 'type_key': 'hovli', 'seller': 'ali',
+            'deal': 'sotuv', 'condition': '', 'repair': '', 'floor': '', 'area': 110,
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(Listing.objects.get(pk=resp.json()['id']).condition, '')

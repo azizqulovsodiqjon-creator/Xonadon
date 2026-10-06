@@ -3,7 +3,7 @@
   /* =========================================================
      E'LON JOYLASH VIZARDI
   ==========================================================*/
-  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = "Yangi bino", postMortgage = false, postCurrency = 'ye';
+  var postDeal = 'sotuv', postRole = '', postCat = '', postTypeKey = 'kvartira', postRepair = "Ta'mirni tanlang", postCondition = '', postMortgage = false, postCurrency = 'ye';
   var postIsBuyer = false; // true for "Sotib olaman"/"Ijaraga olaman" - a buyer's budget-range "qidiryapman" listing, not a seller's
   var PRICE_RANGE_SEP = '~'; // packs a buyer's min/max budget into the single `price` string field: "min~max"
   var postVoiceNoteId = null, postVoiceNoteUrl = null;
@@ -30,7 +30,7 @@
     postTypeKey = l.typeKey || 'kvartira';
     postCat = l.type || 'Kvartira';
     postRepair = l.repair || "Ta'mirni tanlang";
-    postCondition = l.condition || "Yangi bino";
+    postCondition = l.condition || '';
     postTier = l.vip ? 'vip' : (l.top ? 'top' : 'regular');
     postMortgage = !!l.mortgage;
     postIsBuyer = !!l.isWanted;

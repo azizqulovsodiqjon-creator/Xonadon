@@ -584,7 +584,7 @@
         var finishBtn = document.getElementById('finishPostBtn');
         finishBtn.textContent = "E'lon joylash";
         finishBtn.disabled = false;
-        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition="Yangi bino"; postMortgage=false; postCurrency='ye'; postIsBuyer=false;
+        postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition=''; postMortgage=false; postCurrency='ye'; postIsBuyer=false;
         document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
         updateMortgageFieldVisibility();
         updateConditionFieldVisibility();
@@ -613,7 +613,7 @@
         document.getElementById('postRooms').value='';
         document.getElementById('postRepair').value="Ta'mirni tanlang";
         document.getElementById('postDistrict').value='';
-        document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')==='Yangi bino'); });
+        document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.remove('sel'); });  // "Holati" starts unselected - it's optional
         showPostStep(1);
       });
     });
@@ -686,9 +686,11 @@
 
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
+        // optional: tapping the chosen one again clears it
+        var wasOn = this.classList.contains('sel');
         document.getElementById('condToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
-        this.classList.add('sel');
-        postCondition = this.getAttribute('data-c');
+        if(!wasOn) this.classList.add('sel');
+        postCondition = wasOn ? '' : this.getAttribute('data-c');
       });
     });
     document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){
