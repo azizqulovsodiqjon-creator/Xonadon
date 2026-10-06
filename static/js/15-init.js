@@ -585,7 +585,7 @@
         finishBtn.textContent = "E'lon joylash";
         finishBtn.disabled = false;
         postRole=''; postCat=''; postDeal='sotuv'; postTypeKey='kvartira'; postRepair="Ta'mirni tanlang"; postCondition=''; postMortgage=false; postCurrency='ye'; postIsBuyer=false;
-        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
+        document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.remove('sel'); });
         updateMortgageFieldVisibility();
         updateConditionFieldVisibility();
         updatePropertyTypeOptions();
@@ -695,9 +695,11 @@
     });
     document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){
       b.addEventListener('click', function(){
+        // optional: tapping the chosen one again clears it
+        var wasOn = this.classList.contains('sel');
         document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(x){ x.classList.remove('sel'); });
-        this.classList.add('sel');
-        postMortgage = this.getAttribute('data-m') === '1';
+        if(!wasOn) this.classList.add('sel');
+        postMortgage = !wasOn && this.getAttribute('data-m') === '1';
       });
     });
     document.getElementById('postRepair').addEventListener('change', function(){ postRepair = this.value; });

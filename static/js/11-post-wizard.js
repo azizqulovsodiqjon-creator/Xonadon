@@ -59,7 +59,7 @@
     document.getElementById('postRepair').value = postRepair;
     document.getElementById('postDistrict').value = l.district || '';
     document.getElementById('condToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-c')===postCondition); });
-    document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', (b.getAttribute('data-m')==='1')===postMortgage); });
+    document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', postMortgage && b.getAttribute('data-m')==='1'); });
     updateMortgageFieldVisibility();
     updateConditionFieldVisibility();
     updatePropertyTypeOptions();
@@ -90,7 +90,7 @@
     document.getElementById('mortgageField').classList.toggle('hidden', !applies);
     if(!applies){
       postMortgage = false;
-      document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-m')==='0'); });
+      document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.remove('sel'); });
     }
   }
   function updateConditionFieldVisibility(){

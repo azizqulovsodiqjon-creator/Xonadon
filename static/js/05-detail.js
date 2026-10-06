@@ -51,7 +51,8 @@
     var HEART_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>';
 
     // Two columns, like the bigger listing sites: photos + seller on the
-    // left; actions, tags, title, price and every detail on the right.
+    // left; actions, tags, title, price, description and the details table
+    // on the right. The map runs full width underneath both.
     document.getElementById('detailContent').innerHTML =
       '<div class="detail-layout">' +
         '<div class="detail-left">' +
@@ -67,18 +68,6 @@
             '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
             '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
             '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
-          '</div>' +
-          '<div class="detail-info-block">' +
-            '<div class="info-list">' +
-              '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
-              '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
-              // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
-              // of its own to show - it's a budget, not a property.
-            (l.isWanted ? '' : (roomsRow + floorRows(l) +
-              infoRow(dict.area_label, l.area) +
-              infoRow(dict.repair_label, trValue(l.repair)) +
-              infoRow('Holati', trValue(l.condition)))) +
-            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="detail-right">' +
@@ -101,14 +90,26 @@
           '<div class="detail-desc-text">' + lt(l,'desc') + '</div>' +
           (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
           '</div>' +
-          '<div class="detail-section detail-map-section">' +
-            '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
-            '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
-            '<div class="map-box" id="detailMap"></div>' +
-            '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
-            '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;width:100%;">' + dict.show_route + '</button>' +
+          '<div class="detail-info-block">' +
+            '<div class="info-list">' +
+              '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
+              '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
+              // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
+              // of its own to show - it's a budget, not a property.
+            (l.isWanted ? '' : (roomsRow + floorRows(l) +
+              infoRow(dict.area_label, l.area) +
+              infoRow(dict.repair_label, trValue(l.repair)) +
+              infoRow('Holati', trValue(l.condition)))) +
+            '</div>' +
           '</div>' +
         '</div>' +
+      '</div>' +
+      '<div class="detail-section detail-map-section">' +
+        '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
+        '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
+        '<div class="map-box" id="detailMap"></div>' +
+        '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
+        '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;">' + dict.show_route + '</button>' +
       '</div>' +
       '<div class="similar-section" id="similarSection"></div>';
 

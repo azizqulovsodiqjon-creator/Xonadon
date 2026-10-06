@@ -780,20 +780,24 @@
   /* description + details under the photos/seller card (left column), in a
      slightly smaller type so the two columns come out about even */
   .detail-head{display:flex;flex-direction:column;gap:18px;}
-  .detail-info-block{margin-top:18px;display:flex;flex-direction:column;gap:14px;}
+  .detail-info-block{display:flex;flex-direction:column;gap:14px;}
+  .detail-map-section{margin-top:36px;}
+  .detail-map-section .action-btn{padding-left:36px;padding-right:36px;}
   .detail-head .detail-desc-text{font-size:14.5px;line-height:1.6;}
   .detail-info-block .info-row{font-size:14px;padding-top:10px;padding-bottom:10px;}
-  .detail-map-section .map-box{height:340px;}
+  .detail-map-section .map-box{height:380px;}
   @media (max-width:900px){ .detail-map-section .map-box{height:260px;} }
   .detail-info-block .detail-section{margin-top:0;}
   @media (max-width:900px){
-    .detail-layout{grid-template-columns:1fr;gap:22px;}
-    /* One column: photos, title/price/actions, details, map, seller card. */
+    .detail-layout{grid-template-columns:minmax(0,1fr);gap:22px;}
+    .detail-gallery,.detail-head,.detail-info-block,.detail-left .owner-card{min-width:0;}
+    .detail-gallery .gallery-thumbs{overflow-x:auto;}
+    /* One column: photos, title/price/actions, details, seller card; the map follows. */
     .detail-left,.detail-right{display:contents;}
     .detail-gallery{order:0;}
     .detail-head{order:1;}
     .detail-info-block{order:2;margin-top:0;}
-    .detail-map-section{order:3;}
+    .detail-map-section{margin-top:22px;}
     .detail-left .owner-card{order:4;margin-top:0;}
     .detail-left .gallery-main{height:320px;}
   }
