@@ -1,6 +1,6 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
-from . import views
+from . import views, uzpay
 from .views import ListingViewSet, ProfileViewSet
 
 router = DefaultRouter()
@@ -49,6 +49,8 @@ urlpatterns = [
     path('api/payments/create-checkout-session/', views.create_checkout_session, name='create-checkout-session'),
     path('api/payments/confirm/', views.confirm_payment, name='confirm-payment'),
     path('api/payments/webhook/', views.stripe_webhook, name='stripe-webhook'),
+    path('api/payments/payme/', uzpay.payme_endpoint, name='payme-endpoint'),
+    path('api/payments/click/', uzpay.click_endpoint, name='click-endpoint'),
     path('api/payments/create-balance-topup-session/', views.create_balance_topup_session, name='create-balance-topup-session'),
     path('api/payments/confirm-balance/', views.confirm_balance_topup, name='confirm-balance-topup'),
     path('api/payments/create-listing-from-balance/', views.create_listing_from_balance, name='create-listing-from-balance'),

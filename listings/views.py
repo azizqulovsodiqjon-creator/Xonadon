@@ -30,6 +30,7 @@ from .models import (
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 from . import social
+from . import uzpay
 
 try:
     # iPhones save photos as HEIC/HEIF by default, which stock Pillow
@@ -110,6 +111,10 @@ def index(request):
         translate.retry_missing()
     except Exception as exc:
         print(f'[translate.retry_missing] failed: {exc}')
+    try:
+        social.retry_missing_instagram()
+    except Exception as exc:
+        print(f'[social.retry_missing_instagram] failed: {exc}')
     return render(request, 'index.html', {'google_client_id': settings.GOOGLE_CLIENT_ID,
                                           'site_base_url': settings.SITE_BASE_URL.rstrip('/')})
 
@@ -638,7 +643,11 @@ class ListingViewSet(viewsets.ModelViewSet):
         reuses confirm_payment/the webhook exactly like a brand new paid
         post - _finalize_pending_payment tells this case apart by the
         _upgrade_listing_id marker in the pending row's payload."""
-        if not settings.STRIPE_SECRET_KEY:
+        provider = uzpay.requested_provider(request)
+        bad = _uz_not_configured(provider)
+        if bad:
+            return bad
+        if not provider and not settings.STRIPE_SECRET_KEY:
             return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
         listing = self.get_object()
         claimed_seller = str(request.data.get('seller') or '').strip()
@@ -649,6 +658,13 @@ class ListingViewSet(viewsets.ModelViewSet):
         if bad:
             return bad
         amount = settings.LISTING_PRICE_CENTS[tier]
+
+        if provider:
+            url = uzpay.start(request, provider, 'listing', _tier_price_uzs(tier, None), 'post_payment',
+                              lambda sid: PendingListingPayment.objects.create(
+                                  stripe_session_id=sid, tier=tier, amount_cents=amount, currency='usd',
+                                  payload={'_upgrade_listing_id': listing.id}))
+            return Response({'ok': True, 'url': url})
 
         stripe.api_key = settings.STRIPE_SECRET_KEY
         origin = request.build_absolute_uri('/').rstrip('/')
@@ -1395,6 +1411,19 @@ def _discounted_price_cents(base_cents, username, tier):
     return final, discount
 
 
+def _tier_price_uzs(tier, discount):
+    base = settings.LISTING_PRICE_UZS[tier]
+    if not discount:
+        return base
+    return max(int(round(base * (100 - discount.percent) / 100)), 0)
+
+
+def _uz_not_configured(provider):
+    if provider and not uzpay.configured(provider):
+        return Response({'ok': False, 'error': "Bu to'lov usuli hali ulanmagan."}, status=503)
+    return None
+
+
 def _record_payment_event(username, kind, tier, amount_cents):
     if username:
         PaymentEvent.objects.create(username=username, kind=kind, tier=tier or '', amount_cents=amount_cents)
@@ -1411,9 +1440,17 @@ def currency_rate(request):
     cbu.uz directly."""
     from django.core.cache import cache
 
+    cached = cache.get('usd_uzs_rate')
+    rate = _usd_uzs_rate()
+    return Response({'ok': True, 'rate': rate, 'cached': bool(cached)})
+
+
+def _usd_uzs_rate():
+    from django.core.cache import cache
+
     rate = cache.get('usd_uzs_rate')
     if rate:
-        return Response({'ok': True, 'rate': rate, 'cached': True})
+        return rate
 
     try:
         url = 'https://cbu.uz/en/arkhiv-kursov-valyut/json/USD/'
@@ -1429,7 +1466,7 @@ def currency_rate(request):
 
     cache.set('usd_uzs_rate', rate, 3600)  # 1 hour
     cache.set('usd_uzs_rate_stale', rate, None)  # never expires - last-known-good fallback
-    return Response({'ok': True, 'rate': rate, 'cached': False})
+    return rate
 
 
 @api_view(['GET'])
@@ -1450,6 +1487,10 @@ def payment_config(request):
         'publishableKey': settings.STRIPE_PUBLISHABLE_KEY,
         'currency': 'usd',
         'prices': settings.LISTING_PRICE_CENTS,
+        # Payme/Click (real so'm payments) - each shows up on the site
+        # only once its keys are set on the server.
+        'uzProviders': {p: uzpay.configured(p) for p in uzpay.PROVIDERS},
+        'pricesUzs': settings.LISTING_PRICE_UZS,
         # How many listings are CURRENTLY sitting in each tier right now
         # (not lifetime totals) - shown on the tier-picker so a poster can
         # see "N ta uy hozir TOP'da" the way the reference pricing page does.
@@ -1470,7 +1511,11 @@ def payment_config(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def create_checkout_session(request):
-    if not settings.STRIPE_SECRET_KEY:
+    provider = uzpay.requested_provider(request)
+    bad = _uz_not_configured(provider)
+    if bad:
+        return bad
+    if not provider and not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan. Administrator bilan bog'laning."}, status=503)
 
     tier = str(request.data.get('tier', '')).strip()
@@ -1500,6 +1545,13 @@ def create_checkout_session(request):
     amount, discount = _discounted_price_cents(amount, listing_payload.get('seller'), tier)
     if discount:
         listing_payload['_discount_id'] = discount.id
+
+    if provider:
+        url = uzpay.start(request, provider, 'listing', _tier_price_uzs(tier, discount), 'post_payment',
+                          lambda sid: PendingListingPayment.objects.create(
+                              stripe_session_id=sid, tier=tier, amount_cents=amount, currency='usd',
+                              payload=listing_payload))
+        return Response({'ok': True, 'url': url})
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     origin = request.build_absolute_uri('/').rstrip('/')
@@ -1601,6 +1653,9 @@ def confirm_payment(request):
 
     if pending.created_listing_id:
         return Response({'ok': True, 'listing': ListingSerializer(pending.created_listing).data})
+    if session_id.startswith(tuple(p + '-' for p in uzpay.PROVIDERS)):
+        # Payme/Click finish it from their own server callback - not yet.
+        return Response({'ok': False, 'status': 'pending'})
 
     if not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi sozlanmagan."}, status=503)
@@ -1628,7 +1683,11 @@ MIN_TOPUP_CENTS = 100  # $1.00
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def create_balance_topup_session(request):
-    if not settings.STRIPE_SECRET_KEY:
+    provider = uzpay.requested_provider(request)
+    bad = _uz_not_configured(provider)
+    if bad:
+        return bad
+    if not provider and not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
 
     profile_id = request.data.get('profile_id')
@@ -1643,6 +1702,13 @@ def create_balance_topup_session(request):
         profile = Profile.objects.get(id=profile_id)
     except Profile.DoesNotExist:
         return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
+
+    if provider:
+        url = uzpay.start(request, provider, 'topup', uzpay.usd_cents_to_uzs(amount, _usd_uzs_rate()),
+                          'balance_payment',
+                          lambda sid: PendingBalanceTopup.objects.create(
+                              stripe_session_id=sid, profile=profile, amount_cents=amount, currency='usd'))
+        return Response({'ok': True, 'url': url})
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
     origin = request.build_absolute_uri('/').rstrip('/')
@@ -1699,6 +1765,8 @@ def confirm_balance_topup(request):
 
     if pending.paid:
         return Response({'ok': True, 'profile': ProfileSerializer(pending.profile).data})
+    if session_id.startswith(tuple(p + '-' for p in uzpay.PROVIDERS)):
+        return Response({'ok': False, 'status': 'pending'})
 
     if not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi sozlanmagan."}, status=503)
@@ -1759,6 +1827,8 @@ def create_listing_from_balance(request):
     listing = serializer.save()
     _link_images_to_listing(listing_payload.get('image_ids'), listing)
     _link_voice_note_to_listing(listing_payload.get('voice_note_id'), listing)
+    _post_listing_to_channel(listing)
+    social.publish_new_listing(listing, request)
     if discount:
         from django.utils import timezone
         TierDiscount.objects.filter(id=discount.id, used=False).update(used=True, used_at=timezone.now())

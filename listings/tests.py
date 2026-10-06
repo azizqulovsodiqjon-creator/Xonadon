@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import os
 from unittest import mock
@@ -12,7 +13,7 @@ from . import social, translate
 # that just tags the text, run inline instead of in a background thread.
 translate._call = lambda text, src, dst: f'[{dst}] {text}'
 translate.translate_in_background = translate.translate_listing
-from .models import Listing, ListingImage, Profile, SiteSetting
+from .models import Listing, ListingImage, Profile, SiteSetting, UzPayment
 
 
 def _photo_data_url(w, h):
@@ -80,6 +81,28 @@ class InstagramPostTests(TestCase):
         social.publish_new_listing(listing)
         social.publish_new_listing(_make_listing(photos=0))
         self.assertFalse([c for c in self.calls if c[1].endswith('/media')])
+
+    @mock.patch.dict(os.environ, {'INSTAGRAM_ACCESS_TOKEN': 'seed-token'})
+    def test_missed_listings_catch_up_once_instagram_works(self):
+        blocked = mock.patch.object(social, '_ig_call', side_effect=RuntimeError(
+            'POST 777/media: HTTP 400 {"error":{"message":"API access blocked.","type":"OAuthException"}}'))
+        with blocked:
+            first, second = _make_listing(photos=1), _make_listing(photos=1)
+            for listing in (first, second):
+                with self.assertRaises(RuntimeError):  # logged and swallowed on the real background thread
+                    social.publish_new_listing(listing)
+        _make_listing(photos=0)  # nothing to show - never posted
+        self.assertEqual(social.missing_instagram_ids(), [first.id, second.id])
+        # still blocked: the run stops at the first refusal
+        with blocked, mock.patch.object(social.time, 'sleep'):
+            with self.assertRaises(RuntimeError):
+                social.post_missing_to_instagram(social.missing_instagram_ids(), 'https://example.test')
+        social._last_ig_retry = 0
+        with mock.patch.object(social.time, 'sleep'):
+            social.retry_missing_instagram()
+        self.assertEqual(social.missing_instagram_ids(), [])
+        social.retry_missing_instagram()  # throttled - no new calls
+        self.assertEqual(Listing.objects.exclude(ig_media_id='').count(), 2)
 
     def test_noop_without_token(self):
         with mock.patch.dict(os.environ, {'INSTAGRAM_ACCESS_TOKEN': ''}):
@@ -367,3 +390,132 @@ class OptionalConditionTests(TestCase):
         }, content_type='application/json')
         self.assertEqual(resp.status_code, 201, resp.content)
         self.assertEqual(Listing.objects.get(pk=resp.json()['id']).condition, '')
+
+
+PAYME_SETTINGS = dict(PAYME_MERCHANT_ID='m123', PAYME_KEY='test-key', PAYME_TEST_MODE=True,
+                      CLICK_SERVICE_ID='77', CLICK_MERCHANT_ID='88', CLICK_SECRET_KEY='click-secret')
+LISTING_PAYLOAD = {
+    'title': 'Hovli', 'desc': '', 'price': '50000', 'currency': 'ye', 'district': 'Zomin tumani',
+    'lat': 39.96, 'lng': 68.39, 'type': 'Hovli/dacha', 'type_key': 'hovli', 'seller': 'ali',
+    'deal': 'sotuv', 'condition': '', 'repair': '', 'floor': '', 'area': 110,
+}
+
+
+@override_settings(**PAYME_SETTINGS)
+class PaymeTests(TestCase):
+    def rpc(self, method, params, key='test-key'):
+        auth = 'Basic ' + base64.b64encode(f'Paycom:{key}'.encode()).decode()
+        return self.client.post('/api/payments/payme/', {'id': 1, 'method': method, 'params': params},
+                                content_type='application/json', HTTP_AUTHORIZATION=auth).json()
+
+    def start_vip(self):
+        resp = self.client.post('/api/payments/create-checkout-session/', {
+            'tier': 'vip', 'provider': 'payme', 'listing': LISTING_PAYLOAD}, content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        url = resp.json()['url']
+        self.assertTrue(url.startswith('https://checkout.test.paycom.uz/'))
+        params = base64.b64decode(url.rsplit('/', 1)[1]).decode()
+        self.assertIn('m=m123;', params)
+        self.assertIn(';a=10000000;', params)  # 100 000 so'm in tiyin
+        return UzPayment.objects.get()
+
+    def test_full_payment_creates_the_vip_listing_once(self):
+        order = self.start_vip()
+        account = {'order_id': str(order.pk)}
+        self.assertEqual(self.rpc('CheckPerformTransaction', {'amount': 10000000, 'account': account})['result'], {'allow': True})
+        created = self.rpc('CreateTransaction', {'id': 'p1', 'time': 1, 'amount': 10000000, 'account': account})['result']
+        self.assertEqual(created['state'], 1)
+        self.assertFalse(Listing.objects.exists())
+        self.assertEqual(self.rpc('PerformTransaction', {'id': 'p1'})['result']['state'], 2)
+        self.assertEqual(self.rpc('PerformTransaction', {'id': 'p1'})['result']['state'], 2)  # retry is a no-op
+        self.assertEqual(Listing.objects.count(), 1)
+        self.assertTrue(Listing.objects.get().vip)
+        confirm = self.client.get('/api/payments/confirm/?session_id=' + order.session_id).json()
+        self.assertTrue(confirm['ok'])
+        # paid now - a second payment for the same order is refused
+        self.assertEqual(self.rpc('CheckPerformTransaction', {'amount': 10000000, 'account': account})['error']['code'], -31051)
+        # performed = service delivered, can't be cancelled
+        self.assertEqual(self.rpc('CancelTransaction', {'id': 'p1', 'reason': 5})['error']['code'], -31007)
+
+    def test_wrong_key_amount_or_order_is_refused(self):
+        order = self.start_vip()
+        account = {'order_id': str(order.pk)}
+        self.assertEqual(self.rpc('CheckPerformTransaction', {'amount': 10000000, 'account': account}, key='bad')['error']['code'], -32504)
+        self.assertEqual(self.rpc('CheckPerformTransaction', {'amount': 100, 'account': account})['error']['code'], -31001)
+        self.assertEqual(self.rpc('CheckPerformTransaction', {'amount': 10000000, 'account': {'order_id': '999'}})['error']['code'], -31050)
+        self.assertEqual(self.rpc('CheckTransaction', {'id': 'nope'})['error']['code'], -31003)
+
+    def test_cancelled_transaction_stays_visible_and_order_can_be_paid_again(self):
+        order = self.start_vip()
+        account = {'order_id': str(order.pk)}
+        self.rpc('CreateTransaction', {'id': 'p1', 'time': 1, 'amount': 10000000, 'account': account})
+        # a second transaction while the first is open is refused
+        self.assertEqual(self.rpc('CreateTransaction', {'id': 'p2', 'time': 2, 'amount': 10000000, 'account': account})['error']['code'], -31052)
+        self.assertEqual(self.rpc('CancelTransaction', {'id': 'p1', 'reason': 3})['result']['state'], -1)
+        self.assertEqual(self.rpc('CheckTransaction', {'id': 'p1'})['result']['state'], -1)
+        self.assertEqual(self.rpc('PerformTransaction', {'id': 'p1'})['error']['code'], -31008)
+        self.assertFalse(Listing.objects.exists())
+        self.assertEqual(self.rpc('CreateTransaction', {'id': 'p2', 'time': 2, 'amount': 10000000, 'account': account})['result']['state'], 1)
+        statement = self.rpc('GetStatement', {'from': 0, 'to': 10})['result']['transactions']
+        self.assertEqual([t['id'] for t in statement], ['p1', 'p2'])
+
+    def test_balance_topup_in_soum(self):
+        profile = Profile.objects.create(username='vali', balance_cents=0)
+        with mock.patch('listings.views._usd_uzs_rate', return_value=12650.0):
+            resp = self.client.post('/api/payments/create-balance-topup-session/', {
+                'provider': 'payme', 'profile_id': profile.id, 'amount_cents': 500}, content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        order = UzPayment.objects.get()
+        self.assertEqual(order.amount_uzs, 63300)  # $5 x 12 650, rounded up to 100 so'm
+        account = {'order_id': str(order.pk)}
+        self.rpc('CreateTransaction', {'id': 't1', 'time': 1, 'amount': 6330000, 'account': account})
+        self.rpc('PerformTransaction', {'id': 't1'})
+        profile.refresh_from_db()
+        self.assertEqual(profile.balance_cents, 500)
+
+    def test_config_shows_provider_only_when_keys_are_set(self):
+        self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': True, 'click': True})
+        with override_settings(PAYME_KEY='', CLICK_SECRET_KEY=''):
+            self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': False, 'click': False})
+            resp = self.client.post('/api/payments/create-checkout-session/', {
+                'tier': 'vip', 'provider': 'payme', 'listing': LISTING_PAYLOAD}, content_type='application/json')
+            self.assertEqual(resp.status_code, 503)
+
+
+@override_settings(**PAYME_SETTINGS)
+class ClickTests(TestCase):
+    def call(self, order, action, amount='35000', prepare_id='', trans='c1', error='0', secret='click-secret'):
+        sign_time = '2026-10-06 15:00:00'
+        sign = hashlib.md5(f'{trans}77{secret}{order.pk}{prepare_id}{amount}{action}{sign_time}'.encode()).hexdigest()
+        data = {'click_trans_id': trans, 'service_id': '77', 'click_paydoc_id': 'd1', 'merchant_trans_id': str(order.pk),
+                'amount': amount, 'action': str(action), 'error': error, 'error_note': '', 'sign_time': sign_time,
+                'sign_string': sign}
+        if action == 1:
+            data['merchant_prepare_id'] = prepare_id
+        return self.client.post('/api/payments/click/', data).json()
+
+    def start_top(self):
+        resp = self.client.post('/api/payments/create-checkout-session/', {
+            'tier': 'top', 'provider': 'click', 'listing': LISTING_PAYLOAD}, content_type='application/json')
+        url = resp.json()['url']
+        self.assertTrue(url.startswith('https://my.click.uz/services/pay?'))
+        self.assertIn('amount=35000', url)
+        return UzPayment.objects.get()
+
+    def test_prepare_then_complete_creates_the_top_listing(self):
+        order = self.start_top()
+        prep = self.call(order, 0)
+        self.assertEqual(prep['error'], 0)
+        self.assertFalse(Listing.objects.exists())
+        done = self.call(order, 1, prepare_id=str(prep['merchant_prepare_id']))
+        self.assertEqual(done['error'], 0)
+        self.assertTrue(Listing.objects.get().top)
+        self.assertEqual(self.call(order, 1, prepare_id=str(order.pk))['error'], -4)  # already paid
+
+    def test_bad_sign_amount_and_failed_payment(self):
+        order = self.start_top()
+        self.assertEqual(self.call(order, 0, secret='wrong')['error'], -1)
+        self.assertEqual(self.call(order, 0, amount='100')['error'], -2)
+        self.call(order, 0)
+        self.assertEqual(self.call(order, 1, prepare_id=str(order.pk), error='-5017')['error'], -9)
+        self.assertFalse(Listing.objects.exists())

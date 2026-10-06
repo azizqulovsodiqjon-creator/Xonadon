@@ -8,6 +8,9 @@
   function upgradeTierPriceLabel(tier){
     var cents = paymentInfo.prices ? paymentInfo.prices[tier] : null;
     var labels = {top: 'TOP', vip: 'VIP'};
+    if(uzProviders().length && paymentInfo.pricesUzs){
+      return labels[tier] + ' — ' + formatUzs(paymentInfo.pricesUzs[tier]);
+    }
     return labels[tier] + ' — ' + (cents != null ? formatUsd(cents) : '—');
   }
   function renderUpgradeTierBox(l){
@@ -38,10 +41,13 @@
       '<div id="upgradeTierPayRow" class="hidden">' +
         '<div class="toggle-row" style="margin:10px 0;" id="upgradeTierPayMethod">' +
           '<button type="button" class="sel" data-method="card">💳 Karta orqali</button>' +
+          '<button type="button" class="hidden" data-method="payme">Payme</button>' +
+          '<button type="button" class="hidden" data-method="click">Click</button>' +
           '<button type="button" data-method="balance">👛 Balansdan (<span id="upgradeBalanceAmount">' + formatUsd(myBalanceCents()) + '</span>)</button>' +
         '</div>' +
         '<button type="button" class="btn-full-black" id="upgradeConfirmBtn" style="margin-top:0;">To\'lov qilish</button>' +
       '</div>';
+    payMethod = syncPayMethodToggle(document.getElementById('upgradeTierPayMethod'), payMethod);
     body.querySelectorAll('#upgradeTierToggle button').forEach(function(b){
       b.addEventListener('click', function(){
         body.querySelectorAll('#upgradeTierToggle button').forEach(function(x){ x.classList.remove('sel'); });
@@ -97,7 +103,7 @@
       fetch(API_BASE + listingId + '/upgrade-tier/checkout/', {
         method: 'POST', credentials: 'same-origin',
         headers: csrfHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({tier: selectedTier, seller: seller})
+        body: JSON.stringify({tier: selectedTier, seller: seller, provider: isUzMethod(payMethod) ? payMethod : ''})
       }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
         .then(function(res){
           if(res.status === 200 && res.data.ok && res.data.url){

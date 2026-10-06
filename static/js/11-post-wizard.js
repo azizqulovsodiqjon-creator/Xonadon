@@ -303,11 +303,11 @@
       method: 'POST',
       credentials: 'same-origin',
       headers: csrfHeaders({'Content-Type': 'application/json'}),
-      body: JSON.stringify({tier: postTier, listing: payload})
+      body: JSON.stringify({tier: postTier, listing: payload, provider: isUzMethod(postPayMethod) ? postPayMethod : ''})
     }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
       .then(function(res){
         if(res.status === 200 && res.data.ok && res.data.url){
-          window.location.href = res.data.url; // off to Stripe Checkout
+          window.location.href = res.data.url; // off to Stripe Checkout / Payme / Click
         } else {
           alert((res.data && res.data.error) || "To'lovni boshlashda xato yuz berdi.");
           btn.disabled = false;

@@ -263,6 +263,55 @@ class PendingBalanceTopup(models.Model):
         return f"topup {self.amount_cents}c for {self.profile} ({'paid' if self.paid else 'pending'})"
 
 
+class UzPayment(models.Model):
+    """One Payme/Click payment order. It wraps the same pending rows Stripe
+    uses (a PendingListingPayment for a new listing or a tier upgrade, a
+    PendingBalanceTopup for a top-up), so once the provider confirms the
+    money, finishing it is exactly the Stripe code path. The pending
+    row's stripe_session_id holds `session_id` here ("payme-<hex>")."""
+    PROVIDER_CHOICES = [('payme', 'Payme'), ('click', 'Click')]
+    KIND_CHOICES = [('listing', "E'lon / reklama"), ('topup', "Balans to'ldirish")]
+
+    provider = models.CharField(max_length=10, choices=PROVIDER_CHOICES)
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    session_id = models.CharField(max_length=64, unique=True)
+    pending_listing = models.ForeignKey(PendingListingPayment, null=True, blank=True, on_delete=models.CASCADE, related_name='+')
+    pending_topup = models.ForeignKey(PendingBalanceTopup, null=True, blank=True, on_delete=models.CASCADE, related_name='+')
+    amount_uzs = models.IntegerField()
+    paid = models.BooleanField(default=False)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    # Click's own ids, kept for support/reconciliation.
+    click_trans_id = models.CharField(max_length=64, blank=True, default='')
+    click_paydoc_id = models.CharField(max_length=64, blank=True, default='')
+    click_cancelled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.provider} #{self.pk} {self.amount_uzs} so'm ({'paid' if self.paid else 'pending'})"
+
+
+class PaymeTransaction(models.Model):
+    """A Payme Merchant API transaction (CreateTransaction ... Perform /
+    Cancel). Kept apart from UzPayment because Payme may cancel one
+    transaction and open a new one for the same order, and must still be
+    able to look the old one up (CheckTransaction / GetStatement)."""
+    STATE_CREATED, STATE_PERFORMED = 1, 2
+    STATE_CANCELLED, STATE_CANCELLED_AFTER_PERFORM = -1, -2
+
+    payme_id = models.CharField(max_length=64, unique=True)
+    payment = models.ForeignKey(UzPayment, on_delete=models.CASCADE, related_name='payme_transactions')
+    payme_time = models.BigIntegerField()      # Payme's own timestamp (ms)
+    amount_tiyin = models.BigIntegerField()
+    state = models.IntegerField(default=STATE_CREATED)
+    reason = models.IntegerField(null=True, blank=True)
+    create_time = models.BigIntegerField()     # our timestamps, ms
+    perform_time = models.BigIntegerField(default=0)
+    cancel_time = models.BigIntegerField(default=0)
+
+    def __str__(self):
+        return f"payme {self.payme_id} state={self.state}"
+
+
 class PaymentEvent(models.Model):
     """One completed payment, for the admin 'qancha pul to'lagan' report.
     Written at each of the 4 places money actually changes hands (balance

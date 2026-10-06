@@ -255,6 +255,56 @@ def _in_background(tag, fn, *args):
     threading.Thread(target=run, daemon=True).start()
 
 
+def missing_instagram_ids(max_age_days=14, limit=None):
+    """Recent live listings with photos that never made it to Instagram
+    (posting failed - e.g. while Meta had the app blocked), oldest first."""
+    import datetime
+    from django.utils import timezone
+    qs = (Listing.objects
+          .filter(ig_media_id='', is_wanted=False, sold=False, images__isnull=False,
+                  created_at__gte=timezone.now() - datetime.timedelta(days=max_age_days))
+          .distinct().order_by('created_at').values_list('id', flat=True))
+    return list(qs[:limit] if limit else qs)
+
+
+def post_missing_to_instagram(ids, base, pause=5):
+    """Post the given listings one after another. An auth/access error
+    (API blocked, expired token) stops the run - Instagram then refuses
+    them all, so there's no point hammering it with the rest; any other
+    failure only skips that one listing."""
+    posted = 0
+    for pk in ids:
+        try:
+            _post_to_instagram(pk, base)
+            posted += 1
+        except Exception as exc:
+            if 'OAuthException' in str(exc):
+                raise
+            _log('instagram', f'listing {pk} skipped: {exc}')
+        time.sleep(pause)
+    return posted
+
+
+_last_ig_retry = 0.0
+
+
+def retry_missing_instagram(every_seconds=1800, batch=5):
+    """Called from a frequently-hit endpoint (like translate.retry_missing):
+    at most every 30 minutes, posts a few listings that are missing on
+    Instagram - so once Instagram works again, everything posted in the
+    meantime catches up by itself."""
+    global _last_ig_retry
+    if not os.environ.get('INSTAGRAM_ACCESS_TOKEN', '').strip():
+        return
+    now = time.time()
+    if now - _last_ig_retry < every_seconds:
+        return
+    _last_ig_retry = now
+    ids = missing_instagram_ids(limit=batch)
+    if ids:
+        _in_background('instagram', post_missing_to_instagram, ids, base_url_for(None))
+
+
 def publish_new_listing(listing, request=None):
     """Post a listing to Instagram unless it's already there.
     `request` is the one the listing came in on - see base_url_for()."""

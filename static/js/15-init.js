@@ -541,7 +541,7 @@
     });
     document.getElementById('topUpBtn').addEventListener('click', function(){
       if(!currentProfile || !currentProfile.id){ alert("Profil topilmadi. Iltimos, qayta kiring."); return; }
-      if(!paymentInfo.configured){ alert("To'lov tizimi hali sozlanmagan."); return; }
+      if(topUpMethod === 'card' && !paymentInfo.configured){ alert("To'lov tizimi hali sozlanmagan."); return; }
       var raw = document.getElementById('amountInput').value.trim();
       var usd = parseFloat(raw.replace(',', '.'));
       if(!usd || isNaN(usd) || usd < 1){ alert("Iltimos, kamida $1 miqdorida summa kiriting."); return; }
@@ -553,7 +553,7 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: csrfHeaders({'Content-Type': 'application/json'}),
-        body: JSON.stringify({profile_id: currentProfile.id, amount_cents: cents})
+        body: JSON.stringify({profile_id: currentProfile.id, amount_cents: cents, provider: isUzMethod(topUpMethod) ? topUpMethod : ''})
       }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
         .then(function(res){
           if(res.status === 200 && res.data.ok && res.data.url){
@@ -561,15 +561,21 @@
           } else {
             alert((res.data && res.data.error) || "To'lovni boshlashda xato yuz berdi.");
             btn.disabled = false;
-            btn.textContent = "Stripe orqali to'ldirish";
+            btn.textContent = PAY_METHOD_NAMES[topUpMethod] + " orqali to'ldirish";
           }
         })
         .catch(function(err){
           console.error('topUpBtn xato:', err);
           alert("To'lovni boshlashda xato yuz berdi.");
           btn.disabled = false;
-          btn.textContent = "Stripe orqali to'ldirish";
+          btn.textContent = PAY_METHOD_NAMES[topUpMethod] + " orqali to'ldirish";
         });
+    });
+    document.getElementById('topUpMethodToggle').querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click', function(){
+        topUpMethod = this.getAttribute('data-method');
+        syncTopUpMethod();
+      });
     });
     document.getElementById('postAdBtn').addEventListener('click', function(){
       requireAuth(function(){
@@ -577,8 +583,7 @@
         updateUrl('/elon-joylash');
         editingListingId = null;
         postTier = 'regular';
-        postPayMethod = 'card';
-        document.getElementById('postPayMethodToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-method')==='card'); });
+        postPayMethod = syncPayMethodToggle(document.getElementById('postPayMethodToggle'), 'card');
         document.getElementById('tierToggle').querySelectorAll('button').forEach(function(b){ b.classList.toggle('sel', b.getAttribute('data-tier')==='regular'); });
         document.getElementById('paymentSummary').classList.remove('hidden');
         var finishBtn = document.getElementById('finishPostBtn');
@@ -760,6 +765,14 @@
       submitPostPayload(this);
     });
 
+    function pollPaymentConfirm(url, triesLeft){
+      return fetch(url).then(function(r){ return r.json(); }).then(function(res){
+        if(res.ok || res.status !== 'pending' || triesLeft <= 1) return res;
+        return new Promise(function(resolve){ setTimeout(resolve, 2500); })
+          .then(function(){ return pollPaymentConfirm(url, triesLeft - 1); });
+      });
+    }
+
     // Coming back from Stripe Checkout (success or cancel) - confirm and
     // finish creating the listing, or let the user know it was cancelled.
     (function handlePaymentReturn(){
@@ -775,8 +788,7 @@
       }
       if(outcome === 'success' && sessionId){
         toast("To'lov tasdiqlanmoqda...");
-        fetch(CONFIRM_PAYMENT_API + '?session_id=' + encodeURIComponent(sessionId))
-          .then(function(r){ return r.json(); })
+        pollPaymentConfirm(CONFIRM_PAYMENT_API + '?session_id=' + encodeURIComponent(sessionId), 8)
           .then(function(res){
             if(res.ok && res.listing){
               loadListings(function(){
@@ -805,8 +817,7 @@
       }
       if(outcome === 'success' && sessionId){
         toast("To'lov tasdiqlanmoqda...");
-        fetch(CONFIRM_BALANCE_API + '?session_id=' + encodeURIComponent(sessionId))
-          .then(function(r){ return r.json(); })
+        pollPaymentConfirm(CONFIRM_BALANCE_API + '?session_id=' + encodeURIComponent(sessionId), 8)
           .then(function(res){
             if(res.ok && res.profile){
               applyProfile(res.profile);

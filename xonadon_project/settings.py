@@ -89,6 +89,26 @@ LISTING_PRICE_CENTS = {
     'vip': int(os.environ.get('PRICE_VIP_CENTS', '800')),           # ~$8.00 (100 000 so'm)
 }
 
+# --- Payme / Click (real so'm payments, Uzbek cards) ------------------
+# Same story as Stripe: keys only in env vars, and each provider stays
+# hidden on the site until its keys are set. PAYME_KEY is the cashier's
+# secret key from the Payme merchant cabinet (Payme sends it back to us
+# as Basic auth on every Merchant API call); CLICK_SECRET_KEY signs
+# Click's Prepare/Complete calls.
+PAYME_MERCHANT_ID = os.environ.get('PAYME_MERCHANT_ID', '')
+PAYME_KEY = os.environ.get('PAYME_KEY', '')
+PAYME_TEST_MODE = os.environ.get('PAYME_TEST_MODE', 'False') == 'True'
+CLICK_SERVICE_ID = os.environ.get('CLICK_SERVICE_ID', '')
+CLICK_MERCHANT_ID = os.environ.get('CLICK_MERCHANT_ID', '')
+CLICK_SECRET_KEY = os.environ.get('CLICK_SECRET_KEY', '')
+
+# Paid tiers' price in so'm for Payme/Click - the same numbers the tier
+# cards on the posting page show.
+LISTING_PRICE_UZS = {
+    'top': int(os.environ.get('PRICE_TOP_UZS', '35000')),
+    'vip': int(os.environ.get('PRICE_VIP_UZS', '100000')),
+}
+
 # --- Telegram bot (replaces SMS for the signup verification code) ----
 # Same "not configured until the env var is set" story as Stripe above.
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')

@@ -78,7 +78,7 @@
     "Jizzax-Joy — ko'chmas mulk e'lonlarini joylashtirish va qidirish uchun platforma.": {RU: "Jizzax-Joy — платформа для размещения и поиска объявлений о недвижимости.", EN: "Jizzax-Joy is a platform for posting and searching real-estate listings."},
     "2. Foydalanuvchi majburiyatlari.": {RU: "2. Обязанности пользователя.", EN: "2. User obligations."},
     "Foydalanuvchi joylashtirilgan ma'lumotlarning haqiqiyligi uchun javobgar hisoblanadi.": {RU: "Пользователь несёт ответственность за достоверность размещённой информации.", EN: "Users are responsible for the accuracy of the information they post."},
-    "To'liq shartlar: +998 99 558 11 10, +998 99 093 24 01.": {RU: "Полные условия: +998 99 558 11 10, +998 99 093 24 01.", EN: "Full terms: +998 99 558 11 10, +998 99 093 24 01."},
+    "To'liq shartlar: +998 50 179 52 82, +998 99 093 24 01.": {RU: "Полные условия: +998 50 179 52 82, +998 99 093 24 01.", EN: "Full terms: +998 50 179 52 82, +998 99 093 24 01."},
 
     // --- map ---
     "Mahalla yoki ko'cha nomini qidiring...": {RU: "Поиск махалли или улицы...", EN: "Search a neighbourhood or street..."},
