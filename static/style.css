@@ -777,12 +777,24 @@
   .detail-right .detail-desc-text{font-size:16px;line-height:1.65;color:rgba(var(--ink-rgb),0.82);white-space:pre-line;}
   .detail-right .detail-section{margin-top:6px;}
   .detail-right .info-row{font-size:15px;}
+  /* description + details under the photos/seller card (left column), in a
+     slightly smaller type so the two columns come out about even */
+  .detail-head{display:flex;flex-direction:column;gap:18px;}
+  .detail-info-block{margin-top:18px;display:flex;flex-direction:column;gap:14px;}
+  .detail-head .detail-desc-text{font-size:14.5px;line-height:1.6;}
+  .detail-info-block .info-row{font-size:14px;padding-top:10px;padding-bottom:10px;}
+  .detail-map-section .map-box{height:340px;}
+  @media (max-width:900px){ .detail-map-section .map-box{height:260px;} }
+  .detail-info-block .detail-section{margin-top:0;}
   @media (max-width:900px){
     .detail-layout{grid-template-columns:1fr;gap:22px;}
-    /* One column: photos, then title/price/actions, seller card last. */
-    .detail-left{display:contents;}
-    .detail-right{order:1;}
-    .detail-left .owner-card{order:2;margin-top:0;}
+    /* One column: photos, title/price/actions, details, map, seller card. */
+    .detail-left,.detail-right{display:contents;}
+    .detail-gallery{order:0;}
+    .detail-head{order:1;}
+    .detail-info-block{order:2;margin-top:0;}
+    .detail-map-section{order:3;}
+    .detail-left .owner-card{order:4;margin-top:0;}
     .detail-left .gallery-main{height:320px;}
   }
 

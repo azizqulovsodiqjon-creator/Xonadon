@@ -52,7 +52,7 @@
     document.getElementById('detailContent').innerHTML =
       '<div class="detail-layout">' +
         '<div class="detail-left">' +
-          '<div style="position:relative;">' +
+          '<div class="detail-gallery" style="position:relative;">' +
             (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
             '<div class="gallery-main"><img id="galleryMainImg" src="' + galleryPhotos[0] + '" alt="">' +
               (l.vip ? '<span class="tier-badge vip">★ VIP</span>' : (l.top ? '<span class="tier-badge top">▲ TOP</span>' : '')) +
@@ -65,8 +65,20 @@
             '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
             '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
           '</div>' +
+          '<div class="detail-info-block">' +
+            '<div class="info-list">' +
+              '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
+              '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
+              // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
+              // of its own to show - it's a budget, not a property.
+            (l.isWanted ? '' : (roomsRow + floorRows(l) +
+              '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
+              '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
+            '</div>' +
+          '</div>' +
         '</div>' +
         '<div class="detail-right">' +
+          '<div class="detail-head">' +
           (isOwnListing ? '' : '<div class="action-btns-row"><button class="action-btn outline" id="msgSellerBtn">' + dict.msg_seller + '</button>' + callSellerButtonHtml(l.phone, dict.call_seller) + '</div>') +
           '<div class="detail-tags-row">' +
             '<div class="action-tags">' +
@@ -84,16 +96,8 @@
           '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '<span class="view-count">· 👁 ' + l.viewsCount + ' ko\'rildi</span></div>' +
           '<div class="detail-desc-text">' + lt(l,'desc') + '</div>' +
           (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
-          '<div class="info-list">' +
-            '<div class="info-row"><span class="il">' + dict.posted_by + '</span><span class="iv">' + trValue(l.ownerRole) + '</span></div>' +
-            '<div class="info-row"><span class="il">' + dict.property_type + '</span><span class="iv">' + trValue(l.type) + '</span></div>' +
-            // A buyer's "qidiryapman" listing has no rooms/floor/area/repair
-            // of its own to show - it's a budget, not a property.
-            (l.isWanted ? '' : (roomsRow + floorRows(l) +
-            '<div class="info-row"><span class="il">' + dict.area_label + '</span><span class="iv">' + l.area + '</span></div>' +
-            '<div class="info-row"><span class="il">' + dict.repair_label + '</span><span class="iv">' + trValue(l.repair) + '</span></div>')) +
           '</div>' +
-          '<div class="detail-section">' +
+          '<div class="detail-section detail-map-section">' +
             '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
             '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
             '<div class="map-box" id="detailMap"></div>' +
