@@ -25,6 +25,7 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from .models import (
     Listing, ListingImage, VoiceNote, Like, Profile, PendingListingPayment, PendingBalanceTopup,
+    Visitor, VisitDay, SiteSetting,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
     VerificationRequest, PaymentEvent, TierDiscount,
 )
@@ -59,7 +60,14 @@ def sweep_expired_listings():
     """
     from django.utils import timezone
     now = timezone.now()
+    # Moving TOP/VIP down a stage and deleting expired listings is switched
+    # off for now (asked by the site owner) - posting still shows how many
+    # days each tier lasts, it just doesn't happen yet. Turn back on with
+    # SiteSetting listing_expiry_enabled = '1'.
+    expiry_on = SiteSetting.get('listing_expiry_enabled', '0') == '1'
     for listing in Listing.objects.all():
+        if not expiry_on and not listing.sold:
+            continue
         if listing.sold:
             # mark_sold() deletes a listing on the spot now, so this
             # should never actually be hit - kept as a safety net in case
@@ -1290,6 +1298,70 @@ def admin_stats(request):
         'revenueCentsWeek': revenue_since(week_ago),
         'revenueCentsMonth': revenue_since(month_ago),
         'revenueCentsAllTime': revenue_since(datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)),
+    })
+
+
+class VisitThrottle(AnonRateThrottle):
+    scope = 'visit'
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([VisitThrottle])
+def record_visit(request):
+    """A page load (or a 2-minute "still here" ping) from one browser."""
+    from django.utils import timezone
+    vid = str(request.data.get('visitor_id') or '').strip()
+    if not re.fullmatch(r'[A-Za-z0-9-]{8,40}', vid):
+        return Response({'ok': False}, status=400)
+    now = timezone.now()
+    ua = request.META.get('HTTP_USER_AGENT', '')
+    device = 'Telefon' if re.search(r'Mobi|Android|iPhone|iPad', ua) else 'Kompyuter'
+    visitor, created = Visitor.objects.get_or_create(visitor_id=vid, defaults={
+        'device': device,
+        'referrer': str(request.data.get('referrer') or '')[:200],
+    })
+    updates = {'last_seen': now, 'device': device}
+    if not request.data.get('ping'):
+        updates['page_views'] = F('page_views') + 1
+    username = str(request.data.get('username') or '').strip()[:100]
+    if username and Profile.objects.filter(username=username).exists():
+        updates['username'] = username
+    Visitor.objects.filter(pk=visitor.pk).update(**updates)
+    VisitDay.objects.get_or_create(visitor=visitor, date=timezone.localdate())
+    return Response({'ok': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_visitors(request):
+    from django.utils import timezone
+    now = timezone.now()
+    today = timezone.localdate()
+
+    def unique_since(days):
+        return VisitDay.objects.filter(date__gt=today - datetime.timedelta(days=days)).values('visitor').distinct().count()
+
+    recent = Visitor.objects.order_by('-last_seen')[:100]
+    return Response({
+        'onlineNow': Visitor.objects.filter(last_seen__gte=now - datetime.timedelta(minutes=5)).count(),
+        'today': unique_since(1),
+        'week': unique_since(7),
+        'month': unique_since(30),
+        'total': Visitor.objects.count(),
+        'registered': Visitor.objects.exclude(username='').count(),
+        'guests': Visitor.objects.filter(username='').count(),
+        'newToday': Visitor.objects.filter(first_seen__date=today).count(),
+        'recent': [{
+            'name': v.username,
+            'guestId': v.visitor_id[:6].upper(),
+            'device': v.device,
+            'pageViews': v.page_views,
+            'days': v.days.count(),
+            'firstSeen': v.first_seen.isoformat(),
+            'lastSeen': v.last_seen.isoformat(),
+            'online': v.last_seen >= now - datetime.timedelta(minutes=5),
+        } for v in recent],
     })
 
 

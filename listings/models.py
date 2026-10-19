@@ -427,6 +427,33 @@ class VerificationRequest(models.Model):
         return f"verification for {self.profile} ({self.status})"
 
 
+class Visitor(models.Model):
+    """One browser that opened the site, registered or not - counted for
+    the admin's "Tashriflar" view, never shown in the profiles list. The
+    id is a random token the browser keeps in localStorage; `username`
+    is filled in once that browser is signed in (else it's a guest)."""
+    visitor_id = models.CharField(max_length=40, unique=True)
+    username = models.CharField(max_length=100, blank=True, default='')
+    device = models.CharField(max_length=20, blank=True, default='')
+    referrer = models.CharField(max_length=200, blank=True, default='')
+    page_views = models.IntegerField(default=0)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.username or f'mehmon {self.visitor_id[:6]}'
+
+
+class VisitDay(models.Model):
+    """Which day(s) a visitor came - for "bugun / shu hafta / shu oy"
+    unique-visitor counts."""
+    visitor = models.ForeignKey(Visitor, on_delete=models.CASCADE, related_name='days')
+    date = models.DateField()
+
+    class Meta:
+        unique_together = [('visitor', 'date')]
+
+
 class SiteSetting(models.Model):
     """Tiny key/value store for values the app must update on its own at
     runtime and keep across restarts/deploys - e.g. the Instagram access

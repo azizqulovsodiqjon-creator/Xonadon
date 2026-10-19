@@ -13,7 +13,7 @@ from . import social, translate
 # that just tags the text, run inline instead of in a background thread.
 translate._call = lambda text, src, dst: f'[{dst}] {text}'
 translate.translate_in_background = translate.translate_listing
-from .models import Listing, ListingImage, Profile, SiteSetting, UzPayment
+from .models import Listing, ListingImage, Profile, SiteSetting, UzPayment, Visitor
 
 
 def _photo_data_url(w, h):
@@ -254,6 +254,7 @@ class ChannelPostCleanupTests(TestCase):
         import datetime
         from django.utils import timezone
         from . import views
+        SiteSetting.put('listing_expiry_enabled', '1')
         listing = _make_listing(photos=0, tg_message_ids='555')
         Listing.objects.filter(pk=listing.pk).update(stage_started_at=timezone.now() - datetime.timedelta(days=30))
         with mock.patch.object(views, '_telegram_api') as tg, \
@@ -520,3 +521,50 @@ class ClickTests(TestCase):
         self.call(order, 0)
         self.assertEqual(self.call(order, 1, prepare_id=str(order.pk), error='-5017')['error'], -9)
         self.assertFalse(Listing.objects.exists())
+
+
+
+class ListingExpiryTests(TestCase):
+    def test_expiry_is_off_until_switched_on(self):
+        import datetime
+        from django.utils import timezone
+        from . import views
+        vip = _make_listing(photos=0, vip=True, posted_tier='vip')
+        Listing.objects.filter(pk=vip.pk).update(stage_started_at=timezone.now() - datetime.timedelta(days=60))
+        views.sweep_expired_listings()
+        vip.refresh_from_db()
+        self.assertTrue(vip.vip)  # still VIP long after its 10 days
+        SiteSetting.put('listing_expiry_enabled', '1')
+        views.sweep_expired_listings()
+        vip.refresh_from_db()
+        self.assertFalse(vip.vip)
+
+
+class VisitorCounterTests(TestCase):
+    def visit(self, vid, **extra):
+        return self.client.post('/api/visit/', dict({'visitor_id': vid}, **extra), content_type='application/json',
+                                HTTP_USER_AGENT='Mozilla/5.0 (Linux; Android 14) Mobile')
+
+    def test_guest_then_signed_in_visitor(self):
+        Profile.objects.create(username='ali')
+        self.assertEqual(self.visit('guest-0001').status_code, 200)
+        self.visit('guest-0001')
+        self.visit('guest-0001', ping=True)  # "still here" ping is not a page view
+        self.visit('user-0002', username='ali')
+        self.visit('user-0003', username='nobody')  # unknown username stays a guest
+        self.assertEqual(self.visit('bad id!').status_code, 400)
+
+        guest = Visitor.objects.get(visitor_id='guest-0001')
+        self.assertEqual((guest.username, guest.page_views, guest.device), ('', 2, 'Telefon'))
+        self.assertEqual(Visitor.objects.get(visitor_id='user-0002').username, 'ali')
+        self.assertEqual(Profile.objects.count(), 1)  # guests never become profiles
+
+        from django.contrib.auth.models import User
+        User.objects.create_user('boss', password='pw-123456', is_staff=True)
+        self.client.login(username='boss', password='pw-123456')
+        data = self.client.get('/api/admin/visitors/').json()
+        self.assertEqual((data['total'], data['registered'], data['guests'], data['today'], data['onlineNow']), (3, 1, 2, 3, 3))
+        self.assertEqual({r['name'] for r in data['recent']}, {'', 'ali'})
+
+    def test_visitor_list_is_admin_only(self):
+        self.assertIn(self.client.get('/api/admin/visitors/').status_code, (401, 403))

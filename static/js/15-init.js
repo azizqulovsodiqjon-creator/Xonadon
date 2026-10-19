@@ -765,6 +765,27 @@
       submitPostPayload(this);
     });
 
+    // Visitor counter (admin "Tashriflar"): a random id kept in this
+    // browser, sent on page load and every 2 minutes while the tab is open,
+    // with the username once signed in - guests stay "Mehmon".
+    (function countVisit(){
+      var vid = null;
+      try{
+        vid = localStorage.getItem('jj_visitor');
+        if(!vid){
+          vid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 12));
+          localStorage.setItem('jj_visitor', vid);
+        }
+      }catch(e){ return; }
+      function send(ping){
+        var body = {visitor_id: vid, ping: !!ping, referrer: ping ? '' : document.referrer};
+        if(isLoggedIn) body.username = myUsername();
+        fetch('/api/visit/', {method:'POST', credentials:'same-origin', headers: csrfHeaders({'Content-Type':'application/json'}), body: JSON.stringify(body)}).catch(function(){});
+      }
+      setTimeout(function(){ send(false); }, 1500);  // after a stored login is restored
+      setInterval(function(){ if(document.visibilityState === 'visible') send(true); }, 120000);
+    })();
+
     function pollPaymentConfirm(url, triesLeft){
       return fetch(url).then(function(r){ return r.json(); }).then(function(res){
         if(res.ok || res.status !== 'pending' || triesLeft <= 1) return res;

@@ -53,6 +53,8 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         # Rate-limit admin login attempts per IP to blunt password guessing.
         'admin_login': '5/min',
+        # Page-load / "still here" pings for the visitor counter.
+        'visit': '60/min',
         # Login and sign-up attempts per IP (blunts password guessing, and
         # each one costs a deliberately slow password hash).
         'login_code': '10/min',

@@ -24,7 +24,7 @@
             // link should land straight on that tab, not always reset
             // to the default "listings" one.
             var tabFromUrl = new URLSearchParams(location.search).get('tab');
-            if(tabFromUrl && ['listings','profiles','stats','houses'].indexOf(tabFromUrl) !== -1){
+            if(tabFromUrl && ['listings','profiles','stats','houses','visitors'].indexOf(tabFromUrl) !== -1){
               adminTab = tabFromUrl;
               document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
             }
@@ -141,6 +141,46 @@
       wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';
     });
   }
+  // "Tashriflar" - everyone who opened the site; guests (not signed up)
+  // are listed as "Mehmon", separately from the profiles list.
+  function renderAdminVisitors(){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch('/api/admin/visitors/', {credentials:'same-origin'}).then(function(r){
+      if(!r.ok){ throw new Error('admin visitors HTTP ' + r.status); }
+      return r.json();
+    }).then(function(v){
+      function when(iso){
+        var d = new Date(iso);
+        return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+      }
+      var rows = (v.recent || []).map(function(x){
+        var who = x.name ? displayName(x.name) : ('<span style="opacity:.75;">Mehmon #' + x.guestId + '</span>');
+        return '<div class="queue-row"><div class="queue-info">' +
+          '<div class="qdesc">' + (x.online ? '<span title="Hozir saytda" style="color:#16a34a;">●</span> ' : '') + who +
+            ' <span style="font-weight:500;opacity:.6;font-size:12.5px;">· ' + (x.name ? "Ro'yxatdan o'tgan" : "Ro'yxatdan o'tmagan") + '</span></div>' +
+          '<div class="qseller">' + x.device + ' · ' + x.pageViews + " marta ochgan · " + x.days + ' kun kelgan · birinchi: ' + when(x.firstSeen) + ' · oxirgi: ' + when(x.lastSeen) + '</div>' +
+          '</div></div>';
+      }).join('') || '<div class="empty-admin">Hozircha tashrif yo\'q.</div>';
+      wrap.innerHTML =
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + v.onlineNow + '</div><div class="l">Hozir saytda</div></div>' +
+          '<div class="astat"><div class="n">' + v.today + '</div><div class="l">Bugun kirganlar</div></div>' +
+          '<div class="astat"><div class="n">' + v.newToday + '</div><div class="l">Bugun yangi kelganlar</div></div>' +
+          '<div class="astat"><div class="n">' + v.week + '</div><div class="l">Shu hafta</div></div>' +
+          '<div class="astat"><div class="n">' + v.month + '</div><div class="l">Shu oy</div></div>' +
+        '</div>' +
+        '<div class="admin-stats">' +
+          '<div class="astat"><div class="n">' + v.total + '</div><div class="l">Jami tashrif buyuruvchilar</div></div>' +
+          '<div class="astat"><div class="n">' + v.registered + '</div><div class="l">Ro\'yxatdan o\'tganlar</div></div>' +
+          '<div class="astat"><div class="n">' + v.guests + '</div><div class="l">Mehmonlar (ro\'yxatdan o\'tmagan)</div></div>' +
+        '</div>' +
+        '<h3 style="margin:18px 0 10px;">Oxirgi tashriflar</h3>' + rows;
+    }).catch(function(err){
+      console.error('admin tashriflar xato:', err);
+      wrap.innerHTML = '<div class="empty-admin">Tashriflarni yuklashda xato yuz berdi.</div>';
+    });
+  }
   function setAdminTab(tab){
     adminTab = tab;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
@@ -181,6 +221,10 @@
     }
     if(adminTab==='houses'){
       renderAdminHousesStats();
+      return;
+    }
+    if(adminTab==='visitors'){
+      renderAdminVisitors();
       return;
     }
     if(adminTab==='profiles'){
