@@ -563,8 +563,8 @@ class VisitorCounterTests(TestCase):
         User.objects.create_user('boss', password='pw-123456', is_staff=True)
         self.client.login(username='boss', password='pw-123456')
         data = self.client.get('/api/admin/visitors/').json()
-        self.assertEqual((data['total'], data['registered'], data['guests'], data['today'], data['onlineNow']), (3, 1, 2, 3, 3))
-        self.assertEqual({r['name'] for r in data['recent']}, {'', 'ali'})
+        self.assertEqual(data['guests'], 2)  # the signed-in one is not listed
+        self.assertEqual(sorted(r['guestId'] for r in data['recent']), ['GUEST-', 'USER-0'])
 
     def test_visitor_list_is_admin_only(self):
         self.assertIn(self.client.get('/api/admin/visitors/').status_code, (401, 403))

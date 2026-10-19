@@ -1335,33 +1335,16 @@ def record_visit(request):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def admin_visitors(request):
-    from django.utils import timezone
-    now = timezone.now()
-    today = timezone.localdate()
-
-    def unique_since(days):
-        return VisitDay.objects.filter(date__gt=today - datetime.timedelta(days=days)).values('visitor').distinct().count()
-
-    recent = Visitor.objects.order_by('-last_seen')[:100]
+    """Visitors who never signed up ("mehmon"): how many, and when each came."""
+    guests = Visitor.objects.filter(username='')
     return Response({
-        'onlineNow': Visitor.objects.filter(last_seen__gte=now - datetime.timedelta(minutes=5)).count(),
-        'today': unique_since(1),
-        'week': unique_since(7),
-        'month': unique_since(30),
-        'total': Visitor.objects.count(),
-        'registered': Visitor.objects.exclude(username='').count(),
-        'guests': Visitor.objects.filter(username='').count(),
-        'newToday': Visitor.objects.filter(first_seen__date=today).count(),
+        'guests': guests.count(),
         'recent': [{
-            'name': v.username,
             'guestId': v.visitor_id[:6].upper(),
             'device': v.device,
-            'pageViews': v.page_views,
-            'days': v.days.count(),
             'firstSeen': v.first_seen.isoformat(),
             'lastSeen': v.last_seen.isoformat(),
-            'online': v.last_seen >= now - datetime.timedelta(minutes=5),
-        } for v in recent],
+        } for v in guests.order_by('-last_seen')[:200]],
     })
 
 

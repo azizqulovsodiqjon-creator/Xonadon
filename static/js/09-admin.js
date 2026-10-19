@@ -141,8 +141,8 @@
       wrap.innerHTML = '<div class="empty-admin">Statistikani yuklashda xato yuz berdi.</div>';
     });
   }
-  // "Tashriflar" - everyone who opened the site; guests (not signed up)
-  // are listed as "Mehmon", separately from the profiles list.
+  // "Tashriflar" - visitors who never signed up: how many, and when each
+  // one came (signed-up people are in "Profillar" instead).
   function renderAdminVisitors(){
     var wrap = document.getElementById('adminContent');
     wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
@@ -155,27 +155,16 @@
         return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
       }
       var rows = (v.recent || []).map(function(x){
-        var who = x.name ? displayName(x.name) : ('<span style="opacity:.75;">Mehmon #' + x.guestId + '</span>');
+        var same = x.firstSeen.slice(0, 16) === x.lastSeen.slice(0, 16);
         return '<div class="queue-row"><div class="queue-info">' +
-          '<div class="qdesc">' + (x.online ? '<span title="Hozir saytda" style="color:#16a34a;">●</span> ' : '') + who +
-            ' <span style="font-weight:500;opacity:.6;font-size:12.5px;">· ' + (x.name ? "Ro'yxatdan o'tgan" : "Ro'yxatdan o'tmagan") + '</span></div>' +
-          '<div class="qseller">' + x.device + ' · ' + x.pageViews + " marta ochgan · " + x.days + ' kun kelgan · birinchi: ' + when(x.firstSeen) + ' · oxirgi: ' + when(x.lastSeen) + '</div>' +
+          '<div class="qdesc">Mehmon #' + x.guestId + ' <span style="font-weight:500;opacity:.6;font-size:12.5px;">· ' + x.device + '</span></div>' +
+          '<div class="qseller">' + (same ? 'Kirgan: ' + when(x.lastSeen) : 'Oxirgi kirgan: ' + when(x.lastSeen) + ' · birinchi marta: ' + when(x.firstSeen)) + '</div>' +
           '</div></div>';
-      }).join('') || '<div class="empty-admin">Hozircha tashrif yo\'q.</div>';
+      }).join('') || '<div class="empty-admin">Hozircha ro\'yxatdan o\'tmagan tashrif buyuruvchi yo\'q.</div>';
       wrap.innerHTML =
         '<div class="admin-stats">' +
-          '<div class="astat"><div class="n">' + v.onlineNow + '</div><div class="l">Hozir saytda</div></div>' +
-          '<div class="astat"><div class="n">' + v.today + '</div><div class="l">Bugun kirganlar</div></div>' +
-          '<div class="astat"><div class="n">' + v.newToday + '</div><div class="l">Bugun yangi kelganlar</div></div>' +
-          '<div class="astat"><div class="n">' + v.week + '</div><div class="l">Shu hafta</div></div>' +
-          '<div class="astat"><div class="n">' + v.month + '</div><div class="l">Shu oy</div></div>' +
-        '</div>' +
-        '<div class="admin-stats">' +
-          '<div class="astat"><div class="n">' + v.total + '</div><div class="l">Jami tashrif buyuruvchilar</div></div>' +
-          '<div class="astat"><div class="n">' + v.registered + '</div><div class="l">Ro\'yxatdan o\'tganlar</div></div>' +
-          '<div class="astat"><div class="n">' + v.guests + '</div><div class="l">Mehmonlar (ro\'yxatdan o\'tmagan)</div></div>' +
-        '</div>' +
-        '<h3 style="margin:18px 0 10px;">Oxirgi tashriflar</h3>' + rows;
+          '<div class="astat"><div class="n">' + v.guests + '</div><div class="l">Ro\'yxatdan o\'tmagan tashrif buyuruvchilar</div></div>' +
+        '</div>' + rows;
     }).catch(function(err){
       console.error('admin tashriflar xato:', err);
       wrap.innerHTML = '<div class="empty-admin">Tashriflarni yuklashda xato yuz berdi.</div>';
