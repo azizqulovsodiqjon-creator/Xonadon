@@ -14,10 +14,26 @@
     if(!list.length){ wrap.innerHTML = '<div class="empty-note">Hozircha xabar yo\'q. Birinchi bo\'lib yozing!</div>'; return; }
     wrap.innerHTML = list.map(function(m){
       var mine = m.sender === me;
+      // An admin-granted discount ("... VIP'ga e'lon qo'shishingiz uchun
+      // 30% chegirma berildi!") gets a button straight to posting at that tier.
+      var discount = !mine && /chegirma berildi/.test(m.text) && m.text.match(/(VIP|TOP)'ga/);
       return '<div class="msg-bubble ' + (mine?'mine':'theirs') + '">' + escapeHtml(m.text) +
+        (discount ? '<button type="button" class="msg-action" data-tier="' + discount[1].toLowerCase() + '">Foydalanish</button>' : '') +
         '<span class="msg-time">' + formatMsgTime(m.created_at) + '</span></div>';
     }).join('');
+    wrap.querySelectorAll('.msg-action[data-tier]').forEach(function(btn){
+      btn.addEventListener('click', function(){ useDiscountNow(this.getAttribute('data-tier')); });
+    });
     wrap.scrollTop = wrap.scrollHeight;
+  }
+  // "Foydalanish": close the chat and open a new listing with that tier
+  // already picked, so the discount shows on the price.
+  function useDiscountNow(tier){
+    document.querySelectorAll('.side-panel.open').forEach(function(p){ p.classList.remove('open'); });
+    document.getElementById('backdrop').classList.remove('open');
+    document.getElementById('postAdBtn').click();
+    var tierBtn = document.querySelector('#tierToggle [data-tier="' + tier + '"]');
+    if(tierBtn) tierBtn.click();
   }
   function openMessageThread(otherUsername){
     currentThreadWith = otherUsername;

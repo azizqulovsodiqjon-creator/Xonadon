@@ -488,6 +488,8 @@
   .thread-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:18px 22px;}
   .msg-bubble{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word;}
   .msg-bubble.mine{align-self:flex-end;background:var(--turquoise);color:#fff;border-bottom-right-radius:4px;}
+  .msg-action{display:block;margin-top:8px;background:var(--accent2);color:#fff;border:none;border-radius:999px;padding:8px 18px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit;}
+  .msg-action:hover{opacity:0.9;}
   .msg-bubble.theirs{align-self:flex-start;background:var(--paper);color:var(--ink);border-bottom-left-radius:4px;}
   .msg-time{font-size:10.5px;opacity:.7;margin-top:3px;display:block;}
   .thread-input-row{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--line);flex-shrink:0;}
