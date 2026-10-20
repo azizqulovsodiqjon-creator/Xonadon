@@ -83,7 +83,7 @@
     var discountText = '';
     var discountPercent = paymentInfo.discounts ? paymentInfo.discounts[tier] : null;
     if(discountPercent && (tier === 'top' || tier === 'vip')){
-      discountText = ' 🎁 Sizda ' + stageLabels[tier] + ' uchun ' + discountPercent + '% chegirma bor!';
+      discountText = ' Sizda ' + stageLabels[tier] + ' uchun ' + discountPercent + '% chegirma bor!';
     }
     return lifecycleText + ' ' + countText + discountText;
   }
@@ -148,9 +148,9 @@
     wrap.innerHTML = postPhotos.map(function(p, i){
       var state = p.uploading ? ' uploading' : (p.failed ? ' upload-failed' : '');
       return '<div class="upload-thumb'+state+'"><img src="'+p.url+'" alt="">' +
-        (p.uploading ? '<span class="upload-spinner">⏳</span>' : '') +
-        (p.failed ? '<span class="upload-spinner" title="Yuklanmadi">⚠️</span>' : '') +
-        '<button type="button" class="rm" data-i="'+i+'">✕</button></div>';
+        (p.uploading ? '<span class="upload-spinner"><span class="spin"></span></span>' : '') +
+        (p.failed ? '<span class="upload-spinner failed" title="Yuklanmadi">' + ico('alert', 20) + '</span>' : '') +
+        '<button type="button" class="rm" data-i="'+i+'" aria-label="Olib tashlash">' + ico('x', 13) + '</button></div>';
     }).join('');
     wrap.querySelectorAll('.rm').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -169,8 +169,8 @@
       box.innerHTML =
         '<audio controls src="'+postVoiceNoteUrl+'" style="width:100%;margin-bottom:10px;"></audio>' +
         '<div style="display:flex;gap:10px;">' +
-          '<button type="button" class="qbtn" id="voiceReRecordBtn">🔁 Qayta yozish</button>' +
-          '<button type="button" class="qbtn del" id="voiceRemoveBtn">🗑 O\'chirish</button>' +
+          '<button type="button" class="qbtn" id="voiceReRecordBtn">' + ico('refresh', 14) + ' Qayta yozish</button>' +
+          '<button type="button" class="qbtn del" id="voiceRemoveBtn">' + ico('trash', 14) + ' O\'chirish</button>' +
         '</div>';
       document.getElementById('voiceReRecordBtn').addEventListener('click', startVoiceRecording);
       document.getElementById('voiceRemoveBtn').addEventListener('click', function(){
@@ -180,7 +180,7 @@
       });
       return;
     }
-    box.innerHTML = '<button type="button" class="btn-full-outline" id="voiceRecordBtn" style="margin-top:0;">🎤 Ovozli xabar yozish</button>';
+    box.innerHTML = '<button type="button" class="btn-full-outline" id="voiceRecordBtn" style="margin-top:0;">' + ico('mic', 17) + ' Ovozli xabar yozish</button>';
     document.getElementById('voiceRecordBtn').addEventListener('click', startVoiceRecording);
   }
   function startVoiceRecording(){
@@ -204,7 +204,7 @@
       });
       voiceRecorder.start();
       var startedAt = Date.now();
-      box.innerHTML = '<button type="button" class="btn-full-black" id="voiceStopBtn" style="margin-top:0;background:var(--red);">⏹ To\'xtatish (<span id="voiceTimer">0:00</span>)</button>';
+      box.innerHTML = '<button type="button" class="btn-full-black" id="voiceStopBtn" style="margin-top:0;background:var(--red);">' + ico('stop', 14) + ' To\'xtatish (<span id="voiceTimer">0:00</span>)</button>';
       document.getElementById('voiceStopBtn').addEventListener('click', function(){ voiceRecorder.stop(); });
       voiceRecorderTimer = setInterval(function(){
         var secs = Math.floor((Date.now()-startedAt)/1000);
@@ -472,7 +472,7 @@
       options: {position: 'topright'},
       onAdd: function(){
         var div = L.DomUtil.create('div', 'leaflet-bar map-corner-btn');
-        div.innerHTML = '<a href="#" role="button" title="Mening joylashuvim" aria-label="Mening joylashuvim">&#128205;</a>';
+        div.innerHTML = '<a href="#" role="button" title="Mening joylashuvim" aria-label="Mening joylashuvim">' + ico('locate', 18) + '</a>';
         L.DomEvent.disableClickPropagation(div);
         L.DomEvent.on(div.querySelector('a'), 'click', function(e){ L.DomEvent.preventDefault(e); locateForPost(true); });
         return div;

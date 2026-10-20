@@ -18,21 +18,24 @@
       return '<button class="vip-card" data-id="' + l.id + '">' +
         '<img src="' + l.img + '" alt="">' +
         '<div class="grad"></div>' +
-        '<div class="vip-badge">★ VIP</div>' +
+        '<div class="vip-badge">VIP</div>' +
         (filterState.owner ? '<div class="owner-badge" style="top:44px;">' + displayName(l.seller) + '</div>' : '') +
         '<div class="vip-info"><div class="vip-price">' + formatPrice(l) + '</div>' +
         '<div class="vip-place">' + lt(l,'title') + ' · ' + trValue(l.district) + '</div></div>' +
       '</button>';
-    }).join('') : '<div class="empty-note">Hozircha VIP e\'lon yo\'q.</div>';
+    }).join('') : '';
+    // no VIP listings right now -> no empty "VIP e'lonlar" block at all
+    var vipSection = document.querySelector('.vip-section');
+    if(vipSection) vipSection.classList.toggle('hidden', !vip.length);
 
     if(!regular.length){
-      regWrap.innerHTML = '<div class="empty-note">Hech qanday e\'lon topilmadi. Filtrlarni o\'zgartirib ko\'ring.</div>';
+      regWrap.innerHTML = '<div class="empty-note">Bu tanlov bo\'yicha e\'lon yo\'q. Boshqa tuman, tur yoki narxni tanlab ko\'ring.</div>';
     } else {
       regWrap.innerHTML = regular.map(function(l){
         return '<button class="listing" data-id="' + l.id + '">' +
           '<div class="thumb"><img src="' + l.img + '" alt="">' +
             (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
-            (l.top ? '<div class="top-badge">▲ TOP</div>' : '') +
+            (l.top ? '<div class="top-badge">TOP</div>' : '') +
             // Shown only while the "Egasi" filter is on, so buyers can
             // see at a glance whose listing each card is - stacked below
             // the TOP badge when both apply, so they never overlap.
@@ -40,8 +43,8 @@
             '<div class="type-badge">' + trValue(l.type) + '</div>' +
           '</div>' +
           '<div class="body"><div class="price">' + formatPrice(l) + '</div>' +
-          '<div class="desc">' + lt(l,'title') + ', ' + trValue(l.district) + '</div>' +
-          '<div class="meta"><span>' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</span></div></div>' +
+          '<div class="desc">' + lt(l,'title') + '</div>' +
+          '<div class="meta"><span class="m-place">' + trValue(l.district) + '</span><span class="m-date">' + listingAgeLabel(l) + '</span></div></div>' +
         '</button>';
       }).join('');
     }

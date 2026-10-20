@@ -69,7 +69,7 @@
     fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(myUsername()))
       .then(function(r){ return r.json(); })
       .then(function(list){
-        if(!list.length){ wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo\'q</p></div>'; return; }
+        if(!list.length){ wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">' + ico('message', 34) + '</div><p>Hozircha xabarlar yo\'q</p></div>'; return; }
         wrap.innerHTML = list.map(function(c){
           return '<div class="conv-row" data-with="' + c.username + '">' +
             '<div class="ps-avatar"></div>' +

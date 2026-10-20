@@ -202,7 +202,7 @@
       var wrap = document.getElementById('myLikesList');
       var mine = listings.filter(function(l){ return myLikedIds.indexOf(l.id) !== -1; });
       if(!mine.length){
-        wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">🤍</div><p>Hali hech qanday e\'longa layk bosmagansiz</p></div>';
+        wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">' + ico('heart', 34) + '</div><p>Hali hech qanday e\'longa layk bosmagansiz</p></div>';
         return;
       }
       wrap.innerHTML = mine.map(function(l){
@@ -341,28 +341,28 @@
         .then(function(r){ return r.json(); })
         .then(function(s){
           if(s.verified){
-            box.innerHTML = '<div class="badge">✓</div><h3>Profilingiz tasdiqlangan</h3>' +
+            box.innerHTML = '<div class="badge">' + ico('check', 30) + '</div><h3>Profilingiz tasdiqlangan</h3>' +
               '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;">Ismingiz yonida tasdiqlash belgisi ko\'rinadi.</p>';
             return;
           }
           if(s.pending){
-            box.innerHTML = '<div class="badge">⏳</div><h3>Ko\'rib chiqilmoqda</h3>' +
+            box.innerHTML = '<div class="badge">' + ico('clock', 30) + '</div><h3>Ko\'rib chiqilmoqda</h3>' +
               '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;">Hujjatlaringiz yuborildi, admin tez orada ko\'rib chiqadi.</p>';
             return;
           }
           box.innerHTML =
-            '<div class="badge">✓</div>' +
+            '<div class="badge">' + ico('check', 30) + '</div>' +
             '<h3>Profilingizni tasdiqlang</h3>' +
             '<p style="color:rgba(var(--ink-rgb),0.6);font-size:13.5px;margin-bottom:20px;">Ismingiz yonida belgi paydo bo\'ladi — foydalanuvchilar sizga ko\'proq ishonadi.</p>' +
             '<div style="display:flex;gap:14px;text-align:left;">' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">📄 Pasport/ID rasmi</div>' +
-                '<div class="upload-tile" id="verifyIdTile" style="width:100%;height:110px;font-size:26px;">📄</div>' +
+                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">' + ico('idcard', 15) + ' Pasport/ID rasmi</div>' +
+                '<div class="upload-tile" id="verifyIdTile" style="width:100%;height:110px;">' + ico('idcard', 30) + '</div>' +
                 '<input type="file" id="verifyIdInput" accept="image/*" class="hidden">' +
               '</div>' +
               '<div style="flex:1;">' +
-                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">🤳 Hujjatli selfie</div>' +
-                '<div class="upload-tile" id="verifySelfieTile" style="width:100%;height:110px;font-size:26px;">🤳</div>' +
+                '<div style="font-weight:700;font-size:13px;margin-bottom:8px;">' + ico('selfie', 15) + ' Hujjatli selfie</div>' +
+                '<div class="upload-tile" id="verifySelfieTile" style="width:100%;height:110px;">' + ico('selfie', 30) + '</div>' +
                 '<input type="file" id="verifySelfieInput" accept="image/*" class="hidden">' +
               '</div>' +
             '</div>' +
@@ -434,7 +434,7 @@
         .catch(function(){ document.getElementById('mySoldCount').textContent = 0; });
       var box = document.getElementById('myProfileTabContent');
       if(!mine.length){
-        box.innerHTML = '<div class="empty-state"><div class="emoji-box">🏠</div><p>Sizda hali e\'lonlar yo\'q</p></div>';
+        box.innerHTML = '<div class="empty-state"><div class="emoji-box">' + ico('home', 34) + '</div><p>Sizda hali e\'lonlar yo\'q</p></div>';
         return;
       }
       box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){
@@ -474,7 +474,7 @@
       loadMyLikes(function(){
         var mine = listings.filter(function(l){ return myLikedIds.indexOf(l.id) !== -1; });
         if(!mine.length){
-          box.innerHTML = '<div class="empty-state"><div class="emoji-box">⭐</div><p>Sevimlilar ro\'yxati bo\'sh</p></div>';
+          box.innerHTML = '<div class="empty-state"><div class="emoji-box">' + ico('star', 34) + '</div><p>Sevimlilar ro\'yxati bo\'sh</p></div>';
           return;
         }
         box.innerHTML = '<div class="grid" style="padding:16px 0;">' + mine.map(function(l){

@@ -40,10 +40,10 @@
       '</div>' +
       '<div id="upgradeTierPayRow" class="hidden">' +
         '<div class="toggle-row" style="margin:10px 0;" id="upgradeTierPayMethod">' +
-          '<button type="button" class="sel" data-method="card">💳 Karta orqali</button>' +
+          '<button type="button" class="sel" data-method="card">' + ico('card') + ' Karta orqali</button>' +
           '<button type="button" class="hidden" data-method="payme">Payme</button>' +
           '<button type="button" class="hidden" data-method="click">Click</button>' +
-          '<button type="button" data-method="balance">👛 Balansdan (<span id="upgradeBalanceAmount">' + formatUsd(myBalanceCents()) + '</span>)</button>' +
+          '<button type="button" data-method="balance">' + ico('wallet') + ' Balansdan (<span id="upgradeBalanceAmount">' + formatUsd(myBalanceCents()) + '</span>)</button>' +
         '</div>' +
         '<button type="button" class="btn-full-black" id="upgradeConfirmBtn" style="margin-top:0;">To\'lov qilish</button>' +
       '</div>';

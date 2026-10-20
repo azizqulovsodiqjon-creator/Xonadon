@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ og_title|default:"Jizzax-Joy — uy-joy e'lonlari" }}</title>
-<meta name="description" content="{% if og_title %}{{ og_description }}{% else %}Jizzax-Joy — Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari. To'g'ridan-to'g'ri egasidan, admin tomonidan tasdiqlangan, ishonchli e'lonlar. Bepul e'lon joylang yoki uy-joy qidiring.{% endif %}">
+<meta name="description" content="{% if og_title %}{{ og_description }}{% else %}Jizzax-Joy — Jizzax shahri va tumanlaridagi kvartira, hovli, do'kon va yer e'lonlari. E'lonlarni uy egalarining o'zi qo'yadi: narxi, rasmlari va xaritadagi joyi bilan. E'lon qo'yish tekin.{% endif %}">
 <meta name="keywords" content="Jizzax uy joy, Jizzax kvartira, Jizzax ko'chmas mulk, Jizzax hovli sotiladi, Jizzax ijara, uy-joy e'lonlari Jizzax">
 <meta property="og:title" content="{{ og_title|default:"Jizzax-Joy — uy-joy e'lonlari" }}">
 <meta property="og:description" content="{{ og_description|default:"Jizzax viloyati bo'ylab kvartira, hovli, tijorat binosi va yer e'lonlari — bitta manzilda." }}">
@@ -31,7 +31,7 @@
 <meta name="apple-mobile-web-app-title" content="Jizzax-Joy">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -130,19 +130,19 @@
 
   <section class="vip-section">
     <div class="vip-head">
-      <div><span class="eyebrow">Tanlangan e'lonlar</span><h2>VIP e'lonlar</h2></div>
+      <div><h2>VIP e'lonlar</h2></div>
     </div>
     <div class="vip-scroll" id="vipScroll"></div>
   </section>
 
-  <div class="results-bar"><div class="results-count"><b id="regularCount">0</b> ta e'lon</div></div>
+  <div class="results-bar"><h2 class="results-title">Barcha e'lonlar</h2><div class="results-count"><b id="regularCount">0</b> ta e'lon</div></div>
   <section class="grid view-grid" id="regularGrid"></section>
 
   <footer class="site-footer">
     <div class="footer-top">
       <div class="footer-brand">
         <div class="logo"><span class="logo-mark"><svg viewBox="0 0 32 32" fill="#fff"><rect x="6" y="12" width="4" height="14" rx="0.5"/><rect x="14" y="6" width="4" height="20" rx="0.5"/><rect x="22" y="13" width="4" height="13" rx="0.5"/><rect x="7" y="15" width="1.6" height="1.6" fill="var(--accent)"/><rect x="7" y="19" width="1.6" height="1.6" fill="var(--accent)"/><rect x="15" y="9" width="1.6" height="1.6" fill="var(--accent)"/><rect x="15" y="13" width="1.6" height="1.6" fill="var(--accent)"/><rect x="15" y="17" width="1.6" height="1.6" fill="var(--accent)"/><rect x="23" y="16" width="1.6" height="1.6" fill="var(--accent)"/><rect x="23" y="20" width="1.6" height="1.6" fill="var(--accent)"/><path d="M3,25 L16,14 L29,25" stroke="#fff" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" fill="none"/></svg></span> Jizzax-Joy</div>
-        <p>Jizzax viloyati bo'ylab uy-joy sotish, sotib olish va topish uchun onlayn platforma. To'g'ridan-to'g'ri egasidan, tekshirilgan e'lonlar.</p>
+        <p>Jizzaxda uy sotmoqchi yoki ijaraga olmoqchimisiz? E'loningizni shu yerga tekin qo'ying. Har bir e'londa egasining telefoni bor — vositachisiz, o'zingiz gaplashasiz.</p>
       </div>
       <div class="footer-col">
         <h4>Havolalar</h4>
@@ -173,10 +173,10 @@
   <div class="info-wrap">
     <h2>Aloqa</h2>
     <div class="info-lead">Savol va takliflaringiz bo'yicha biz bilan bog'lanishingiz mumkin.</div>
-    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
-    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
-    <div class="contact-row"><span class="ic">✈️</span><a href="https://t.me/joyjizzax" target="_blank" rel="noopener">Telegram orqali yozish</a></div>
-    <div class="contact-row"><span class="ic">📷</span><a href="https://www.instagram.com/joy.jizzax" target="_blank" rel="noopener">Instagram orqali yozish</a></div>
+    <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
+    <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+    <div class="contact-row"><span class="ic" data-ico="send"></span><a href="https://t.me/joyjizzax" target="_blank" rel="noopener">Telegram orqali yozish</a></div>
+    <div class="contact-row"><span class="ic" data-ico="instagram"></span><a href="https://www.instagram.com/joy.jizzax" target="_blank" rel="noopener">Instagram orqali yozish</a></div>
   </div>
 </div>
 
@@ -185,11 +185,11 @@
   <div class="info-wrap">
     <h2>Yordam</h2>
     <div class="info-lead">Tez-tez so'raladigan savollar</div>
-    <div class="faq-item"><h4>Jizzax-Joy nima?</h4><p>Jizzax-Joy — bu ko'chmas mulk sohasidagi barcha jarayonlarda to'g'ridan-to'g'ri yordam beruvchi onlayn platforma.</p></div>
+    <div class="faq-item"><h4>Jizzax-Joy nima?</h4><p>Jizzax viloyatidagi uy-joy e'lonlari sayti. Kvartira, hovli, do'kon yoki yer sotayotganlar e'lon qo'yadi, izlayotganlar esa kerakli uyni topib, egasiga o'zi qo'ng'iroq qiladi.</p></div>
     <div class="faq-item"><h4>E'lonni qanday qo'shish mumkin?</h4><p>Avval ro'yxatdan o'ting (telefon raqami orqali), so'ngra "E'lon joylash" tugmasini bosib qadamma-qadam formani to'ldiring.</p></div>
     <div style="margin-top:26px;">
-      <div class="contact-row"><span class="ic">📞</span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
-      <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+      <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
+      <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
     </div>
   </div>
 </div>
@@ -199,8 +199,8 @@
   <div class="info-wrap">
     <h2>Reklama va hamkorlik</h2>
     <div class="info-lead">Ilovada va veb-saytda reklama bo'yicha quyidagi raqamlarga murojaat qiling:</div>
-    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
-    <div class="contact-row"><span class="ic">📞</span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
+    <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998501795282">+998 50 179 52 82</a></div>
+    <div class="contact-row"><span class="ic" data-ico="phone"></span><a href="tel:+998990932401">+998 99 093 24 01</a></div>
   </div>
 </div>
 
@@ -319,7 +319,7 @@
           <div class="quick-amounts" id="quickAmounts"><button data-v="1">$1</button><button data-v="3">$3</button><button data-v="5">$5</button><button data-v="10">$10</button></div>
         </div>
         <div class="toggle-row" id="topUpMethodToggle" style="max-width:420px;margin-top:18px;">
-          <button type="button" class="sel" data-method="card">💳 Karta (Stripe)</button>
+          <button type="button" class="sel" data-method="card"><span data-ico="card"></span> Karta (Stripe)</button>
           <button type="button" class="hidden" data-method="payme">Payme</button>
           <button type="button" class="hidden" data-method="click">Click</button>
         </div>
@@ -327,7 +327,7 @@
         <button class="btn-full-black" style="max-width:320px;margin-top:22px;" id="topUpBtn">Stripe orqali to'ldirish</button>
       </div>
       <div id="sub-xabarlar" class="hidden">
-        <div id="xabarlarList"><div class="empty-state"><div class="emoji-box">💬</div><p>Hozircha xabarlar yo'q</p></div></div>
+        <div id="xabarlarList"><div class="empty-state"><div class="emoji-box" data-ico="message" data-ico-size="34"></div><p>Hozircha xabarlar yo'q</p></div></div>
       </div>
       <div id="sub-tasdiqlash" class="hidden">
         <div class="verify-box" id="verifyBoxContent"></div>
@@ -340,7 +340,7 @@
 <div class="page" id="pagePost">
   <div class="post-head"><button class="back-btn" id="postBack">← Orqaga</button></div>
   <div class="post-body" id="postStep1">
-    <div class="post-title">Qo'shish</div>
+    <div class="post-title">E'lon joylash</div>
     <div class="section-label">Sotuvchi sifatida</div>
     <div class="option-row" data-role="Kunlik ijaraga beraman" data-deal="kunlik"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kunlik ijaraga beraman</div>
     <div class="option-row" data-role="Ijaraga beraman" data-deal="ijara"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4v16M12 4v16M20 4v16"/><path d="M4 4h16"/></svg>Ijaraga beraman</div>
@@ -350,7 +350,7 @@
     <div class="option-row" data-role="Sotib olaman" data-deal="sotuv" data-buyer="1"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg>Sotib olaman</div>
   </div>
   <div class="post-body hidden" id="postStep2">
-    <div class="post-title">Qo'shish</div>
+    <div class="post-title">Qanday mulk?</div>
     <div class="option-row" data-cat="Kvartira" data-typekey="kvartira"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Kvartira</div>
     <div class="option-row" data-cat="Hovli/dacha" data-typekey="hovli"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Hovli/dacha</div>
     <div class="option-row" data-cat="Tijorat binolari" data-typekey="tijorat" id="typeRowTijorat"><svg class="opt-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h1M14 8h1M9 12h1M14 12h1M9 16h1M14 16h1"/></svg>Tijorat binolari</div>
@@ -371,7 +371,7 @@
       </div>
       <div style="font-size:13px;color:rgba(var(--ink-rgb),0.55);margin:4px 0 14px;">Birinchi rasm asosiy bo'ladi va e'lonlarda ko'rsatiladi</div>
       <div id="uploadThumbs" class="upload-thumbs"></div>
-      <div class="upload-tile" id="uploadTile">📷</div>
+      <div class="upload-tile" id="uploadTile" data-ico="camera" data-ico-size="26"></div>
       <input type="file" id="postFileInput" accept="image/*" multiple class="hidden">
     </div>
 
@@ -438,7 +438,7 @@
 
     <div class="location-card">
       <div class="lt">Joylashuv qo'shish</div>
-      <div style="font-size:12.5px;color:rgba(var(--ink-rgb),0.55);">Ilova xaritasida ko'rinish uchun joylashuv qo'shing. Xaritada ko'rsatilgan e'lonlar 3x ko'proq ko'riladi.</div>
+      <div style="font-size:12.5px;color:rgba(var(--ink-rgb),0.55);">Uy xaritada ko'rinsa, izlayotganlar uni tezroq topadi. Ko'cha nomini yozing yoki xaritadan belgilang.</div>
       <div class="post-location-search">
         <input type="text" id="postLocationSearchInput" placeholder="Ko'cha va uy raqami, mahalla yoki joy nomi (masalan: 32-maktab)">
         <button type="button" id="postLocationSearchBtn">Qidirish</button>
@@ -464,20 +464,19 @@
           <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg></span>
           <span class="tier-card-name">Oddiy</span>
           <span class="tier-card-price">Tekin</span>
-          <span class="tier-card-feats">Oddiy ro'yxatda<br>Standart ko'rinish</span>
+          <span class="tier-card-feats">Umumiy ro'yxatda,<br>yangi e'lonlar qatorida</span>
         </button>
         <button class="tier-card" data-tier="top">
           <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
           <span class="tier-card-name">TOP</span>
           <span class="tier-card-price">35 000 so'm</span>
-          <span class="tier-card-feats">✓ Yuqorida chiqadi<br>✓ Ko'proq ko'rish</span>
+          <span class="tier-card-feats"><span data-ico="check" data-ico-size="13"></span> Oddiy e'lonlardan oldin turadi<br><span data-ico="check" data-ico-size="13"></span> Ko'proq odam ko'radi</span>
         </button>
         <button class="tier-card tier-card-vip" data-tier="vip">
-          <span class="tier-card-badge">Eng mashhur</span>
           <span class="tier-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.3 6.8L12 17.6 5.9 20.8l1.3-6.8-5-4.8 6.9-.9z"/></svg></span>
           <span class="tier-card-name">VIP</span>
           <span class="tier-card-price">100 000 so'm</span>
-          <span class="tier-card-feats">✓ Bosh sahifada<br>✓ 10x ko'proq ko'rish</span>
+          <span class="tier-card-feats"><span data-ico="check" data-ico-size="13"></span> Bosh sahifaning eng tepasida<br><span data-ico="check" data-ico-size="13"></span> Katta rasm bilan alohida qatorda</span>
         </button>
       </div>
       <div class="tier-info" id="tierInfo"></div>
@@ -485,10 +484,10 @@
     <div class="payment-summary" id="paymentSummary">
       <div class="payment-summary-row"><span>To'lov summasi</span><span class="payment-amount" id="paymentAmount">$4.00</span></div>
       <div class="toggle-row" id="postPayMethodToggle" style="margin:12px 0;">
-        <button type="button" class="sel" data-method="card">💳 Karta orqali</button>
+        <button type="button" class="sel" data-method="card"><span data-ico="card"></span> Karta orqali</button>
         <button type="button" class="hidden" data-method="payme">Payme</button>
         <button type="button" class="hidden" data-method="click">Click</button>
-        <button type="button" data-method="balance">👛 Balansdan (<span id="postPayBalanceAmount">$0.00</span>)</button>
+        <button type="button" data-method="balance"><span data-ico="wallet"></span> Balansdan (<span id="postPayBalanceAmount">$0.00</span>)</button>
       </div>
       <div class="payment-summary-note" id="paymentNote">Karta tanlansa, keyingi qadamda summa va e'lon turi Stripe to'lov sahifasida ko'rsatiladi.</div>
     </div>
@@ -499,7 +498,7 @@
 <!-- ============ ADMIN LOGIN MODAL ============ -->
 <div class="overlay" id="adminLoginModal">
   <div class="modal">
-    <button class="modal-close" id="loginCloseBtn">✕</button>
+    <button class="modal-close" id="loginCloseBtn" aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button>
     <h3>Admin kirish</h3>
     <form id="adminLoginForm">
       <div class="field"><label>Login</label><input required id="a_user" placeholder="Login"></div>
@@ -512,7 +511,7 @@
 
 <!-- ============ SIDE PANELS ============ -->
 <div class="side-panel" id="profileSearchPanel">
-  <div class="side-panel-head"><h3>Profil qidirish</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-head"><h3>Profil qidirish</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
   <div class="side-panel-body">
     <div class="ps-search"><input type="text" id="psInput" placeholder="Sotuvchi nomini kiriting"></div>
     <div class="ps-count"><span id="psCountNum">0</span> sotuvchi</div>
@@ -521,17 +520,17 @@
 </div>
 
 <div class="side-panel" id="notifPanel">
-  <div class="side-panel-head"><h3>Xabarlar</h3><button class="close-x" data-close>✕</button></div>
-  <div class="side-panel-body"><div id="notifMessagesList"><div class="empty-state"><div class="emoji-box">🔔</div><p>Hozircha bildirishnomalar yo'q</p></div></div></div>
+  <div class="side-panel-head"><h3>Xabarlar</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
+  <div class="side-panel-body"><div id="notifMessagesList"><div class="empty-state"><div class="emoji-box" data-ico="bell" data-ico-size="34"></div><p>Hozircha bildirishnomalar yo'q</p></div></div></div>
 </div>
 
 <div class="side-panel" id="myLikesPanel">
-  <div class="side-panel-head"><h3>Layk bosgan e'lonlarim</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-head"><h3>Layk bosgan e'lonlarim</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
   <div class="side-panel-body"><div class="grid" id="myLikesList" style="padding:0;"></div></div>
 </div>
 
 <div class="side-panel" id="filtersPanel">
-  <div class="side-panel-head"><h3>Filtrlar</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-head"><h3>Filtrlar</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
   <div class="side-panel-body">
     <div class="field"><label>Tuman</label>
       <select id="filterDistrict">
@@ -551,7 +550,7 @@
 </div>
 
 <div class="side-panel" id="messageThreadPanel">
-  <div class="side-panel-head"><h3 id="threadWithName">Xabar</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-head"><h3 id="threadWithName">Xabar</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
   <div class="side-panel-body">
     <div id="threadMessages" class="thread-messages"></div>
     <div class="thread-input-row">
@@ -562,7 +561,7 @@
 </div>
 
 <div class="side-panel" id="editProfilePanel">
-  <div class="side-panel-head"><h3>Profilni tahrirlash</h3><button class="close-x" data-close>✕</button></div>
+  <div class="side-panel-head"><h3>Profilni tahrirlash</h3><button class="close-x" data-close aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button></div>
   <div class="side-panel-body">
     <div class="field"><label>Ism familiya</label><input type="text" id="editFullNameInput" placeholder="Ism familiya"></div>
     <div class="field"><label>Foydalanuvchi nomi</label><input type="text" id="editUsernameInput" placeholder="username"></div>
@@ -594,7 +593,7 @@
     </div>
   </div>
   <div class="auth-full-form">
-    <button class="close-x auth-close" id="authPhoneClose">✕</button>
+    <button class="close-x auth-close" id="authPhoneClose" aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button>
     <h2>Kirish</h2>
     <div class="auth-terms" style="margin-top:0;">Davom etish orqali siz Ommaviy Oferta Shartlariga rozilik bildirasiz.</div>
     <input type="hidden" id="phoneInput" value="">
@@ -643,7 +642,7 @@
     </div>
   </div>
   <div class="auth-full-form">
-    <button class="close-x auth-close" id="authCodeClose">✕</button>
+    <button class="close-x auth-close" id="authCodeClose" aria-label="Yopish"><span data-ico="x" data-ico-size="16"></span></button>
     <h2>Kodni kiriting</h2>
     <label id="codeSubLabel">Raqamingizga yuborilgan 6 xonali kod</label>
     <div class="code-boxes" id="codeBoxes">
@@ -657,7 +656,7 @@
 
 <div class="auth-gate hidden" id="authProfileScreen">
   <div class="auth-gate-box" style="max-width:400px;text-align:left;">
-    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#2F6FED,#1B3A8C);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;">👤</div>
+    <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#2F6FED,#1B3A8C);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;" data-ico="user" data-ico-size="28"></div>
     <h3 style="text-align:center;">Deyarli tayyor!</h3>
     <p style="text-align:center;color:rgba(var(--ink-rgb),0.6);font-size:13.5px;margin-bottom:20px;">Raqamingiz tasdiqlandi. Endi profilingizni to'ldiring.</p>
     <input type="hidden" id="newProfilePhone">

@@ -160,7 +160,7 @@
     if(postIsBuyer) return null; // no photos/floor to check for a buyer's listing
     if(!postPhotos.length && !editingListingId) return "Iltimos, kamida bitta rasm qo'shing.";
     if(postPhotos.some(function(p){ return p.uploading; })) return "Rasmlar hali yuklanmoqda, biroz kuting.";
-    if(postPhotos.some(function(p){ return p.failed; })) return "Ba'zi rasmlar yuklanmadi (⚠️ belgili). Iltimos, ularni olib tashlang yoki qayta yuklang.";
+    if(postPhotos.some(function(p){ return p.failed; })) return "Ba'zi rasmlar yuklanmadi (ogohlantirish belgisi bor). Iltimos, ularni olib tashlang yoki qayta yuklang.";
     var floorValCheck = parseInt(document.getElementById('postFloor').value.trim(), 10);
     var floorsTotalCheck = parseInt(document.getElementById('postFloorsTotal').value.trim(), 10);
     if(!isNaN(floorValCheck) && !isNaN(floorsTotalCheck) && floorValCheck > floorsTotalCheck){

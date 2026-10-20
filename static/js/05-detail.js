@@ -59,7 +59,7 @@
           '<div class="detail-gallery" style="position:relative;">' +
             (l.sold ? '<div class="sold-sticker">SOTILDI</div>' : '') +
             '<div class="gallery-main"><img id="galleryMainImg" src="' + galleryPhotos[0] + '" alt="">' +
-              (l.vip ? '<span class="tier-badge vip">★ VIP</span>' : (l.top ? '<span class="tier-badge top">▲ TOP</span>' : '')) +
+              (l.vip ? '<span class="tier-badge vip">VIP</span>' : (l.top ? '<span class="tier-badge top">TOP</span>' : '')) +
               (galleryPhotos.length > 1 ? '<button class="gallery-arrow prev" id="galleryPrev">‹</button><button class="gallery-arrow next" id="galleryNext">›</button><div class="gallery-counter" id="galleryCounter">1/' + galleryPhotos.length + '</div>' : '') +
             '</div>' +
             (galleryPhotos.length > 1 ? '<div class="gallery-thumbs" id="galleryThumbs">' + galleryPhotos.map(function(src,i){ return '<img data-i="'+i+'" src="'+src+'" class="'+(i===0?'active':'')+'">'; }).join('') + '</div>' : '') +
@@ -86,9 +86,9 @@
           '</div>' +
           '<h1 class="detail-title">' + lt(l,'title') + '</h1>' +
           '<div class="detail-price">' + formatPrice(l) + '</div>' +
-          '<div class="location-row"><span class="pin">📍</span>' + trValue(l.district) + '<span class="view-count">· 👁 ' + l.viewsCount + ' ko\'rildi</span></div>' +
+          '<div class="location-row"><span class="pin">' + ico('pin', 15) + '</span>' + trValue(l.district) + '<span class="view-count">' + ico('eye', 14) + ' ' + l.viewsCount + ' ko\'rildi</span></div>' +
           '<div class="detail-desc-text">' + lt(l,'desc') + '</div>' +
-          (l.voiceNote ? '<div class="detail-section"><h3>🎤 Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
+          (l.voiceNote ? '<div class="detail-section"><h3>' + ico('mic', 17) + ' Ovozli xabar</h3><audio controls src="' + l.voiceNote.url + '" style="width:100%;"></audio></div>' : '') +
           '</div>' +
           '<div class="detail-info-block">' +
             '<div class="info-list">' +
@@ -106,7 +106,7 @@
       '</div>' +
       '<div class="detail-section detail-map-section">' +
         '<div class="section-head-row"><h3 style="margin:0;">' + dict.location + '</h3></div>' +
-        '<div class="location-row2"><span class="pin">📍</span>' + trValue(l.district) + '</div>' +
+        '<div class="location-row2"><span class="pin">' + ico('pin', 14) + '</span>' + trValue(l.district) + '</div>' +
         '<div class="map-box" id="detailMap"></div>' +
         '<div class="map-caption">Jizzax viloyati xaritasida taxminiy joylashuv ko\'rsatilgan.</div>' +
         '<button class="action-btn filled" id="detailRouteBtn" style="margin-top:12px;">' + dict.show_route + '</button>' +
