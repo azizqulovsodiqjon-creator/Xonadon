@@ -566,7 +566,19 @@ class ListingViewSet(viewsets.ModelViewSet):
         # editing down further). destroy() below does its own check.
         return [AllowAny()]
 
+    def _guard_tier_flags(self, request):
+        """vip/top are what people pay for: a plain create/edit may only set
+        them while TOP/VIP are free, or when an admin does it - otherwise
+        they're dropped (an edit keeps whatever the listing already had)."""
+        if tiers_free() or (request.user and request.user.is_staff):
+            return
+        if getattr(request.data, '_mutable', None) is False:
+            request.data._mutable = True
+        for key in ('vip', 'top'):
+            request.data.pop(key, None)
+
     def create(self, request, *args, **kwargs):
+        self._guard_tier_flags(request)
         # Free ('regular') listings are created directly here (paid tiers
         # go through Stripe/balance and get linked in
         # _finalize_pending_payment instead) - photos were already
@@ -587,6 +599,7 @@ class ListingViewSet(viewsets.ModelViewSet):
         # pre-upload way as creation, so the same image_ids linking step
         # is needed here too, or newly-added photos on an edit would
         # upload successfully but never actually attach to the listing.
+        self._guard_tier_flags(request)
         response = super().update(request, *args, **kwargs)
         if response.status_code == 200:
             listing = Listing.objects.get(pk=response.data['id'])
@@ -703,6 +716,22 @@ class ListingViewSet(viewsets.ModelViewSet):
             payload={'_upgrade_listing_id': listing.id},
         )
         return Response({'ok': True, 'url': session.url})
+
+    @action(detail=True, methods=['post'], permission_classes=[AllowAny], url_path='upgrade-tier/free')
+    def upgrade_tier_free(self, request, pk=None):
+        """Upgrade to TOP/VIP with no payment - only while TOP/VIP are free."""
+        if not tiers_free():
+            return Response({'ok': False, 'error': "Bu xizmat hozir pullik."}, status=402)
+        listing = self.get_object()
+        claimed_seller = str(request.data.get('seller') or '').strip()
+        if not claimed_seller or claimed_seller != listing.seller:
+            return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
+        tier = str(request.data.get('tier', '')).strip()
+        bad = self._validate_upgrade(listing, tier)
+        if bad:
+            return bad
+        listing = _apply_tier_upgrade(listing, tier)
+        return Response({'ok': True, 'listing': ListingSerializer(listing).data})
 
     @action(detail=True, methods=['post'], permission_classes=[AllowAny], url_path='upgrade-tier/balance')
     def upgrade_tier_balance(self, request, pk=None):
@@ -1466,6 +1495,13 @@ def _discounted_price_cents(base_cents, username, tier):
     return final, discount
 
 
+def tiers_free():
+    """Temporary promo switch: while SiteSetting tiers_free = '1', TOP and
+    VIP cost nothing - posting at either tier (or upgrading to one) needs no
+    payment. Turned on/off by the site owner (see `manage.py tiers_free`)."""
+    return SiteSetting.get('tiers_free', '0') == '1'
+
+
 def _tier_price_uzs(tier, discount):
     base = settings.LISTING_PRICE_UZS[tier]
     if not discount:
@@ -1545,6 +1581,8 @@ def payment_config(request):
         # Payme/Click (real so'm payments) - each shows up on the site
         # only once its keys are set on the server.
         'uzProviders': {p: uzpay.configured(p) for p in uzpay.PROVIDERS},
+        # TOP/VIP are temporarily free - the posting page skips payment
+        'tiersFree': tiers_free(),
         'pricesUzs': settings.LISTING_PRICE_UZS,
         # How many listings are CURRENTLY sitting in each tier right now
         # (not lifetime totals) - shown on the tier-picker so a poster can

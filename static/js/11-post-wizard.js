@@ -235,9 +235,9 @@
       return;
     }
 
-    if(postIsBuyer || !isPaidTier()){
+    if(postIsBuyer || !isPaidTier() || paymentInfo.tiersFree){
       // Regular listings (and every buyer "qidiryapman" listing, always
-      // free/oddiy) skip Stripe entirely.
+      // free/oddiy) skip payment entirely - so does TOP/VIP while it's free.
       btn.disabled = true;
       btn.textContent = 'Joylanmoqda...';
       fetch(API_BASE, {

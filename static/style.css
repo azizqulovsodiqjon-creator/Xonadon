@@ -949,3 +949,6 @@
     .grid:not(.view-list):not(.view-compact) .type-badge{display:none;}
     .grid:not(.view-list):not(.view-compact) .top-badge{top:8px;left:8px;font-size:10px;padding:3px 6px;}
   }
+
+  .tier-card-price .free-now{display:block;color:#1E8E4E;font-weight:800;}
+  body.dark .tier-card-price .free-now{color:#5BD08C;}

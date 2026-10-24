@@ -60,6 +60,8 @@
     "Yordam": {RU: "Помощь", EN: "Help"},
     "Reklama va hamkorlik": {RU: "Реклама и сотрудничество", EN: "Advertising and partnership"},
     "Ommaviy oferta": {RU: "Публичная оферта", EN: "Public offer"},
+    "Hozircha tekin": {RU: "Пока бесплатно", EN: "Free for now"},
+    "Tekin o'tkazish": {RU: "Перевести бесплатно", EN: "Upgrade for free"},
     "Bugun": {RU: "Сегодня", EN: "Today"},
     "Kecha": {RU: "Вчера", EN: "Yesterday"},
     "Jizzaxda uy sotmoqchi yoki ijaraga olmoqchimisiz? E'loningizni shu yerga tekin qo'ying. Har bir e'londa egasining telefoni bor — vositachisiz, o'zingiz gaplashasiz.": {RU: "Продаёте или снимаете жильё в Джизаке? Разместите объявление здесь бесплатно. В каждом объявлении есть телефон владельца — договаривайтесь напрямую, без посредников.", EN: "Selling or renting a home in Jizzakh? Post your listing here for free. Every listing has the owner's phone number — talk to them directly, no middlemen."},

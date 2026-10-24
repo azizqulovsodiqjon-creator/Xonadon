@@ -14,9 +14,23 @@
   var topUpMethod = 'card';
   var PAY_METHOD_NAMES = {card: 'Stripe', payme: 'Payme', click: 'Click'};
 
+  // While TOP/VIP are free for now, their cards show the usual price struck
+  // through with "Hozircha tekin" under it.
+  function markTierCardsFree(){
+    var free = !!paymentInfo.tiersFree;
+    document.querySelectorAll('#tierToggle .tier-card-price').forEach(function(el){
+      var card = el.closest('[data-tier]');
+      if(!card || card.getAttribute('data-tier') === 'regular') return;
+      if(!el.hasAttribute('data-price')) el.setAttribute('data-price', el.textContent);
+      el.innerHTML = free
+        ? '<s style="opacity:.45;font-weight:600;font-size:.8em;">' + el.getAttribute('data-price') + '</s> <span class="free-now">Hozircha tekin</span>'
+        : el.getAttribute('data-price');
+    });
+  }
   function loadPaymentConfig(cb){
     fetch(PAYMENT_CONFIG_API).then(function(r){ return r.json(); }).then(function(data){
       paymentInfo = data;
+      markTierCardsFree();
       updatePaymentSummary();
       if(cb) cb();
     }).catch(function(err){ console.error('payment config xato:', err); if(cb) cb(); });
@@ -103,7 +117,8 @@
         : (postPayMethod === 'balance' ? "Summa balansingizdan yechiladi."
           : "Karta tanlansa, keyingi qadamda summa va e'lon turi Stripe to'lov sahifasida ko'rsatiladi.");
     }
-    if(!isPaidTier()){
+    markTierCardsFree();
+    if(!isPaidTier() || paymentInfo.tiersFree){
       amountEl.textContent = 'Bepul';
       if(methodToggle) methodToggle.classList.add('hidden');
       if(noteEl) noteEl.classList.add('hidden');
@@ -131,7 +146,7 @@
       if(balEl) balEl.textContent = formatUsd(myBalanceCents());
     }
     if(!editingListingId){
-      if(!isPaidTier()){
+      if(!isPaidTier() || paymentInfo.tiersFree){
         finishBtn.textContent = "E'lon joylash";
       } else if(postPayMethod === 'balance'){
         finishBtn.textContent = "Balansdan to'lash va joylash";
@@ -494,6 +509,7 @@
       var uname = document.getElementById('profileUsername').textContent.trim();
       fetch(PAYMENT_CONFIG_API + '?username=' + encodeURIComponent(uname)).then(function(r){ return r.json(); }).then(function(data){
         paymentInfo = data;
+        markTierCardsFree();
         updatePaymentSummary();
       }).catch(function(err){ console.error('payment config (discount) xato:', err); updatePaymentSummary(); });
     }

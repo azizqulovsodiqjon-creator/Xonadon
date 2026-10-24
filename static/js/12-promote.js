@@ -8,6 +8,7 @@
   function upgradeTierPriceLabel(tier){
     var cents = paymentInfo.prices ? paymentInfo.prices[tier] : null;
     var labels = {top: 'TOP', vip: 'VIP'};
+    if(paymentInfo.tiersFree) return labels[tier] + ' — tekin';
     if(uzProviders().length && paymentInfo.pricesUzs){
       return labels[tier] + ' — ' + formatUzs(paymentInfo.pricesUzs[tier]);
     }
@@ -54,6 +55,9 @@
         this.classList.add('sel');
         selectedTier = this.getAttribute('data-tier');
         document.getElementById('upgradeTierPayRow').classList.remove('hidden');
+        // free for now: no payment method to pick
+        document.getElementById('upgradeTierPayMethod').classList.toggle('hidden', !!paymentInfo.tiersFree);
+        document.getElementById('upgradeConfirmBtn').textContent = paymentInfo.tiersFree ? "Tekin o'tkazish" : "To'lov qilish";
       });
     });
     body.querySelectorAll('#upgradeTierPayMethod button').forEach(function(b){
@@ -69,6 +73,30 @@
       var btn = this;
       btn.disabled = true;
       btn.textContent = 'Yuborilmoqda...';
+      if(paymentInfo.tiersFree){
+        fetch(API_BASE + listingId + '/upgrade-tier/free/', {
+          method: 'POST', credentials: 'same-origin',
+          headers: csrfHeaders({'Content-Type': 'application/json'}),
+          body: JSON.stringify({tier: selectedTier, seller: seller})
+        }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+          .then(function(res){
+            if(res.status === 200 && res.data.ok){
+              loadListings(function(){
+                renderPublic();
+                toast("E'lon " + (selectedTier==='vip'?'VIP':'TOP') + "'ga o'tkazildi!");
+                openDetail(listingId, false);
+              });
+            } else {
+              alert((res.data && res.data.error) || "Xato yuz berdi.");
+              btn.disabled = false; btn.textContent = "Tekin o'tkazish";
+            }
+          }).catch(function(err){
+            console.error('upgrade free xato:', err);
+            alert("Xato yuz berdi.");
+            btn.disabled = false; btn.textContent = "Tekin o'tkazish";
+          });
+        return;
+      }
       if(payMethod === 'balance'){
         var needed = paymentInfo.prices ? paymentInfo.prices[selectedTier] : null;
         if(needed != null && myBalanceCents() < needed){

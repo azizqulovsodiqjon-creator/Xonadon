@@ -568,3 +568,32 @@ class VisitorCounterTests(TestCase):
 
     def test_visitor_list_is_admin_only(self):
         self.assertIn(self.client.get('/api/admin/visitors/').status_code, (401, 403))
+
+
+class FreeTiersTests(TestCase):
+    def post_vip(self):
+        return self.client.post('/api/listings/', dict(LISTING_PAYLOAD, vip=True), content_type='application/json')
+
+    def test_vip_needs_payment_unless_tiers_are_free(self):
+        resp = self.post_vip()
+        self.assertEqual(resp.status_code, 201)
+        self.assertFalse(Listing.objects.get(pk=resp.json()['id']).vip)  # dropped: not paid for
+        SiteSetting.put('tiers_free', '1')
+        self.assertTrue(self.client.get('/api/payments/config/').json()['tiersFree'])
+        resp = self.post_vip()
+        listing = Listing.objects.get(pk=resp.json()['id'])
+        self.assertTrue(listing.vip)
+        self.assertEqual(listing.posted_tier, 'vip')
+
+    def test_edit_cannot_sneak_in_a_tier_and_free_upgrade_is_gated(self):
+        listing = _make_listing(photos=0)
+        self.client.patch(f'/api/listings/{listing.id}/', {'vip': True, 'title': 'Yangi'}, content_type='application/json')
+        listing.refresh_from_db()
+        self.assertEqual((listing.vip, listing.title), (False, 'Yangi'))
+        url = f'/api/listings/{listing.id}/upgrade-tier/free/'
+        self.assertEqual(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').status_code, 402)
+        SiteSetting.put('tiers_free', '1')
+        self.assertEqual(self.client.post(url, {'tier': 'top', 'seller': 'vali'}, content_type='application/json').status_code, 403)
+        self.assertTrue(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').json()['ok'])
+        listing.refresh_from_db()
+        self.assertTrue(listing.top)

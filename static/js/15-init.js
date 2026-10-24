@@ -758,7 +758,7 @@
     document.getElementById('finishPostBtn').addEventListener('click', function(){
       var err = validatePostForm();
       if(err){ alert(err); return; }
-      if(!editingListingId && isPaidTier() && postPayMethod === 'card' && !paymentInfo.configured){
+      if(!editingListingId && isPaidTier() && !paymentInfo.tiersFree && postPayMethod === 'card' && !paymentInfo.configured){
         alert("To'lov tizimi hali sozlanmagan. Iltimos, keyinroq urinib ko'ring.");
         return;
       }
