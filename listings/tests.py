@@ -294,8 +294,7 @@ class InstallableAppTests(TestCase):
         for icon in data['icons']:
             self.assertEqual(self.client.get(icon['src'])['Content-Type'], 'image/png')
         page = self.client.get('/').content.decode()
-        # not linked from the page, so Chrome shows no "install app" icon
-        self.assertNotIn('rel="manifest"', page)
+        self.assertIn('rel="manifest" href="/manifest.webmanifest"', page)
         self.assertIn("navigator.serviceWorker.register('/sw.js')", page)
 
     def test_service_worker_served_from_root(self):
