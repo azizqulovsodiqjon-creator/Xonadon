@@ -890,6 +890,15 @@
         });
     }
 
+    // Sign-up: the phone is confirmed with a Telegram code first, then the
+    // account is created with that proof (verify_token).
+    var pendingRegistration = null;
+    function registerAccount(btn, idleLabel){
+      var r = pendingRegistration;
+      submitAuth(btn, idleLabel, SIMPLE_REGISTER_API,
+                 {full_name: r.fullName, phone: r.phone, password: r.password, verify_token: r.token || ''},
+                 "Ro'yxatdan o'tishda xato yuz berdi.");
+    }
     document.getElementById('simpleRegisterBtn').addEventListener('click', function(){
       var fullName = document.getElementById('simpleRegName').value.trim();
       var phone = document.getElementById('simpleRegPhone').value.trim();
@@ -899,9 +908,41 @@
       if(!phone){ alert("Telefon raqamingizni kiriting."); return; }
       if(password.length < 6){ alert("Parol kamida 6 ta belgidan iborat bo'lsin."); return; }
       if(password !== password2){ alert("Parollar bir xil emas."); return; }
-      submitAuth(this, "Ro'yxatdan o'tish", SIMPLE_REGISTER_API,
-                 {full_name: fullName, phone: phone, password: password},
-                 "Ro'yxatdan o'tishda xato yuz berdi.");
+      var btn = this;
+      pendingRegistration = {fullName: fullName, phone: phone, password: password, token: null};
+      btn.disabled = true;
+      fetch(TELEGRAM_START_API, {
+        method: 'POST', credentials: 'same-origin',
+        headers: csrfHeaders({'Content-Type': 'application/json'}),
+        body: JSON.stringify({phone: phone})
+      }).then(function(r){ return r.json().then(function(d){ return {status:r.status, data:d}; }); })
+        .then(function(res){
+          btn.disabled = false;
+          if(res.status === 503){
+            // Telegram verification isn't set up on the server - register directly.
+            pendingRegistration.token = null;
+            registerAccount(btn, "Ro'yxatdan o'tish");
+            return;
+          }
+          if(!res.data.ok){ alert(res.data.error || "Kod yuborishda xato yuz berdi."); pendingRegistration = null; return; }
+          telegramVerifyToken = res.data.token;
+          pendingRegistration.token = res.data.token;
+          document.getElementById('phoneInput').value = phone;
+          var botBox = document.getElementById('codeBotBox');
+          if(res.data.deepLink){
+            telegramDeepLink = res.data.deepLink;
+            document.getElementById('codeBotLink').href = res.data.deepLink;
+            botBox.classList.remove('hidden');
+          } else {
+            botBox.classList.add('hidden');
+          }
+          showCodeScreen();
+        }).catch(function(err){
+          btn.disabled = false;
+          pendingRegistration = null;
+          console.error('telegram start xato:', err);
+          alert("Kod yuborishda xato yuz berdi.");
+        });
     });
 
     // ---- Kirish (telefon + parol) va ro'yxatdan o'tish tablari ----
@@ -929,7 +970,9 @@
     // there's nothing to open or share - just wait for the code.
     function showCodeScreen(){
       var phone = document.getElementById('phoneInput').value.trim();
-      document.getElementById('codeSubLabel').textContent = phone + " raqamiga Telegram orqali yuborilgan 6 xonali kod";
+      document.getElementById('codeSubLabel').textContent = telegramDeepLink
+        ? phone + " raqami uchun Telegram botdan olingan 6 xonali kodni kiriting"
+        : phone + " raqamiga Telegram orqali yuborilgan 6 xonali kod";
       document.getElementById('authCodeScreen').classList.remove('hidden');
       var boxes = document.querySelectorAll('#codeBoxes input');
       boxes.forEach(function(b){ b.value=''; });
@@ -949,7 +992,7 @@
       });
       box.addEventListener('keydown', function(e){ if(e.key==='Backspace' && !this.value && i>0) codeBoxes[i-1].focus(); });
     });
-    document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; });
+    document.getElementById('authCodeClose').addEventListener('click', function(){ closeAllAuth(); pendingAction=null; pendingRegistration = null; telegramDeepLink = null; });
     document.getElementById('resendLink').addEventListener('click', function(){
       var phone = document.getElementById('phoneInput').value.trim();
       if(!phone){ toast("Qaytadan urinib ko'ring."); return; }
@@ -960,7 +1003,12 @@
         body: JSON.stringify({phone: phone})
       }).then(function(r){ return r.json(); })
         .then(function(d){
-          if(d.ok){ telegramVerifyToken = d.token; toast("Kod qayta yuborildi."); }
+          if(d.ok){
+            telegramVerifyToken = d.token;
+            if(pendingRegistration) pendingRegistration.token = d.token;
+            if(d.deepLink){ telegramDeepLink = d.deepLink; document.getElementById('codeBotLink').href = d.deepLink; toast("Yangi kod uchun botni qayta oching."); }
+            else toast("Kod qayta yuborildi.");
+          }
           else { toast(d.error || "Xato yuz berdi."); }
         }).catch(function(){ toast("Xato yuz berdi."); });
     });
@@ -985,6 +1033,7 @@
               alert((res.data && res.data.error) || "Kod noto'g'ri. Qaytadan urinib ko'ring.");
               return;
             }
+            if(pendingRegistration){ registerAccount(confirmBtn, 'Tasdiqlash'); return; }
             finishTelegramLogin(res.data.phone);
           }).catch(function(err){
             confirmBtn.disabled = false;

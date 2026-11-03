@@ -1,3 +1,4 @@
+import json
 import base64
 import hashlib
 import io
@@ -13,7 +14,7 @@ from . import social, translate
 # that just tags the text, run inline instead of in a background thread.
 translate._call = lambda text, src, dst: f'[{dst}] {text}'
 translate.translate_in_background = translate.translate_listing
-from .models import Listing, ListingImage, Profile, SiteSetting, UzPayment, Visitor
+from .models import Listing, ListingImage, Profile, SiteSetting, TelegramVerification, UzPayment, Visitor
 
 
 def _photo_data_url(w, h):
@@ -596,3 +597,52 @@ class FreeTiersTests(TestCase):
         self.assertTrue(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').json()['ok'])
         listing.refresh_from_db()
         self.assertTrue(listing.top)
+
+
+@override_settings(TELEGRAM_BOT_TOKEN='t', TELEGRAM_BOT_USERNAME='testbot', TELEGRAM_GATEWAY_TOKEN='')
+class TelegramBotSignupTests(TestCase):
+    def _webhook(self, payload):
+        return self.client.post('/api/telegram/webhook/', data=json.dumps(payload), content_type='application/json')
+
+    def _start(self, phone='+998901234567'):
+        resp = self.client.post('/api/telegram/start/', {'phone': phone}, content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        return resp.json()
+
+    def _share_contact(self, token, phone, own=True):
+        self._webhook({'message': {'text': f'/start {token}', 'chat': {'id': 7}, 'from': {'id': 7}}})
+        with mock.patch('listings.views._telegram_api') as api:
+            self._webhook({'message': {'chat': {'id': 7}, 'from': {'id': 7},
+                                       'contact': {'phone_number': phone, 'user_id': 7 if own else 8}}})
+        return api
+
+    def test_start_returns_bot_link(self):
+        with mock.patch('listings.views._telegram_api'):
+            data = self._start()
+        self.assertIn('t.me/testbot?start=' + data['token'], data['deepLink'])
+
+    def test_register_needs_verified_phone(self):
+        resp = self.client.post('/api/auth/simple-register/', {
+            'full_name': 'Ali Vali', 'phone': '901234567', 'password': 'secret12'}, content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+
+    def test_full_flow_and_wrong_account_gets_no_code(self):
+        with mock.patch('listings.views._telegram_api'):
+            token = self._start()['token']
+            # someone else's Telegram account shares a different number -> no code
+            api = self._share_contact(token, '+998909999999')
+            self.assertNotIn('tasdiqlash kodi', str(api.call_args_list))
+            self.assertFalse(TelegramVerification.objects.get(token=token).code)
+            # the real owner shares the typed number -> code is made
+            api = self._share_contact(token, '+998901234567')
+        code = TelegramVerification.objects.get(token=token).code
+        self.assertEqual(len(code), 6)
+        bad = self.client.post('/api/telegram/verify/', {'token': token, 'code': '000000' if code != '000000' else '111111'}, content_type='application/json')
+        self.assertEqual(bad.status_code, 400)
+        ok = self.client.post('/api/telegram/verify/', {'token': token, 'code': code}, content_type='application/json')
+        self.assertEqual(ok.status_code, 200)
+        reg = self.client.post('/api/auth/simple-register/', {
+            'full_name': 'Ali Vali', 'phone': '901234567', 'password': 'secret12', 'verify_token': token},
+            content_type='application/json')
+        self.assertEqual(reg.status_code, 201)
+        self.assertFalse(TelegramVerification.objects.filter(token=token).exists())
