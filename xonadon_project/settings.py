@@ -240,3 +240,7 @@ MAILERS = {
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+# Cadastre data source for the automatic ownership check (listings/cadastre.py).
+# Unset = every check goes to the admin queue.
+CADASTRE_API_URL = os.environ.get('CADASTRE_API_URL', '')
+CADASTRE_API_KEY = os.environ.get('CADASTRE_API_KEY', '')

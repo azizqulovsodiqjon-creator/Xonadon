@@ -70,6 +70,10 @@ class Listing(models.Model):
     top = models.BooleanField(default=False)
     sold = models.BooleanField(default=False)
     views_count = models.PositiveIntegerField(default=0)
+    # True once the owner is confirmed against the cadastre (automatically
+    # or by an admin) - shown as an 'Egasi tasdiqlangan' badge. The
+    # cadastral number itself never leaves the server (see CadastreCheck).
+    ownership_verified = models.BooleanField(default=False)
     likes_count = models.PositiveIntegerField(default=0)
     # Which tier this listing was ORIGINALLY posted/paid as - decides which
     # lifecycle (TIER_LIFECYCLE above) it steps down through as it ages.
@@ -490,3 +494,25 @@ class Like(models.Model):
 
     def __str__(self):
         return f"{self.username} likes {self.listing_id}"
+
+class CadastreCheck(models.Model):
+    """
+    The owner's cadastral number for a listing, kept private: it is never
+    part of any public API response. If the cadastre data matches the
+    poster's name the listing is approved automatically; otherwise the
+    check waits in the admin panel (`reason` says why) for a manual call.
+    """
+    STATUS_CHOICES = [('pending', 'Kutilmoqda'), ('approved', 'Tasdiqlangan'), ('rejected', 'Rad etilgan')]
+
+    listing = models.OneToOneField(Listing, related_name='cadastre_check', on_delete=models.CASCADE)
+    cadastre_number = models.CharField(max_length=40, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reason = models.CharField(max_length=200, blank=True)
+    found_owner = models.CharField(max_length=200, blank=True)
+    found_address = models.CharField(max_length=300, blank=True)
+    found_area = models.FloatField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"cadastre {self.cadastre_number} ({self.status})"

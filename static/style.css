@@ -320,6 +320,7 @@
   .verified-tick::before{content:'';position:absolute;inset:3px;background:#fff;border-radius:50%;z-index:0;}
   .verified-tick svg{width:100%;height:100%;position:relative;z-index:1;}
   .owner-role{font-size:12.5px;color:rgba(var(--ink-rgb),0.55);margin-top:2px;}
+.owner-proof{display:inline-block;margin-top:4px;font-size:11.5px;font-weight:700;color:#1B7F4B;background:rgba(27,127,75,0.10);padding:2px 8px;border-radius:999px;}
   .owner-contact-btn{margin-left:auto;background:var(--accent2);color:#fff;border:1.5px solid var(--accent2);padding:11px 20px;border-radius:999px;font-weight:800;font-size:13.5px;}
 
   /* ---------- seller profile ---------- */

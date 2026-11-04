@@ -43,6 +43,7 @@
     document.getElementById('uploadCount').textContent = postPhotos.length + '/6';
     document.getElementById('postTitle').value = l.title || '';
     document.getElementById('postDesc').value = l.desc || '';
+    document.getElementById('postCadastre').value = '';
     document.getElementById('postPhone').value = l.phone || '+998';
     if(postIsBuyer){
       var rangeParts = String(l.price || '').split(PRICE_RANGE_SEP);
@@ -88,6 +89,7 @@
     // along in the payload.
     var applies = postDeal === 'sotuv' && !postIsBuyer;
     document.getElementById('mortgageField').classList.toggle('hidden', !applies);
+    document.getElementById('cadastreField').classList.toggle('hidden', postIsBuyer);
     if(!applies){
       postMortgage = false;
       document.getElementById('mortgageToggle').querySelectorAll('button').forEach(function(b){ b.classList.remove('sel'); });
@@ -191,6 +193,7 @@
       });
     }
     var area = document.getElementById('postArea').value.trim();
+    base.cadastre_number = document.getElementById('postCadastre').value.trim();
     var floorsTotal = document.getElementById('postFloorsTotal').value.trim();
     var floorVal = document.getElementById('postFloor').value.trim() || '—';
     return Object.assign(base, {

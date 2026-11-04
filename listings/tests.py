@@ -13,7 +13,7 @@ from . import social, translate
 # that just tags the text, run inline instead of in a background thread.
 translate._call = lambda text, src, dst: f'[{dst}] {text}'
 translate.translate_in_background = translate.translate_listing
-from .models import Listing, ListingImage, Profile, SiteSetting, UzPayment, Visitor
+from .models import CadastreCheck, Listing, ListingImage, Profile, SiteSetting, UzPayment, Visitor
 
 
 def _photo_data_url(w, h):
@@ -596,3 +596,66 @@ class FreeTiersTests(TestCase):
         self.assertTrue(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').json()['ok'])
         listing.refresh_from_db()
         self.assertTrue(listing.top)
+
+
+class CadastreCheckTests(TestCase):
+    def _post_listing(self, **extra):
+        Profile.objects.create(phone='901234567', username='ali', full_name='Ali Valiyev')
+        payload = {
+            'title': 'Uy', 'price': '1000', 'district': 'Jizzax shahri', 'lat': 40.1, 'lng': 67.8,
+            'type': 'Kvartira', 'type_key': 'kvartira', 'seller': 'ali', 'phone': '+998901234567',
+            'area': 50, 'owner': True,
+        }
+        payload.update(extra)
+        resp = self.client.post('/api/listings/', payload, content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
+        return resp.json()
+
+    def test_number_is_private_and_goes_to_admin_queue(self):
+        data = self._post_listing(cadastre_number='10:09:03:02:01:0123')
+        self.assertNotIn('cadastre', str(data).lower())
+        self.assertFalse(data['ownership_verified'])
+        check = CadastreCheck.objects.get(listing_id=data['id'])
+        self.assertEqual(check.status, 'pending')
+        self.assertEqual(check.cadastre_number, '10:09:03:02:01:0123')
+        page = self.client.get('/api/listings/').content.decode()
+        self.assertNotIn('10:09:03:02:01:0123', page)
+
+    def test_invalid_number_is_ignored(self):
+        data = self._post_listing(cadastre_number='abc')
+        self.assertFalse(CadastreCheck.objects.filter(listing_id=data['id']).exists())
+
+    def test_matching_owner_is_approved_automatically(self):
+        with mock.patch('listings.cadastre.lookup', return_value={'owner': "VALIYEV ALI", 'address': 'x', 'area': 50}):
+            data = self._post_listing(cadastre_number='10:09:03:02:01:0123')
+        self.assertEqual(CadastreCheck.objects.get(listing_id=data['id']).status, 'approved')
+        self.assertTrue(self.client.get('/api/listings/%d/' % data['id']).json()['ownership_verified'])
+
+    def test_other_owner_waits_for_admin(self):
+        with mock.patch('listings.cadastre.lookup', return_value={'owner': "KARIMOV BOBUR", 'address': 'x', 'area': 50}):
+            data = self._post_listing(cadastre_number='10:09:03:02:01:0123')
+        check = CadastreCheck.objects.get(listing_id=data['id'])
+        self.assertEqual(check.status, 'pending')
+        self.assertIn('mos kelmadi', check.reason)
+
+    def test_admin_can_approve_and_non_admin_cannot(self):
+        data = self._post_listing(cadastre_number='10:09:03:02:01:0123')
+        check = CadastreCheck.objects.get(listing_id=data['id'])
+        url = '/api/admin/cadastre-checks/%d/decide/' % check.id
+        self.assertIn(self.client.post(url, {'decision': 'approve'}, content_type='application/json').status_code, (401, 403))
+        self.assertIn(self.client.get('/api/admin/cadastre-checks/').status_code, (401, 403))
+        from django.contrib.auth import get_user_model
+        admin = get_user_model().objects.create_user('adm', password='pw', is_staff=True)
+        self.client.force_login(admin)
+        self.assertEqual(len(self.client.get('/api/admin/cadastre-checks/').json()), 1)
+        self.assertEqual(self.client.post(url, {'decision': 'approve'}, content_type='application/json').status_code, 200)
+        self.assertTrue(Listing.objects.get(pk=data['id']).ownership_verified)
+
+    def test_same_number_from_another_user_is_flagged(self):
+        first = self._post_listing(cadastre_number='10:09:03:02:01:0123')
+        Profile.objects.create(phone='909999999', username='vali', full_name='Vali Aliyev')
+        payload = {'title': 'Uy2', 'price': '1', 'district': 'Jizzax shahri', 'lat': 40.1, 'lng': 67.8,
+                   'type': 'Kvartira', 'type_key': 'kvartira', 'seller': 'vali', 'phone': '+998909999999',
+                   'area': 50, 'owner': True, 'cadastre_number': '10:09:03:02:01:0123'}
+        second = self.client.post('/api/listings/', payload, content_type='application/json').json()
+        self.assertIn('boshqa foydalanuvchi', CadastreCheck.objects.get(listing_id=second['id']).reason)

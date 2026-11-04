@@ -14,6 +14,7 @@ from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt
 from django.views.decorators.cache import never_cache
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
@@ -27,7 +28,7 @@ from .models import (
     Listing, ListingImage, VoiceNote, Like, Profile, PendingListingPayment, PendingBalanceTopup,
     Visitor, VisitDay, SiteSetting,
     Message, TelegramVerification, TIER_LIFECYCLE, normalize_phone, SoldListingRecord,
-    VerificationRequest, PaymentEvent, TierDiscount,
+    VerificationRequest, PaymentEvent, TierDiscount, CadastreCheck,
 )
 from .serializers import ListingSerializer, ProfileSerializer, MessageSerializer
 from . import social
@@ -529,6 +530,21 @@ def _link_images_to_listing(image_ids, listing):
     ListingImage.objects.filter(id__in=ids, listing__isnull=True).update(listing=listing)
 
 
+def _attach_cadastre(listing, raw_number):
+    """Optional cadastral number sent with a new listing: validated, then
+    checked (auto-approve or queue for the admin). Never raises."""
+    from . import cadastre
+    number = cadastre.normalize_number(raw_number)
+    if not number or not cadastre.valid_number(number):
+        return
+    try:
+        profile = Profile.objects.filter(username=listing.seller).order_by('-created_at').first()
+        name = (profile.full_name if profile else '') or listing.seller
+        cadastre.run_check(listing, number, name)
+    except Exception as exc:
+        print(f'[cadastre] check for listing {listing.pk} failed: {exc}')
+
+
 def _link_voice_note_to_listing(voice_note_id, listing):
     """Same idea as _link_images_to_listing, but for the (at most one)
     VoiceNote recorded while posting - it's created unlinked before the
@@ -588,6 +604,7 @@ class ListingViewSet(viewsets.ModelViewSet):
             listing = Listing.objects.get(pk=response.data['id'])
             _link_images_to_listing(request.data.get('image_ids'), listing)
             _link_voice_note_to_listing(request.data.get('voice_note_id'), listing)
+            _attach_cadastre(listing, request.data.get('cadastre_number'))
             _post_listing_to_channel(listing)
             social.publish_new_listing(listing, request)
             response.data = ListingSerializer(listing).data
@@ -1019,6 +1036,41 @@ def admin_verification_decide(request, request_id):
     if decision == 'approve':
         vr.profile.verified = True
         vr.profile.save(update_fields=['verified'])
+    return Response({'ok': True})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_cadastre_checks(request):
+    checks = CadastreCheck.objects.filter(status='pending').select_related('listing').order_by('created_at')
+    return Response([{
+        'id': c.id,
+        'listingId': c.listing_id,
+        'title': c.listing.title,
+        'seller': c.listing.seller,
+        'phone': c.listing.phone,
+        'cadastreNumber': c.cadastre_number,
+        'reason': c.reason,
+        'foundOwner': c.found_owner,
+        'foundAddress': c.found_address,
+        'createdAt': c.created_at.isoformat(),
+    } for c in checks])
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_cadastre_decide(request, check_id):
+    decision = request.data.get('decision')
+    if decision not in ('approve', 'reject'):
+        return Response({'ok': False, 'error': "decision 'approve' yoki 'reject' bo'lishi kerak."}, status=400)
+    try:
+        check = CadastreCheck.objects.select_related('listing').get(id=check_id, status='pending')
+    except CadastreCheck.DoesNotExist:
+        return Response({'ok': False, 'error': "Topilmadi yoki allaqachon ko'rib chiqilgan."}, status=404)
+    check.status = 'approved' if decision == 'approve' else 'rejected'
+    check.reviewed_at = timezone.now()
+    check.save(update_fields=['status', 'reviewed_at'])
+    Listing.objects.filter(pk=check.listing_id).update(ownership_verified=(decision == 'approve'))
     return Response({'ok': True})
 
 
@@ -1720,6 +1772,7 @@ def _finalize_pending_payment(pending, request=None):
     listing = serializer.save()
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
     _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
+    _attach_cadastre(listing, pending.payload.get('cadastre_number'))
     _post_listing_to_channel(listing)
     social.publish_new_listing(listing, request)
     pending.paid = True
@@ -1920,6 +1973,7 @@ def create_listing_from_balance(request):
     listing = serializer.save()
     _link_images_to_listing(listing_payload.get('image_ids'), listing)
     _link_voice_note_to_listing(listing_payload.get('voice_note_id'), listing)
+    _attach_cadastre(listing, listing_payload.get('cadastre_number'))
     _post_listing_to_channel(listing)
     social.publish_new_listing(listing, request)
     if discount:

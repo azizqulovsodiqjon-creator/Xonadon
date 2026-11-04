@@ -72,7 +72,7 @@
       mortgage: item.mortgage, deal: item.deal, vip: item.vip, top: item.top,
       createdAt: item.created_at || null,
       daysAgo: item.created_at ? Math.max(0, Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)) : 0,
-      sold: item.sold, viewsCount: item.views_count || 0, likesCount: item.likes_count || 0,
+      sold: item.sold, ownershipVerified: !!item.ownership_verified, viewsCount: item.views_count || 0, likesCount: item.likes_count || 0,
       photos: imgs.length ? imgs : (isWanted ? [WANTED_PLACEHOLDER_IMG] : []),
       img: imgs.length ? imgs[0] : (isWanted ? WANTED_PLACEHOLDER_IMG : ''),
       voiceNote: item.voice_note ? {id: item.voice_note.id, url: item.voice_note.audio} : null,

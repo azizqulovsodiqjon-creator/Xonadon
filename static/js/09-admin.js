@@ -143,6 +143,46 @@
   }
   // "Tashriflar" - visitors who never signed up: how many, and when each
   // one came (signed-up people are in "Profillar" instead).
+  function renderAdminCadastre(){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch('/api/admin/cadastre-checks/', {credentials:'same-origin'}).then(function(r){ return r.json(); }).then(function(rows){
+      if(!Array.isArray(rows) || !rows.length){ wrap.innerHTML = '<div class="empty-admin">Tekshirilishi kerak bo\'lgan kadastr yo\'q.</div>'; return; }
+      wrap.innerHTML = rows.map(function(c){
+        return '<div class="queue-row"><div class="queue-info">' +
+          '<div class="qprice">' + escapeHtml(c.cadastreNumber) + '</div>' +
+          '<div class="qdesc">#' + c.listingId + ' · ' + escapeHtml(c.title) + '</div>' +
+          '<div class="qseller">' + escapeHtml(c.seller) + ' · ' + escapeHtml(c.phone || '') + '</div>' +
+          '<div class="qseller" style="color:var(--red);">' + escapeHtml(c.reason || '') + '</div>' +
+          (c.foundOwner ? '<div class="qseller">Kadastrda: ' + escapeHtml(c.foundOwner) + ' · ' + escapeHtml(c.foundAddress || '') + '</div>' : '') +
+          '</div><div class="queue-actions">' +
+          '<button class="qbtn" data-cdecide="approve" data-cid="' + c.id + '">Tasdiqlash</button>' +
+          '<button class="qbtn del" data-cdecide="reject" data-cid="' + c.id + '">Rad etish</button>' +
+          '<button class="qbtn" data-copen="' + c.listingId + '">E\'lonni ko\'rish</button>' +
+          '</div></div>';
+      }).join('');
+      wrap.querySelectorAll('[data-cdecide]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var decision = this.getAttribute('data-cdecide');
+          fetch('/api/admin/cadastre-checks/' + this.getAttribute('data-cid') + '/decide/', {
+            method: 'POST', credentials: 'same-origin',
+            headers: csrfHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({decision: decision})
+          }).then(function(r){
+            if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+            toast(decision === 'approve' ? "Egasi tasdiqlandi." : "Rad etildi.");
+            loadListings(function(){ renderAdmin(); });
+          }).catch(function(err){ console.error('cadastre decide xato:', err); toast("Xato yuz berdi."); });
+        });
+      });
+      wrap.querySelectorAll('[data-copen]').forEach(function(btn){
+        btn.addEventListener('click', function(){ openDetail(parseInt(this.getAttribute('data-copen'), 10), false); });
+      });
+    }).catch(function(err){
+      console.error('admin kadastr xato:', err);
+      wrap.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>';
+    });
+  }
   function renderAdminVisitors(){
     var wrap = document.getElementById('adminContent');
     wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
@@ -210,6 +250,10 @@
     }
     if(adminTab==='houses'){
       renderAdminHousesStats();
+      return;
+    }
+    if(adminTab==='cadastre'){
+      renderAdminCadastre();
       return;
     }
     if(adminTab==='visitors'){

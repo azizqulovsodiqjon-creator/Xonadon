@@ -66,7 +66,7 @@
           '</div>' +
           '<div class="owner-card">' +
             '<div class="owner-avatar">' + l.seller.charAt(0).toUpperCase() + '</div>' +
-            '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div></div>' +
+            '<div><div class="owner-name">' + l.seller + (isSellerVerified(l.seller) ? VERIFIED_TICK_HTML : '') + '</div><div class="owner-role">' + trValue(l.ownerRole) + '</div>' +(l.ownershipVerified ? '<div class="owner-proof">Egasi tasdiqlangan</div>' : '') + '</div>' +
             '<button class="owner-contact-btn" id="viewSellerProfileBtn">' + dict.view_profile + '</button>' +
           '</div>' +
         '</div>' +
