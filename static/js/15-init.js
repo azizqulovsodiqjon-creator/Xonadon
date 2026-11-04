@@ -608,7 +608,6 @@
         renderVoiceRecorder();
         document.getElementById('postTitle').value='';
         document.getElementById('postDesc').value='';
-        document.getElementById('postCadastre').value='';
         document.getElementById('postPhone').value='+998';
         document.getElementById('postPrice').value='';
         document.getElementById('postPriceMin').value='';
