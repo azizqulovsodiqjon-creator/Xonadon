@@ -206,6 +206,9 @@
   var viewMode = 'grid';
   var allProfilesDirectory = []; // every registered user (username/full_name/role) - no phone
   var currentThreadWith = null;
+  // The site's own 'admin' account in the messages (matches SUPPORT_USERNAME on the server).
+  var SUPPORT_HANDLE = 'Jizzax-Joy';
+  function isSupportHandle(h){ return String(h || '').toLowerCase() === SUPPORT_HANDLE.toLowerCase(); }
   function myUsername(){ return document.getElementById('profileUsername').textContent.trim(); }
 
   // Django's CSRF cookie, read so write requests (POST/PATCH/DELETE) can

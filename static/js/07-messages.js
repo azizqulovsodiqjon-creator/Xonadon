@@ -37,7 +37,7 @@
   }
   function openMessageThread(otherUsername){
     currentThreadWith = otherUsername;
-    document.getElementById('threadWithName').innerHTML = escapeHtml(displayName(otherUsername)) + (isSellerVerified(otherUsername) ? VERIFIED_TICK_HTML : '');
+    document.getElementById('threadWithName').innerHTML = escapeHtml(displayName(otherUsername)) + ((isSupportHandle(otherUsername) || isSellerVerified(otherUsername)) ? VERIFIED_TICK_HTML : '');
     document.getElementById('threadInput').value = '';
     document.getElementById('threadMessages').innerHTML = '<div class="empty-note">Yuklanmoqda...</div>';
     var panels = document.querySelectorAll('.side-panel.open');
@@ -69,11 +69,14 @@
     fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(myUsername()))
       .then(function(r){ return r.json(); })
       .then(function(list){
-        if(!list.length){ wrap.innerHTML = '<div class="empty-state"><div class="emoji-box">' + ico('message', 34) + '</div><p>Hozircha xabarlar yo\'q</p></div>'; return; }
+        // The admin is always one tap away, even before any message was sent.
+        if(!list.some(function(c){ return isSupportHandle(c.username); })){
+          list.unshift({username: SUPPORT_HANDLE, lastText: "Savol yoki taklifingizni adminga yozing", unread: 0});
+        }
         wrap.innerHTML = list.map(function(c){
           return '<div class="conv-row" data-with="' + c.username + '">' +
             '<div class="ps-avatar"></div>' +
-            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + displayName(c.username) + (isSellerVerified(c.username) ? VERIFIED_TICK_HTML : '') + '</span>' +
+            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + displayName(c.username) + ((isSupportHandle(c.username) || isSellerVerified(c.username)) ? VERIFIED_TICK_HTML : '') + '</span>' +
               (c.unread ? '<span class="conv-unread">' + c.unread + '</span>' : '') + '</div>' +
             '<div class="conv-preview">' + escapeHtml(c.lastText || '') + '</div></div></div>';
         }).join('');

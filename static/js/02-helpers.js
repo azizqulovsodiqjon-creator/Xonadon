@@ -114,7 +114,7 @@
   }
   function priceNum(str){ return parseInt(String(str).replace(/\s/g,''),10) || 0; }
   function getPhotos(l){ return (l.photos && l.photos.length) ? l.photos : [l.img, l.img2, l.img3].filter(Boolean); }
-  function displayName(handle){ return handle.replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
+  function displayName(handle){ if(isSupportHandle(handle)) return 'Jizzax-Joy admin'; return handle.replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); }); }
   function formatOnePrice(sourceCur, value){
     // The header currency toggle (у.е / so'm) overrides how EVERY price
     // displays, regardless of which currency it was actually posted in -

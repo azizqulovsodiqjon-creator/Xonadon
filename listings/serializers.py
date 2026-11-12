@@ -36,6 +36,12 @@ from .models import Profile
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    def validate_username(self, value):
+        from django.conf import settings
+        if str(value).strip().lower() == settings.SUPPORT_USERNAME.lower():
+            raise serializers.ValidationError("Bu nom band.")
+        return value
+
     class Meta:
         model = Profile
         fields = ['id', 'public_id', 'phone', 'email', 'username', 'full_name', 'role', 'balance_cents', 'verified', 'created_at']

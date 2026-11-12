@@ -143,6 +143,69 @@
   }
   // "Tashriflar" - visitors who never signed up: how many, and when each
   // one came (signed-up people are in "Profillar" instead).
+  // Admin inbox: the conversations users started with the site's admin account,
+  // and replies sent as that account.
+  function renderAdminMessages(){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch(MESSAGE_CONVERSATIONS_API + '?me=' + encodeURIComponent(SUPPORT_HANDLE), {credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(list){
+        if(!Array.isArray(list) || !list.length){ wrap.innerHTML = '<div class="empty-admin">Hozircha xabarlar yo\'q.</div>'; return; }
+        wrap.innerHTML = list.map(function(c){
+          return '<div class="conv-row" data-with="' + escapeHtml(c.username) + '">' +
+            '<div class="ps-avatar"></div>' +
+            '<div style="flex:1;"><div class="conv-name-row"><span class="ps-name">' + escapeHtml(displayName(c.username)) + '</span>' +
+            (c.unread ? '<span class="conv-unread">' + c.unread + '</span>' : '') + '</div>' +
+            '<div class="conv-preview">' + escapeHtml(c.lastText || '') + '</div></div></div>';
+        }).join('');
+        wrap.querySelectorAll('[data-with]').forEach(function(row){
+          row.addEventListener('click', function(){ renderAdminThread(this.getAttribute('data-with')); });
+        });
+      }).catch(function(err){
+        console.error('admin xabarlar xato:', err);
+        wrap.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>';
+      });
+  }
+  function renderAdminThread(username){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch(MESSAGE_THREAD_API + '?me=' + encodeURIComponent(SUPPORT_HANDLE) + '&with=' + encodeURIComponent(username), {credentials:'same-origin'})
+      .then(function(r){ return r.json(); })
+      .then(function(list){
+        var bubbles = list.map(function(m){
+          return '<div class="msg-bubble ' + (isSupportHandle(m.sender) ? 'mine' : 'theirs') + '">' + escapeHtml(m.text) +
+            '<span class="msg-time">' + formatMsgTime(m.created_at) + '</span></div>';
+        }).join('');
+        wrap.innerHTML =
+          '<button class="qbtn" id="adminThreadBack" style="margin-bottom:12px;">← Orqaga</button>' +
+          '<div style="font-weight:700;margin-bottom:10px;">' + escapeHtml(displayName(username)) + '</div>' +
+          '<div id="adminThreadMsgs" style="display:flex;flex-direction:column;gap:6px;max-height:55vh;overflow:auto;margin-bottom:12px;">' + bubbles + '</div>' +
+          '<div style="display:flex;gap:8px;"><input type="text" id="adminThreadInput" placeholder="Javob yozing..." style="flex:1;padding:11px 14px;border-radius:12px;border:1px solid var(--line, #ddd);">' +
+          '<button class="qbtn" id="adminThreadSend">Yuborish</button></div>';
+        var box = document.getElementById('adminThreadMsgs');
+        box.scrollTop = box.scrollHeight;
+        document.getElementById('adminThreadBack').addEventListener('click', renderAdminMessages);
+        function send(){
+          var input = document.getElementById('adminThreadInput');
+          var text = input.value.trim();
+          if(!text) return;
+          fetch(SEND_MESSAGE_API, {
+            method: 'POST', credentials: 'same-origin',
+            headers: csrfHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({sender: SUPPORT_HANDLE, receiver: username, text: text})
+          }).then(function(r){
+            if(r.status === 401 || r.status === 403){ toast("Bu amal uchun admin sifatida kirishingiz kerak."); return; }
+            renderAdminThread(username);
+          }).catch(function(err){ console.error('admin javob xato:', err); toast("Xato yuz berdi."); });
+        }
+        document.getElementById('adminThreadSend').addEventListener('click', send);
+        document.getElementById('adminThreadInput').addEventListener('keydown', function(e){ if(e.key === 'Enter') send(); });
+      }).catch(function(err){
+        console.error('admin thread xato:', err);
+        wrap.innerHTML = '<div class="empty-admin">Yuklashda xato yuz berdi.</div>';
+      });
+  }
   function renderAdminVisitors(){
     var wrap = document.getElementById('adminContent');
     wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
@@ -210,6 +273,10 @@
     }
     if(adminTab==='houses'){
       renderAdminHousesStats();
+      return;
+    }
+    if(adminTab==='messages'){
+      renderAdminMessages();
       return;
     }
     if(adminTab==='visitors'){

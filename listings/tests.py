@@ -659,3 +659,40 @@ class CadastreCheckTests(TestCase):
                    'area': 50, 'owner': True, 'cadastre_number': '10:09:03:02:01:0123'}
         second = self.client.post('/api/listings/', payload, content_type='application/json').json()
         self.assertIn('boshqa foydalanuvchi', CadastreCheck.objects.get(listing_id=second['id']).reason)
+
+
+class SupportMessagesTests(TestCase):
+    def _send(self, sender, receiver, text='salom'):
+        return self.client.post('/api/messages/send/', {'sender': sender, 'receiver': receiver, 'text': text},
+                                content_type='application/json')
+
+    def _admin(self):
+        from django.contrib.auth import get_user_model
+        return get_user_model().objects.create_user('adm', password='pw', is_staff=True)
+
+    def test_user_can_write_to_admin(self):
+        self.assertEqual(self._send('ali', 'Jizzax-Joy', 'Savolim bor').status_code, 201)
+
+    def test_only_admin_can_send_as_admin(self):
+        self.assertEqual(self._send('Jizzax-Joy', 'ali').status_code, 403)
+        self.assertEqual(self._send('jizzax-joy', 'ali').status_code, 403)
+        self.client.force_login(self._admin())
+        self.assertEqual(self._send('Jizzax-Joy', 'ali', 'Javob').status_code, 201)
+
+    def test_only_admin_can_read_admin_inbox(self):
+        self._send('ali', 'Jizzax-Joy', 'Savolim bor')
+        self.assertEqual(self.client.get('/api/messages/conversations/?me=Jizzax-Joy').status_code, 403)
+        self.assertEqual(self.client.get('/api/messages/thread/?me=Jizzax-Joy&with=ali').status_code, 403)
+        # the user still sees their own side of it
+        self.assertEqual(len(self.client.get('/api/messages/thread/?me=ali&with=Jizzax-Joy').json()), 1)
+        self.client.force_login(self._admin())
+        convs = self.client.get('/api/messages/conversations/?me=Jizzax-Joy').json()
+        self.assertEqual(convs[0]['username'], 'ali')
+        self.assertEqual(convs[0]['unread'], 1)
+        thread = self.client.get('/api/messages/thread/?me=Jizzax-Joy&with=ali').json()
+        self.assertEqual(thread[0]['text'], 'Savolim bor')
+
+    def test_nobody_can_register_the_admin_name(self):
+        resp = self.client.post('/api/profiles/', {'username': 'jizzax-joy', 'full_name': 'X', 'phone': '901112233'},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 400)

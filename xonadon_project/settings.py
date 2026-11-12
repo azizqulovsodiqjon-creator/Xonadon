@@ -244,3 +244,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Unset = every check goes to the admin queue.
 CADASTRE_API_URL = os.environ.get('CADASTRE_API_URL', '')
 CADASTRE_API_KEY = os.environ.get('CADASTRE_API_KEY', '')
+
+# The site's own 'admin' account in the messages: users write to it and the
+# admin panel answers as it. It's also the sender of the discount messages.
+SUPPORT_USERNAME = 'Jizzax-Joy'

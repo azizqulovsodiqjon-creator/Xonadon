@@ -1429,12 +1429,27 @@ def admin_visitors(request):
     })
 
 
+def _is_support(name):
+    return str(name).strip().lower() == settings.SUPPORT_USERNAME.lower()
+
+
+def _staff_only_support(request, *names):
+    """The support identity may only be used by a logged-in admin - nobody
+    else can send as it or read its inbox."""
+    if any(_is_support(n) for n in names) and not (request.user and request.user.is_staff):
+        return Response({'ok': False, 'error': "Bu amal faqat admin uchun."}, status=403)
+    return None
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_message(request):
     sender = str(request.data.get('sender', '')).strip()
     receiver = str(request.data.get('receiver', '')).strip()
     text = str(request.data.get('text', '')).strip()
+    denied = _staff_only_support(request, sender)
+    if denied:
+        return denied
     listing_id = request.data.get('listing') or None
     if not sender or not receiver or not text:
         return Response({'ok': False, 'error': "Xabar matni va foydalanuvchilar kerak."}, status=400)
@@ -1451,6 +1466,9 @@ def message_thread(request):
     other = str(request.query_params.get('with', '')).strip()
     if not me or not other:
         return Response({'ok': False, 'error': "'me' va 'with' parametrlari kerak."}, status=400)
+    denied = _staff_only_support(request, me)
+    if denied:
+        return denied
     qs = Message.objects.filter(Q(sender=me, receiver=other) | Q(sender=other, receiver=me)).order_by('created_at')
     # Opening the thread marks what they sent me as read.
     Message.objects.filter(sender=other, receiver=me, read=False).update(read=True)
@@ -1463,6 +1481,9 @@ def message_conversations(request):
     me = str(request.query_params.get('me', '')).strip()
     if not me:
         return Response({'ok': False, 'error': "'me' parametri kerak."}, status=400)
+    denied = _staff_only_support(request, me)
+    if denied:
+        return denied
     mine = Message.objects.filter(Q(sender=me) | Q(receiver=me))
     partners = set()
     for m in mine.only('sender', 'receiver'):
