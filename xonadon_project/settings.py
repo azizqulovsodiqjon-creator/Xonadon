@@ -79,8 +79,10 @@ REST_FRAMEWORK = {
 # the rest of the site keeps working.
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
 # A Stripe TEST key only 'takes' fake cards - with paid TOP/VIP it would hand
-# the tiers out for free, so outside local development it is ignored.
-if STRIPE_SECRET_KEY.startswith('sk_test_') and not DEBUG:
+# the tiers out for free, so outside local development it is ignored -
+# unless STRIPE_ALLOW_TEST=1 is set on purpose (demo mode, no real money).
+if (STRIPE_SECRET_KEY.startswith('sk_test_') and not DEBUG
+        and os.environ.get('STRIPE_ALLOW_TEST', '') != '1'):
     STRIPE_SECRET_KEY = ''
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
