@@ -696,3 +696,27 @@ class SupportMessagesTests(TestCase):
         resp = self.client.post('/api/profiles/', {'username': 'jizzax-joy', 'full_name': 'X', 'phone': '901112233'},
                                 content_type='application/json')
         self.assertEqual(resp.status_code, 400)
+
+
+class LegalPagesTests(TestCase):
+    def test_pages_render_with_prices_cards_and_contacts(self):
+        offer = self.client.get('/oferta/').content.decode()
+        self.assertIn('35 000', offer)
+        self.assertIn('100 000', offer)
+        self.assertIn('+998 50 179 52 82', offer)
+        privacy = self.client.get('/maxfiylik/').content.decode()
+        self.assertIn('Maxfiylik siyosati', privacy)
+        pay = self.client.get('/tolov/').content.decode()
+        for card in ('VISA', 'Mastercard', 'HUMO', 'UZCARD'):
+            self.assertIn(card, pay)
+
+    @override_settings(LEGAL_SELLER_ID='123456789', LEGAL_EMAIL='info@example.uz')
+    def test_seller_details_shown_only_when_set(self):
+        page = self.client.get('/oferta/').content.decode()
+        self.assertIn('123456789', page)
+        self.assertIn('info@example.uz', page)
+
+    def test_footer_links_to_the_pages(self):
+        home = self.client.get('/').content.decode()
+        for url in ('/oferta/', '/maxfiylik/', '/tolov/'):
+            self.assertIn('href="%s"' % url, home)

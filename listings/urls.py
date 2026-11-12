@@ -1,6 +1,6 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
-from . import views, uzpay
+from . import views, uzpay, legal
 from .views import ListingViewSet, ProfileViewSet
 
 router = DefaultRouter()
@@ -8,6 +8,9 @@ router.register(r'listings', ListingViewSet)
 router.register(r'profiles', ProfileViewSet)
 urlpatterns = [
     path('', views.index, name='index'),
+    path('oferta/', legal.offer_page, name='legal-offer'),
+    path('maxfiylik/', legal.privacy_page, name='legal-privacy'),
+    path('tolov/', legal.payment_info_page, name='legal-payment'),
     path('robots.txt', views.robots_txt, name='robots-txt'),
     re_path(r'^elon/(?P<listing_id>\d+)/?$', views.listing_page, name='listing-page'),
     path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),

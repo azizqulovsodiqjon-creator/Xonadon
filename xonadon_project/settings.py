@@ -78,6 +78,10 @@ REST_FRAMEWORK = {
 # the payment endpoints report "not configured" instead of crashing, so
 # the rest of the site keeps working.
 STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+# A Stripe TEST key only 'takes' fake cards - with paid TOP/VIP it would hand
+# the tiers out for free, so outside local development it is ignored.
+if STRIPE_SECRET_KEY.startswith('sk_test_') and not DEBUG:
+    STRIPE_SECRET_KEY = ''
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
@@ -248,3 +252,10 @@ CADASTRE_API_KEY = os.environ.get('CADASTRE_API_KEY', '')
 # The site's own 'admin' account in the messages: users write to it and the
 # admin panel answers as it. It's also the sender of the discount messages.
 SUPPORT_USERNAME = 'Jizzax-Joy'
+
+# Seller details printed on the public offer / privacy / payment pages
+# (listings/legal.py). A line is shown only when it is set.
+LEGAL_SELLER_NAME = os.environ.get('LEGAL_SELLER_NAME', 'Novix IT Group')
+LEGAL_SELLER_ID = os.environ.get('LEGAL_SELLER_ID', '')
+LEGAL_ADDRESS = os.environ.get('LEGAL_ADDRESS', "Jizzax shahri, O'zbekiston")
+LEGAL_EMAIL = os.environ.get('LEGAL_EMAIL', '')

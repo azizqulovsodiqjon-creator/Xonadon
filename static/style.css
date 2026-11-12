@@ -952,3 +952,6 @@
 
   .tier-card-price .free-now{display:block;color:#1E8E4E;font-weight:800;}
   body.dark .tier-card-price .free-now{color:#5BD08C;}
+
+.pay-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.pay-chips span{border:1px solid rgba(255,255,255,0.35);border-radius:6px;padding:2px 9px;font-size:11.5px;font-weight:800;letter-spacing:.04em;}
