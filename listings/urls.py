@@ -1,6 +1,6 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
-from . import views, uzpay, legal
+from . import views, uzpay, legal, transfer
 from .views import ListingViewSet, ProfileViewSet
 
 router = DefaultRouter()
@@ -11,6 +11,7 @@ urlpatterns = [
     path('oferta/', legal.offer_page, name='legal-offer'),
     path('maxfiylik/', legal.privacy_page, name='legal-privacy'),
     path('tolov/', legal.payment_info_page, name='legal-payment'),
+    path('tolov/karta/<str:session_id>/', transfer.transfer_page, name='transfer-page'),
     path('robots.txt', views.robots_txt, name='robots-txt'),
     re_path(r'^elon/(?P<listing_id>\d+)/?$', views.listing_page, name='listing-page'),
     path('og/listing/<int:listing_id>.jpg', views.listing_og_image, name='listing-og-image'),

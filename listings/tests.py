@@ -475,9 +475,9 @@ class PaymeTests(TestCase):
         self.assertEqual(profile.balance_cents, 500)
 
     def test_config_shows_provider_only_when_keys_are_set(self):
-        self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': True, 'click': True})
+        self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': True, 'click': True, 'transfer': False})
         with override_settings(PAYME_KEY='', CLICK_SECRET_KEY=''):
-            self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': False, 'click': False})
+            self.assertEqual(self.client.get('/api/payments/config/').json()['uzProviders'], {'payme': False, 'click': False, 'transfer': False})
             resp = self.client.post('/api/payments/create-checkout-session/', {
                 'tier': 'vip', 'provider': 'payme', 'listing': LISTING_PAYLOAD}, content_type='application/json')
             self.assertEqual(resp.status_code, 503)
@@ -720,3 +720,42 @@ class LegalPagesTests(TestCase):
         home = self.client.get('/').content.decode()
         for url in ('/oferta/', '/maxfiylik/', '/tolov/'):
             self.assertIn('href="%s"' % url, home)
+
+
+@override_settings(TRANSFER_CARD_NUMBER='4242424242424242', TRANSFER_CARD_HOLDER='Test Egasi')
+class CardTransferTests(TestCase):
+    def start(self):
+        resp = self.client.post('/api/payments/create-checkout-session/', {
+            'tier': 'vip', 'provider': 'transfer', 'listing': LISTING_PAYLOAD}, content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        return resp.json()['url'], UzPayment.objects.get()
+
+    def test_transfer_flow_and_admin_confirmation(self):
+        url, payment = self.start()
+        self.assertEqual(url, f'/tolov/karta/{payment.session_id}/')
+        self.assertEqual(payment.amount_uzs, 100000)
+        page = self.client.get(url)
+        self.assertContains(page, '4242 4242 4242 4242')
+        self.assertContains(page, '100 000 so')
+        self.client.post(url, {'payer_note': 'Vali 1234'})
+        payment.refresh_from_db()
+        self.assertEqual(payment.payer_note, 'Vali 1234')
+        # not paid yet: nothing created, confirm says pending
+        self.assertEqual(Listing.objects.count(), 0)
+        self.assertEqual(self.client.get('/api/payments/confirm/', {'session_id': payment.session_id}).json()['status'], 'pending')
+        # owner confirms in admin -> listing appears, flagged VIP
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.create_superuser('boss', 'b@x.uz', 'pw12345678')
+        self.client.login(username='boss', password='pw12345678')
+        self.client.post('/admin/listings/uzpayment/', {
+            'action': 'confirm_transfers', '_selected_action': [payment.pk]})
+        payment.refresh_from_db()
+        self.assertTrue(payment.paid)
+        self.assertTrue(Listing.objects.get().vip)
+
+    def test_hidden_until_card_number_is_set(self):
+        with override_settings(TRANSFER_CARD_NUMBER=''):
+            resp = self.client.post('/api/payments/create-checkout-session/', {
+                'tier': 'vip', 'provider': 'transfer', 'listing': LISTING_PAYLOAD}, content_type='application/json')
+            self.assertEqual(resp.status_code, 503)
+            self.assertFalse(self.client.get('/api/payments/config/').json()['uzProviders']['transfer'])

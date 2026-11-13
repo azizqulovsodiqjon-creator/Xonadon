@@ -12,7 +12,7 @@
   var paymentInfo = {configured:false, currency:'usd', prices:{regular:400, top:800, vip:1600}};
   var postPayMethod = 'card'; // 'card' (Stripe), 'payme', 'click' or 'balance'
   var topUpMethod = 'card';
-  var PAY_METHOD_NAMES = {card: 'Stripe', payme: 'Payme', click: 'Click'};
+  var PAY_METHOD_NAMES = {card: 'Stripe', payme: 'Payme', click: 'Click', transfer: "Karta o'tkazmasi"};
 
   // While TOP/VIP are free for now, their cards show the usual price struck
   // through with "Hozircha tekin" under it.
@@ -40,9 +40,9 @@
   // Payme/Click (real so'm payments) that the server has keys for.
   function uzProviders(){
     var p = paymentInfo.uzProviders || {};
-    return ['payme', 'click'].filter(function(k){ return p[k]; });
+    return ['payme', 'click', 'transfer'].filter(function(k){ return p[k]; });
   }
-  function isUzMethod(m){ return m === 'payme' || m === 'click'; }
+  function isUzMethod(m){ return m === 'payme' || m === 'click' || m === 'transfer'; }
   // Show only the pay buttons that can actually take money: Payme/Click
   // once their keys are set - and then the Stripe card button (test mode,
   // foreign cards only) goes away. Returns the method to use, falling
@@ -76,7 +76,9 @@
     var note = document.getElementById('topUpNote');
     if(btn && !btn.disabled) btn.textContent = PAY_METHOD_NAMES[topUpMethod] + " orqali to'ldirish";
     if(note){
-      note.textContent = isUzMethod(topUpMethod)
+      note.textContent = topUpMethod === 'transfer'
+        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing, to'lov tasdiqlangach balansga qo'shiladi."
+        : isUzMethod(topUpMethod)
         ? PAY_METHOD_NAMES[topUpMethod] + " sahifasida summa so'mda (Markaziy bank kursi bo'yicha) ko'rsatiladi, Uzcard yoki Humo karta bilan to'lanadi."
         : "To'lov Stripe orqali, karta bilan amalga oshiriladi.";
     }
@@ -112,7 +114,9 @@
     syncTopUpMethod();
     var noteEl = document.getElementById('paymentNote');
     if(noteEl){
-      noteEl.textContent = isUzMethod(postPayMethod)
+      noteEl.textContent = postPayMethod === 'transfer'
+        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing - to'lov tasdiqlangach e'lon avtomatik joylanadi."
+        : isUzMethod(postPayMethod)
         ? 'Keyingi qadamda ' + PAY_METHOD_NAMES[postPayMethod] + " to'lov sahifasi ochiladi - Uzcard yoki Humo karta bilan to'lang."
         : (postPayMethod === 'balance' ? "Summa balansingizdan yechiladi."
           : "Karta tanlansa, keyingi qadamda summa va e'lon turi Stripe to'lov sahifasida ko'rsatiladi.");

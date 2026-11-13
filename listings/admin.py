@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PendingListingPayment, Message, TelegramVerification, SoldListingRecord, VerificationRequest
+from .models import UzPayment, PendingListingPayment, Message, TelegramVerification, SoldListingRecord, VerificationRequest
 
 
 @admin.register(Message)
@@ -36,3 +36,23 @@ class VerificationRequestAdmin(admin.ModelAdmin):
     list_display = ('profile', 'status', 'created_at', 'reviewed_at')
     list_filter = ('status',)
     readonly_fields = ('profile', 'id_photo', 'selfie_photo', 'created_at')
+
+
+@admin.register(UzPayment)
+class UzPaymentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'provider', 'kind', 'amount_uzs', 'payer_note', 'paid', 'created_at')
+    list_filter = ('provider', 'paid')
+    search_fields = ('session_id', 'payer_note')
+    ordering = ('-created_at',)
+    readonly_fields = ('provider', 'kind', 'session_id', 'amount_uzs', 'paid', 'paid_at', 'payer_note',
+                       'pending_listing', 'pending_topup', 'created_at')
+    actions = ['confirm_transfers']
+
+    @admin.action(description="Pul tushdi - tasdiqlash (faqat kartaga o'tkazma)")
+    def confirm_transfers(self, request, queryset):
+        from . import uzpay
+        done = 0
+        for payment in queryset.filter(provider='transfer', paid=False):
+            uzpay._finish(payment, request)
+            done += 1
+        self.message_user(request, f"Tasdiqlandi: {done} ta to'lov.")

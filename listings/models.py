@@ -273,7 +273,7 @@ class UzPayment(models.Model):
     PendingBalanceTopup for a top-up), so once the provider confirms the
     money, finishing it is exactly the Stripe code path. The pending
     row's stripe_session_id holds `session_id` here ("payme-<hex>")."""
-    PROVIDER_CHOICES = [('payme', 'Payme'), ('click', 'Click')]
+    PROVIDER_CHOICES = [('payme', 'Payme'), ('click', 'Click'), ('transfer', "Kartaga o'tkazma")]
     KIND_CHOICES = [('listing', "E'lon / reklama"), ('topup', "Balans to'ldirish")]
 
     provider = models.CharField(max_length=10, choices=PROVIDER_CHOICES)
@@ -288,6 +288,8 @@ class UzPayment(models.Model):
     click_trans_id = models.CharField(max_length=64, blank=True, default='')
     click_paydoc_id = models.CharField(max_length=64, blank=True, default='')
     click_cancelled = models.BooleanField(default=False)
+    # Manual card transfer: what the payer wrote (name / last 4 digits).
+    payer_note = models.CharField(max_length=100, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

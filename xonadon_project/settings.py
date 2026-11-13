@@ -109,6 +109,12 @@ PAYME_TEST_MODE = os.environ.get('PAYME_TEST_MODE', 'False') == 'True'
 CLICK_SERVICE_ID = os.environ.get('CLICK_SERVICE_ID', '')
 CLICK_MERCHANT_ID = os.environ.get('CLICK_MERCHANT_ID', '')
 CLICK_SECRET_KEY = os.environ.get('CLICK_SECRET_KEY', '')
+# Manual card-to-card payment (listings/transfer.py): the buyer sends the
+# money to this card, the owner confirms it in Django admin. Shown on the
+# site only once the card number is set.
+TRANSFER_CARD_NUMBER = os.environ.get('TRANSFER_CARD_NUMBER', '')
+TRANSFER_CARD_HOLDER = os.environ.get('TRANSFER_CARD_HOLDER', '')
+TRANSFER_CARD_BANK = os.environ.get('TRANSFER_CARD_BANK', 'TBC Visa')
 
 # Paid tiers' price in so'm for Payme/Click - the same numbers the tier
 # cards on the posting page show.

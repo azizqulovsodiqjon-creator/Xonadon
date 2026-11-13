@@ -32,7 +32,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .models import UzPayment, PaymeTransaction
 
-PROVIDERS = ('payme', 'click')
+PROVIDERS = ('payme', 'click', 'transfer')
 
 # Payme cancels an unperformed transaction after 12 hours.
 PAYME_TIMEOUT_MS = 12 * 60 * 60 * 1000
@@ -43,6 +43,8 @@ def configured(provider):
         return bool(settings.PAYME_MERCHANT_ID and settings.PAYME_KEY)
     if provider == 'click':
         return bool(settings.CLICK_SERVICE_ID and settings.CLICK_MERCHANT_ID and settings.CLICK_SECRET_KEY)
+    if provider == 'transfer':
+        return bool(settings.TRANSFER_CARD_NUMBER)
     return False
 
 
@@ -71,6 +73,8 @@ def start(request, provider, kind, amount_uzs, return_param, make_pending):
     )
     origin = request.build_absolute_uri('/').rstrip('/')
     return_url = f'{origin}/?{return_param}=success&session_id={session_id}'
+    if provider == 'transfer':
+        return f'/tolov/karta/{session_id}/'
     if provider == 'payme':
         base = 'https://checkout.test.paycom.uz' if settings.PAYME_TEST_MODE else 'https://checkout.paycom.uz'
         params = f'm={settings.PAYME_MERCHANT_ID};ac.order_id={payment.pk};a={amount_uzs * 100};l=uz;c={return_url}'
