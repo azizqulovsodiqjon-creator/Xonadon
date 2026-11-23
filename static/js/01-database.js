@@ -152,6 +152,8 @@
   var GOOGLE_AUTH_API = '/api/auth/google/';
   var SIMPLE_REGISTER_API = '/api/auth/simple-register/';
   var LOGIN_API = '/api/auth/login/';
+  var AUTH_ME_API = '/api/auth/me/';
+  var AUTH_LOGOUT_API = '/api/auth/logout/';
   var telegramVerifyToken = null, telegramDeepLink = null, telegramPollTimer = null;
   function stopTelegramPoll(){
     if(telegramPollTimer){ clearInterval(telegramPollTimer); telegramPollTimer = null; }

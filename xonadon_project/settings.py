@@ -32,7 +32,15 @@ INSTALLED_APPS = [
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k3dilttc=hlw2#%xtcwu1^u5kz#!lu%fqh#u46n-#di$i23z8p'
+# Set SECRET_KEY on the server's environment. The fallback below has been
+# in git history, so it is public - it only keeps local dev and a deploy
+# without the env var working, and must not be relied on.
+SECRET_KEY = os.environ.get('SECRET_KEY') or 'django-insecure-k3dilttc=hlw2#%xtcwu1^u5kz#!lu%fqh#u46n-#di$i23z8p'
+
+# Site users stay logged in through the session cookie set at login (see
+# _login_profile in listings/views.py) - keep it for a year, like the old
+# "remembered in localStorage" login.
+SESSION_COOKIE_AGE = 365 * 24 * 60 * 60
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'

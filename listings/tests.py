@@ -32,6 +32,16 @@ def _make_listing(photos=2, **extra):
     return listing
 
 
+def _login_as(client, username, **fields):
+    """Log the test client in as this site user (the server trusts only
+    the login session, not a username sent in the request)."""
+    profile = Profile.objects.filter(username=username).first() or Profile.objects.create(username=username, **fields)
+    session = client.session
+    session['profile_id'] = profile.id
+    session.save()
+    return profile
+
+
 def _run_inline(tag, fn, *args):
     fn(*args)
 
@@ -384,6 +394,7 @@ class ListingTranslationTests(TestCase):
 
 class OptionalConditionTests(TestCase):
     def test_listing_without_condition_is_accepted(self):
+        _login_as(self.client, 'ali')
         resp = self.client.post('/api/listings/', {
             'title': 'Hovli', 'desc': '', 'price': '50000', 'currency': 'ye', 'district': 'Zomin tumani',
             'lat': 39.96, 'lng': 68.39, 'type': 'Hovli/dacha', 'type_key': 'hovli', 'seller': 'ali',
@@ -410,6 +421,7 @@ class PaymeTests(TestCase):
                                 content_type='application/json', HTTP_AUTHORIZATION=auth).json()
 
     def start_vip(self):
+        _login_as(self.client, 'ali')
         resp = self.client.post('/api/payments/create-checkout-session/', {
             'tier': 'vip', 'provider': 'payme', 'listing': LISTING_PAYLOAD}, content_type='application/json')
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -461,7 +473,7 @@ class PaymeTests(TestCase):
         self.assertEqual([t['id'] for t in statement], ['p1', 'p2'])
 
     def test_balance_topup_in_soum(self):
-        profile = Profile.objects.create(username='vali', balance_cents=0)
+        profile = _login_as(self.client, 'vali', balance_cents=0)
         with mock.patch('listings.views._usd_uzs_rate', return_value=12650.0):
             resp = self.client.post('/api/payments/create-balance-topup-session/', {
                 'provider': 'payme', 'profile_id': profile.id, 'amount_cents': 500}, content_type='application/json')
@@ -496,6 +508,7 @@ class ClickTests(TestCase):
         return self.client.post('/api/payments/click/', data).json()
 
     def start_top(self):
+        _login_as(self.client, 'ali')
         resp = self.client.post('/api/payments/create-checkout-session/', {
             'tier': 'top', 'provider': 'click', 'listing': LISTING_PAYLOAD}, content_type='application/json')
         url = resp.json()['url']
@@ -549,8 +562,9 @@ class VisitorCounterTests(TestCase):
         self.assertEqual(self.visit('guest-0001').status_code, 200)
         self.visit('guest-0001')
         self.visit('guest-0001', ping=True)  # "still here" ping is not a page view
-        self.visit('user-0002', username='ali')
-        self.visit('user-0003', username='nobody')  # unknown username stays a guest
+        self.visit('user-0003', username='ali')  # a claimed username without a login stays a guest
+        _login_as(self.client, 'ali')
+        self.visit('user-0002')
         self.assertEqual(self.visit('bad id!').status_code, 400)
 
         guest = Visitor.objects.get(visitor_id='guest-0001')
@@ -571,6 +585,7 @@ class VisitorCounterTests(TestCase):
 
 class FreeTiersTests(TestCase):
     def post_vip(self):
+        _login_as(self.client, 'ali')
         return self.client.post('/api/listings/', dict(LISTING_PAYLOAD, vip=True), content_type='application/json')
 
     def test_vip_needs_payment_unless_tiers_are_free(self):
@@ -586,13 +601,16 @@ class FreeTiersTests(TestCase):
 
     def test_edit_cannot_sneak_in_a_tier_and_free_upgrade_is_gated(self):
         listing = _make_listing(photos=0)
+        _login_as(self.client, 'ali')
         self.client.patch(f'/api/listings/{listing.id}/', {'vip': True, 'title': 'Yangi'}, content_type='application/json')
         listing.refresh_from_db()
         self.assertEqual((listing.vip, listing.title), (False, 'Yangi'))
         url = f'/api/listings/{listing.id}/upgrade-tier/free/'
         self.assertEqual(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').status_code, 402)
         SiteSetting.put('tiers_free', '1')
-        self.assertEqual(self.client.post(url, {'tier': 'top', 'seller': 'vali'}, content_type='application/json').status_code, 403)
+        _login_as(self.client, 'vali')  # not the owner, whatever 'seller' says
+        self.assertEqual(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').status_code, 403)
+        _login_as(self.client, 'ali')
         self.assertTrue(self.client.post(url, {'tier': 'top', 'seller': 'ali'}, content_type='application/json').json()['ok'])
         listing.refresh_from_db()
         self.assertTrue(listing.top)
@@ -601,6 +619,7 @@ class FreeTiersTests(TestCase):
 class CadastreCheckTests(TestCase):
     def _post_listing(self, **extra):
         Profile.objects.create(phone='901234567', username='ali', full_name='Ali Valiyev')
+        _login_as(self.client, 'ali')
         payload = {
             'title': 'Uy', 'price': '1000', 'district': 'Jizzax shahri', 'lat': 40.1, 'lng': 67.8,
             'type': 'Kvartira', 'type_key': 'kvartira', 'seller': 'ali', 'phone': '+998901234567',
@@ -654,6 +673,7 @@ class CadastreCheckTests(TestCase):
     def test_same_number_from_another_user_is_flagged(self):
         first = self._post_listing(cadastre_number='10:09:03:02:01:0123')
         Profile.objects.create(phone='909999999', username='vali', full_name='Vali Aliyev')
+        _login_as(self.client, 'vali')
         payload = {'title': 'Uy2', 'price': '1', 'district': 'Jizzax shahri', 'lat': 40.1, 'lng': 67.8,
                    'type': 'Kvartira', 'type_key': 'kvartira', 'seller': 'vali', 'phone': '+998909999999',
                    'area': 50, 'owner': True, 'cadastre_number': '10:09:03:02:01:0123'}
@@ -671,6 +691,7 @@ class SupportMessagesTests(TestCase):
         return get_user_model().objects.create_user('adm', password='pw', is_staff=True)
 
     def test_user_can_write_to_admin(self):
+        _login_as(self.client, 'ali')
         self.assertEqual(self._send('ali', 'Jizzax-Joy', 'Savolim bor').status_code, 201)
 
     def test_only_admin_can_send_as_admin(self):
@@ -680,6 +701,7 @@ class SupportMessagesTests(TestCase):
         self.assertEqual(self._send('Jizzax-Joy', 'ali', 'Javob').status_code, 201)
 
     def test_only_admin_can_read_admin_inbox(self):
+        _login_as(self.client, 'ali')
         self._send('ali', 'Jizzax-Joy', 'Savolim bor')
         self.assertEqual(self.client.get('/api/messages/conversations/?me=Jizzax-Joy').status_code, 403)
         self.assertEqual(self.client.get('/api/messages/thread/?me=Jizzax-Joy&with=ali').status_code, 403)
@@ -693,8 +715,12 @@ class SupportMessagesTests(TestCase):
         self.assertEqual(thread[0]['text'], 'Savolim bor')
 
     def test_nobody_can_register_the_admin_name(self):
+        # profiles aren't created through this endpoint by users at all
         resp = self.client.post('/api/profiles/', {'username': 'jizzax-joy', 'full_name': 'X', 'phone': '901112233'},
                                 content_type='application/json')
+        self.assertEqual(resp.status_code, 403)
+        me = _login_as(self.client, 'ali')
+        resp = self.client.patch(f'/api/profiles/{me.id}/', {'username': 'jizzax-joy'}, content_type='application/json')
         self.assertEqual(resp.status_code, 400)
 
 
@@ -725,6 +751,7 @@ class LegalPagesTests(TestCase):
 @override_settings(TRANSFER_CARD_NUMBER='4242424242424242', TRANSFER_CARD_HOLDER='Test Egasi')
 class CardTransferTests(TestCase):
     def start(self):
+        _login_as(self.client, 'ali')
         resp = self.client.post('/api/payments/create-checkout-session/', {
             'tier': 'vip', 'provider': 'transfer', 'listing': LISTING_PAYLOAD}, content_type='application/json')
         self.assertEqual(resp.status_code, 200, resp.content)
@@ -759,3 +786,138 @@ class CardTransferTests(TestCase):
                 'tier': 'vip', 'provider': 'transfer', 'listing': LISTING_PAYLOAD}, content_type='application/json')
             self.assertEqual(resp.status_code, 503)
             self.assertFalse(self.client.get('/api/payments/config/').json()['uzProviders']['transfer'])
+
+
+class SessionAuthTests(TestCase):
+    """Who a request comes from is decided by the login session, never by
+    a username/profile_id the browser puts in the request."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from django.test import Client
+        cache.clear()
+        self.ali = Profile.objects.create(phone='901234567', username='ali', full_name='Ali', balance_cents=5000)
+        self.vali = Profile.objects.create(phone='907654321', username='vali', full_name='Vali', balance_cents=5000)
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.get('/')
+        self.token = self.client.cookies['csrftoken'].value
+
+    def _as(self, profile):
+        session = self.client.session
+        session['profile_id'] = profile.id
+        session.save()
+
+    def _post(self, url, data, method='post'):
+        return getattr(self.client, method)(url, data, content_type='application/json',
+                                            HTTP_X_CSRFTOKEN=self.token)
+
+    def _listing_payload(self, **extra):
+        data = {'title': 'Uy', 'price': '100', 'district': 'Jizzax', 'lat': 40.1, 'lng': 67.8,
+                'type': 'Kvartira', 'type_key': 'kvartira', 'seller': 'vali', 'vip': True, 'top': True}
+        data.update(extra)
+        return data
+
+    def test_login_sets_session_and_me_works(self):
+        from django.contrib.auth.hashers import make_password
+        self.ali.password_hash = make_password('parol123')
+        self.ali.save()
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, 401)
+        self.assertEqual(self._post('/api/auth/login/', {'phone': '901234567', 'password': 'parol123'}).status_code, 200)
+        self.assertEqual(self.client.get('/api/auth/me/').json()['profile']['id'], self.ali.id)
+        self._post('/api/auth/logout/', {})
+        self.assertEqual(self.client.get('/api/auth/me/').status_code, 401)
+
+    def test_create_listing_needs_login_and_ignores_vip_and_seller(self):
+        self.assertEqual(self._post('/api/listings/', self._listing_payload()).status_code, 401)
+        self._as(self.ali)
+        resp = self._post('/api/listings/', self._listing_payload())
+        self.assertEqual(resp.status_code, 201, resp.content)
+        listing = Listing.objects.get(pk=resp.json()['id'])
+        self.assertEqual((listing.seller, listing.vip, listing.top, listing.posted_tier), ('ali', False, False, 'regular'))
+
+    def test_writes_without_csrf_token_rejected(self):
+        self._as(self.ali)
+        resp = self.client.post('/api/listings/', self._listing_payload(), content_type='application/json')
+        self.assertEqual(resp.status_code, 403)
+
+    def test_patch_cannot_make_listing_vip_or_change_seller(self):
+        listing = _make_listing(photos=0)  # seller='ali'
+        self._as(self.ali)
+        resp = self._post(f'/api/listings/{listing.id}/',
+                          {'vip': True, 'top': True, 'title': 'Yangi', 'seller': 'vali'}, 'patch')
+        self.assertEqual(resp.status_code, 200)
+        listing.refresh_from_db()
+        self.assertEqual((listing.title, listing.vip, listing.top, listing.seller), ('Yangi', False, False, 'ali'))
+
+    def test_only_owner_edits_deletes_or_upgrades(self):
+        listing = _make_listing(photos=0)  # seller='ali'
+        self._as(self.vali)
+        self.assertEqual(self._post(f'/api/listings/{listing.id}/', {'title': 'X'}, 'patch').status_code, 403)
+        self.assertEqual(self._post(f'/api/listings/{listing.id}/', {'seller': 'ali'}, 'delete').status_code, 403)
+        resp = self._post(f'/api/listings/{listing.id}/upgrade-tier/balance/', {'tier': 'top', 'seller': 'ali'})
+        self.assertEqual(resp.status_code, 403)
+        self._as(self.ali)
+        self.assertEqual(self._post(f'/api/listings/{listing.id}/', {}, 'delete').status_code, 204)
+
+    def test_balance_upgrade_spends_own_balance_only(self):
+        listing = _make_listing(photos=0)  # seller='ali'
+        self._as(self.ali)
+        resp = self._post(f'/api/listings/{listing.id}/upgrade-tier/balance/',
+                          {'tier': 'top', 'profile_id': self.vali.id})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.ali.refresh_from_db()
+        self.vali.refresh_from_db()
+        self.assertEqual(self.ali.balance_cents, 5000 - 280)
+        self.assertEqual(self.vali.balance_cents, 5000)
+
+    def test_listing_from_balance_uses_session_profile(self):
+        self._as(self.ali)
+        resp = self._post('/api/payments/create-listing-from-balance/',
+                          {'tier': 'vip', 'profile_id': self.vali.id, 'listing': self._listing_payload()})
+        self.assertEqual(resp.status_code, 200, resp.content)
+        listing = Listing.objects.get(pk=resp.json()['listing']['id'])
+        self.assertEqual((listing.seller, listing.vip, listing.posted_tier), ('ali', True, 'vip'))
+        self.vali.refresh_from_db()
+        self.assertEqual(self.vali.balance_cents, 5000)
+
+    def test_messages_belong_to_session_user(self):
+        from .models import Message
+        Message.objects.create(sender='vali', receiver='bob', text='maxfiy')
+        self._as(self.ali)
+        self.assertEqual(self.client.get('/api/messages/thread/?me=vali&with=bob').json(), [])
+        resp = self._post('/api/messages/send/', {'sender': 'vali', 'receiver': 'bob', 'text': 'salom'})
+        self.assertEqual(resp.json()['sender'], 'ali')
+
+    def test_support_identity_is_admin_only(self):
+        from django.conf import settings
+        from django.contrib.auth.models import User
+        support = settings.SUPPORT_USERNAME
+        self._as(self.ali)
+        resp = self._post('/api/messages/send/', {'sender': support, 'receiver': 'vali', 'text': 'x'})
+        self.assertEqual(resp.status_code, 403)
+        self.client.force_login(User.objects.create_superuser('boss', password='x'))
+        resp = self._post('/api/messages/send/', {'sender': support, 'receiver': 'vali', 'text': 'Salom'})
+        self.assertEqual(resp.status_code, 201, resp.content)
+        self.assertEqual(resp.json()['sender'], support)
+
+    def test_profiles_private(self):
+        self.assertEqual(self.client.get(f'/api/profiles/{self.vali.id}/').status_code, 404)
+        self.assertEqual(self.client.get('/api/profiles/?phone=907654321').status_code, 403)
+        self._as(self.ali)
+        self.assertEqual(self.client.get(f'/api/profiles/{self.vali.id}/').status_code, 404)
+        self.assertEqual(self.client.get(f'/api/profiles/{self.ali.id}/').status_code, 200)
+        self.assertEqual(self._post(f'/api/profiles/{self.vali.id}/', {'full_name': 'Hack'}, 'patch').status_code, 404)
+
+    def test_username_cannot_take_someone_elses_or_carry_html(self):
+        self._as(self.ali)
+        url = f'/api/profiles/{self.ali.id}/'
+        self.assertEqual(self._post(url, {'username': 'vali'}, 'patch').status_code, 400)
+        self.assertEqual(self._post(url, {'username': '<img src=x>'}, 'patch').status_code, 400)
+        self.assertEqual(self._post(url, {'username': 'ali_2', 'email': 'x@gmail.com'}, 'patch').status_code, 200)
+        self.ali.refresh_from_db()
+        self.assertEqual((self.ali.username, self.ali.email), ('ali_2', None))
+
+    def test_html_stripped_from_listing_text(self):
+        self._as(self.ali)
+        resp = self._post('/api/listings/', self._listing_payload(title='<img src=x onerror=alert(1)>Uy'))
+        self.assertEqual(Listing.objects.get(pk=resp.json()['id']).title, 'img src=x onerror=alert(1)Uy')

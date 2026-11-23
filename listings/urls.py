@@ -73,5 +73,7 @@ urlpatterns = [
     path('api/auth/google/', views.google_auth, name='google-auth'),
     path('api/auth/simple-register/', views.simple_register, name='simple-register'),
     path('api/auth/login/', views.login_with_password, name='login'),
+    path('api/auth/me/', views.auth_me, name='auth-me'),
+    path('api/auth/logout/', views.auth_logout, name='auth-logout'),
     path('api/', include(router.urls)),
 ]

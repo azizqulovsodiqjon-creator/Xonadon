@@ -417,7 +417,10 @@
     }
     document.getElementById('threadSendBtn').addEventListener('click', sendThreadMessage);
     document.getElementById('threadInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ sendThreadMessage(); } });
-    document.getElementById('logoutBtn').addEventListener('click', function(){ isLoggedIn=false; clearLoginStorage(); showPage('pageHome'); renderPublic(); updateUrl('/'); });
+    document.getElementById('logoutBtn').addEventListener('click', function(){
+      fetch(AUTH_LOGOUT_API, {method:'POST', credentials:'same-origin'}).catch(function(err){ console.error('logout xato:', err); });
+      isLoggedIn=false; currentProfile=null; clearLoginStorage(); showPage('pageHome'); renderPublic(); updateUrl('/');
+    });
 
     function renderMyListings(){
       var username = document.getElementById('profileUsername').textContent.trim();
@@ -516,7 +519,15 @@
         credentials: 'same-origin',
         headers: csrfHeaders({'Content-Type': 'application/json'}),
         body: JSON.stringify({full_name: fullName, username: username, phone: phone})
-      }).then(function(r){ return r.json(); }).then(function(updated){
+      }).then(function(r){ return r.json().then(function(d){ return {ok: r.ok, data: d}; }); }).then(function(res){
+        if(!res.ok){
+          // e.g. {"username": ["Bu profil nomi band."]} or a 401/403 detail
+          var d = res.data || {};
+          var firstFieldError = Object.keys(d).map(function(k){ return Array.isArray(d[k]) ? d[k][0] : null; }).filter(Boolean)[0];
+          alert(d.detail || d.error || firstFieldError || "Profilni saqlashda xato yuz berdi.");
+          return;
+        }
+        var updated = res.data;
         // Persist for real - this used to only touch the DOM, so a page
         // reload (or messaging under 'me') would silently revert to the
         // old username, which is exactly why messages could look like
@@ -1134,31 +1145,30 @@
         // field like public_id existed, or balance/verified changed on
         // another device) - always refresh from the server right after
         // showing the cached version, so the UI self-heals silently.
-        if(savedProfile.id){
-          fetch(PROFILE_API + savedProfile.id + '/')
-            .then(function(r){
-              if(r.status === 404){
-                // Admin deleted this profile - the client was still
-                // silently sitting "logged in" as a user that no longer
-                // exists server-side. Force this session out instead of
-                // leaving it that way until something else breaks.
-                clearLoginStorage();
-                isLoggedIn = false;
-                showPage('pageHome');
-                renderPublic();
-                toast("Profilingiz o'chirilgan. Iltimos, qayta ro'yxatdan o'ting.");
-                return null;
-              }
-              return r.ok ? r.json() : null;
-            })
-            .then(function(fresh){
-              if(fresh && fresh.username){
-                applyProfile(fresh);
-                saveLoginToStorage(fresh);
-              }
-            })
-            .catch(function(err){ console.error('profil yangilash xato:', err); });
-        }
+        // The server only trusts its own login session now, not the copy
+        // in localStorage - if this browser has no session (logged in
+        // before sessions existed, it expired, or the profile was
+        // deleted), show the user as logged out and ask them to log in.
+        fetch(AUTH_ME_API, {credentials: 'same-origin'})
+          .then(function(r){
+            if(r.status === 401){
+              clearLoginStorage();
+              isLoggedIn = false;
+              currentProfile = null;
+              showPage('pageHome');
+              renderPublic();
+              toast("Iltimos, qaytadan tizimga kiring.");
+              return null;
+            }
+            return r.ok ? r.json() : null;
+          })
+          .then(function(res){
+            if(res && res.profile && res.profile.username){
+              applyProfile(res.profile);
+              saveLoginToStorage(res.profile);
+            }
+          })
+          .catch(function(err){ console.error('profil yangilash xato:', err); });
       }
     }catch(loginRestoreErr){
       console.error('LOGIN TIKLASH XATO:', loginRestoreErr);

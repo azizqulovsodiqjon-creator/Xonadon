@@ -18,7 +18,8 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from rest_framework import viewsets
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
-from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import AllowAny, IsAdminUser, SAFE_METHODS
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from django.db.models import Q, F, Sum, Count
@@ -46,6 +47,64 @@ try:
     pillow_heif.register_heif_opener()
 except ImportError:
     pass
+
+
+# =========================================================
+# WHO IS MAKING THIS REQUEST
+# =========================================================
+# A site user (Profile) is identified by the server-side session set at
+# login/sign-up - never by a username/profile_id the browser sends in the
+# request body, which anyone could fake.
+
+SESSION_PROFILE_KEY = 'profile_id'
+
+
+def _login_profile(request, profile):
+    # New session key on login (blocks session fixation); anything already
+    # in the session, e.g. an admin login, is kept.
+    request.session.cycle_key()
+    request.session[SESSION_PROFILE_KEY] = profile.id
+
+
+def _session_profile(request):
+    profile_id = request.session.get(SESSION_PROFILE_KEY)
+    if not profile_id:
+        return None
+    return Profile.objects.filter(id=profile_id).first()
+
+
+def _is_admin(request):
+    user = getattr(request, 'user', None)
+    return bool(user and user.is_authenticated and user.is_staff)
+
+
+def _require_profile(request):
+    """(profile, None) for a logged-in user, else (None, 401 Response).
+
+    DRF only checks CSRF for logged-in *Django* users (the admin), not for
+    our Profile session, so writes are checked here explicitly."""
+    if request.method not in SAFE_METHODS:
+        SessionAuthentication().enforce_csrf(request)
+    profile = _session_profile(request)
+    if profile is None:
+        return None, Response({'ok': False, 'error': "Avval tizimga kiring."}, status=401)
+    return profile, None
+
+
+def _clean_text(value):
+    """Strip '<' and '>' from user-typed text. Listing titles, names, etc.
+    are put into the page as HTML in many places, so without this anyone
+    could post a listing whose title runs JavaScript in every visitor's
+    browser."""
+    return str(value or '').replace('<', '').replace('>', '')
+
+
+def _spend_balance(profile, amount_cents):
+    """Take amount_cents off the profile's balance in one conditional
+    UPDATE, so two requests at once can't both spend the same money.
+    False (nothing changed) if the balance is too low."""
+    return Profile.objects.filter(pk=profile.pk, balance_cents__gte=amount_cents).update(
+        balance_cents=F('balance_cents') - amount_cents) == 1
 
 
 def sweep_expired_listings():
@@ -577,10 +636,22 @@ class ListingViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'mark_sold':
             return [IsAdminUser()]
-        # Anyone can browse, post, edit, view, or like a listing (that's
-        # the public site flow - there's no real per-request auth to lock
-        # editing down further). destroy() below does its own check.
+        # Anyone can browse and view listings. create/update/destroy/like
+        # and the upgrades below check the logged-in session themselves.
         return [AllowAny()]
+
+    def _owner_check(self, request, listing):
+        """None if the logged-in user owns this listing (or is admin),
+        else the error Response to return."""
+        if _is_admin(request):
+            return None
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        if profile.username != listing.seller:
+            return Response({'ok': False, 'detail': "Bu e'lon sizga tegishli emas.",
+                             'error': "Bu e'lon sizga tegishli emas."}, status=403)
+        return None
 
     def _guard_tier_flags(self, request):
         """vip/top are what people pay for: a plain create/edit may only set
@@ -594,6 +665,10 @@ class ListingViewSet(viewsets.ModelViewSet):
             request.data.pop(key, None)
 
     def create(self, request, *args, **kwargs):
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        self._seller = profile.username
         self._guard_tier_flags(request)
         # Free ('regular') listings are created directly here (paid tiers
         # go through Stripe/balance and get linked in
@@ -610,7 +685,14 @@ class ListingViewSet(viewsets.ModelViewSet):
             response.data = ListingSerializer(listing).data
         return response
 
+    def perform_create(self, serializer):
+        # Always posted under the logged-in user's own name.
+        serializer.save(seller=self._seller)
+
     def update(self, request, *args, **kwargs):
+        error = self._owner_check(request, self.get_object())
+        if error:
+            return error
         # Covers both PUT and PATCH (partial_update() delegates here) -
         # editing a listing to add NEW photos uploads them the same
         # pre-upload way as creation, so the same image_ids linking step
@@ -632,15 +714,9 @@ class ListingViewSet(viewsets.ModelViewSet):
         return response
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        user = request.user
-        is_admin = bool(user and user.is_authenticated and user.is_staff)
-        # The owner can delete their own listing too - identified by the
-        # same client-asserted username used everywhere else on the site
-        # (no real per-request auth exists here to check more strongly).
-        claimed_seller = str(request.data.get('seller') or request.query_params.get('seller') or '').strip()
-        if not is_admin and claimed_seller != instance.seller:
-            return Response({'detail': "Bu e'lonni o'chirishga ruxsatingiz yo'q."}, status=403)
+        error = self._owner_check(request, self.get_object())
+        if error:
+            return error
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
@@ -654,9 +730,10 @@ class ListingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[AllowAny])
     def like(self, request, pk=None):
-        username = str(request.data.get('username', '')).strip()
-        if not username:
-            return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        username = profile.username
         listing = self.get_object()
         _like, created = Like.objects.get_or_create(listing=listing, username=username)
         if created:
@@ -688,8 +765,10 @@ class ListingViewSet(viewsets.ModelViewSet):
         if not provider and not settings.STRIPE_SECRET_KEY:
             return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
         listing = self.get_object()
-        claimed_seller = str(request.data.get('seller') or '').strip()
-        if not claimed_seller or claimed_seller != listing.seller:
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        if profile.username != listing.seller:
             return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
         tier = str(request.data.get('tier', '')).strip()
         bad = self._validate_upgrade(listing, tier)
@@ -740,8 +819,10 @@ class ListingViewSet(viewsets.ModelViewSet):
         if not tiers_free():
             return Response({'ok': False, 'error': "Bu xizmat hozir pullik."}, status=402)
         listing = self.get_object()
-        claimed_seller = str(request.data.get('seller') or '').strip()
-        if not claimed_seller or claimed_seller != listing.seller:
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        if profile.username != listing.seller:
             return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
         tier = str(request.data.get('tier', '')).strip()
         bad = self._validate_upgrade(listing, tier)
@@ -755,8 +836,10 @@ class ListingViewSet(viewsets.ModelViewSet):
         """Same upgrade as upgrade_tier_checkout, paid straight out of the
         profile's balance - applies immediately, no Stripe redirect."""
         listing = self.get_object()
-        claimed_seller = str(request.data.get('seller') or '').strip()
-        if not claimed_seller or claimed_seller != listing.seller:
+        profile, error = _require_profile(request)
+        if error:
+            return error
+        if profile.username != listing.seller:
             return Response({'ok': False, 'error': "Bu e'lon sizga tegishli emas."}, status=403)
         tier = str(request.data.get('tier', '')).strip()
         bad = self._validate_upgrade(listing, tier)
@@ -764,15 +847,11 @@ class ListingViewSet(viewsets.ModelViewSet):
             return bad
         amount = settings.LISTING_PRICE_CENTS[tier]
 
-        try:
-            profile = Profile.objects.get(id=request.data.get('profile_id'))
-        except Profile.DoesNotExist:
-            return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
-        if (profile.balance_cents or 0) < amount:
+        # The balance spent is always the logged-in user's own (`profile`
+        # above) - never a profile_id from the request body.
+        if not _spend_balance(profile, amount):
             return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
-
-        profile.balance_cents = profile.balance_cents - amount
-        profile.save(update_fields=['balance_cents'])
+        profile.refresh_from_db(fields=['balance_cents'])
         listing = _apply_tier_upgrade(listing, tier)
         _record_payment_event(listing.seller, 'tier_upgrade', tier, amount)
         return Response({'ok': True, 'listing': ListingSerializer(listing).data, 'profile': ProfileSerializer(profile).data})
@@ -949,9 +1028,10 @@ def submit_verification(request):
     time per profile - resubmitting while one is still pending just
     replaces it rather than piling up duplicates.
     """
-    username = str(request.data.get('username', '')).strip()
-    if not username:
-        return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
+    me, error = _require_profile(request)
+    if error:
+        return error
+    username = me.username
     # username isn't a unique column (a leftover phone-format bug once let
     # the same person end up with more than one Profile row sharing a
     # username, before normalize_phone() fixed that) - .get() would raise
@@ -988,9 +1068,10 @@ def submit_verification(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def verification_status(request):
-    username = str(request.query_params.get('username', '')).strip()
-    if not username:
+    me = _session_profile(request)
+    if me is None:
         return Response({'verified': False, 'pending': False})
+    username = me.username
     # See the comment in submit_verification - username can match more
     # than one Profile row, so this checks across all of them rather than
     # assuming a single match.
@@ -1133,9 +1214,10 @@ def admin_create_discount(request):
 def my_discounts(request):
     """Active (unused) discounts for one username, e.g. {'top': 30} -
     used by the tier-picker (step4) to show/apply the discounted price."""
-    username = str(request.query_params.get('username', '')).strip()
-    if not username:
+    me = _session_profile(request)
+    if me is None:
         return Response({})
+    username = me.username
     result = {}
     for d in TierDiscount.objects.filter(profile__username=username, used=False).order_by('created_at'):
         result[d.tier] = d.percent  # later (newer) rows win if more than one for the same tier
@@ -1155,6 +1237,12 @@ class ProfileViewSet(viewsets.ModelViewSet):
         # keep messaging the old name, which no longer matches anyone,
         # so the messages just vanish for the (now renamed) seller.
         instance = self.get_object()
+        if not _is_admin(request):
+            me, error = _require_profile(request)
+            if error:
+                return error
+            if me.pk != instance.pk:
+                return Response({'ok': False, 'detail': "Faqat o'z profilingizni o'zgartira olasiz."}, status=403)
         old_username = instance.username
         response = super().update(request, *args, **kwargs)
         if response.status_code == 200:
@@ -1167,32 +1255,24 @@ class ProfileViewSet(viewsets.ModelViewSet):
         return response
 
     def get_permissions(self):
-        # Same idea: reading/creating your own profile stays open (needed
-        # for the phone+OTP signup flow), only admin can delete profiles.
-        if self.action == 'destroy':
+        # Listing every profile (phones, emails, balances), creating one
+        # directly and deleting are admin-only - users sign up through
+        # /api/auth/simple-register/ or Google. update() checks ownership
+        # itself.
+        if self.action in ('list', 'create', 'destroy'):
             return [IsAdminUser()]
         return [AllowAny()]
 
     def get_queryset(self):
         qs = Profile.objects.all().order_by('-created_at')
-        if self.action != 'list':
-            # retrieve/update/partial_update/destroy all target one known
-            # id (e.g. editing your own profile) - that's not a bulk data
-            # leak, so only the LIST action below needs locking down.
+        if _is_admin(self.request):
             return qs
-        phone = self.request.query_params.get('phone')
-        if phone:
-            # Looking up a single profile by exact phone number is needed
-            # for the login flow and is not a bulk data leak. Normalize so
-            # '+998 90 123 45 67' and '998901234567' find the same row.
-            return qs.filter(phone=normalize_phone(phone))
-        user = self.request.user
-        if user and user.is_authenticated and user.is_staff:
-            return qs
-        # Without a phone filter this would dump every user's phone number
-        # and name to anyone who asks - only the admin panel is allowed to
-        # list every profile.
-        return qs.none()
+        # A normal user can only ever see their own profile - fetching
+        # /api/profiles/<id>/ for any other id used to hand out that
+        # person's phone number, email and balance. Public info about other
+        # users comes from /api/profiles/directory/.
+        me = _session_profile(self.request)
+        return qs.filter(pk=me.pk) if me else qs.none()
 
 
 class AdminLoginThrottle(AnonRateThrottle):
@@ -1215,7 +1295,12 @@ def admin_login(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def admin_logout(request):
+    # logout() wipes the whole session - keep the site user (if the same
+    # browser is also logged in as one) logged in.
+    profile_id = request.session.get(SESSION_PROFILE_KEY)
     logout(request)
+    if profile_id:
+        request.session[SESSION_PROFILE_KEY] = profile_id
     return Response({'ok': True})
 
 
@@ -1405,9 +1490,9 @@ def record_visit(request):
     updates = {'last_seen': now, 'device': device}
     if not request.data.get('ping'):
         updates['page_views'] = F('page_views') + 1
-    username = str(request.data.get('username') or '').strip()[:100]
-    if username and Profile.objects.filter(username=username).exists():
-        updates['username'] = username
+    me = _session_profile(request)
+    if me and me.username:
+        updates['username'] = me.username
     Visitor.objects.filter(pk=visitor.pk).update(**updates)
     VisitDay.objects.get_or_create(visitor=visitor, date=timezone.localdate())
     return Response({'ok': True})
@@ -1433,23 +1518,30 @@ def _is_support(name):
     return str(name).strip().lower() == settings.SUPPORT_USERNAME.lower()
 
 
-def _staff_only_support(request, *names):
-    """The support identity may only be used by a logged-in admin - nobody
-    else can send as it or read its inbox."""
-    if any(_is_support(n) for n in names) and not (request.user and request.user.is_staff):
-        return Response({'ok': False, 'error': "Bu amal faqat admin uchun."}, status=403)
-    return None
+def _message_identity(request, requested_name):
+    """(username, None) to read/send messages as, or (None, error Response).
+
+    A logged-in admin may act as the support account (the admin panel
+    answers users' messages as it); everyone else is always the user of
+    their own login session, whatever name the request claims."""
+    if _is_support(requested_name):
+        if not _is_admin(request):
+            return None, Response({'ok': False, 'error': "Bu amal faqat admin uchun."}, status=403)
+        return settings.SUPPORT_USERNAME, None
+    profile, error = _require_profile(request)
+    if error:
+        return None, error
+    return profile.username, None
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def send_message(request):
-    sender = str(request.data.get('sender', '')).strip()
+    sender, error = _message_identity(request, request.data.get('sender', ''))
+    if error:
+        return error
     receiver = str(request.data.get('receiver', '')).strip()
     text = str(request.data.get('text', '')).strip()
-    denied = _staff_only_support(request, sender)
-    if denied:
-        return denied
     listing_id = request.data.get('listing') or None
     if not sender or not receiver or not text:
         return Response({'ok': False, 'error': "Xabar matni va foydalanuvchilar kerak."}, status=400)
@@ -1462,13 +1554,12 @@ def send_message(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def message_thread(request):
-    me = str(request.query_params.get('me', '')).strip()
+    me, error = _message_identity(request, request.query_params.get('me', ''))
+    if error:
+        return error
     other = str(request.query_params.get('with', '')).strip()
-    if not me or not other:
-        return Response({'ok': False, 'error': "'me' va 'with' parametrlari kerak."}, status=400)
-    denied = _staff_only_support(request, me)
-    if denied:
-        return denied
+    if not other:
+        return Response({'ok': False, 'error': "'with' parametri kerak."}, status=400)
     qs = Message.objects.filter(Q(sender=me, receiver=other) | Q(sender=other, receiver=me)).order_by('created_at')
     # Opening the thread marks what they sent me as read.
     Message.objects.filter(sender=other, receiver=me, read=False).update(read=True)
@@ -1478,12 +1569,9 @@ def message_thread(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def message_conversations(request):
-    me = str(request.query_params.get('me', '')).strip()
-    if not me:
-        return Response({'ok': False, 'error': "'me' parametri kerak."}, status=400)
-    denied = _staff_only_support(request, me)
-    if denied:
-        return denied
+    me, error = _message_identity(request, request.query_params.get('me', ''))
+    if error:
+        return error
     mine = Message.objects.filter(Q(sender=me) | Q(receiver=me))
     partners = set()
     for m in mine.only('sender', 'receiver'):
@@ -1536,9 +1624,10 @@ def my_likes(request):
     detail page's already-liked state and the 'liked listings' view,
     and (being server-tracked, not local storage) survives a reload or
     logging back in on another device."""
-    username = str(request.query_params.get('username', '')).strip()
-    if not username:
-        return Response({'ok': False, 'error': "Foydalanuvchi aniqlanmadi."}, status=400)
+    profile, error = _require_profile(request)
+    if error:
+        return error
+    username = profile.username
     listing_ids = list(Like.objects.filter(username=username).values_list('listing_id', flat=True))
     return Response({'ok': True, 'listingIds': listing_ids})
 
@@ -1638,7 +1727,8 @@ def _usd_uzs_rate():
 def payment_config(request):
     # Lets the frontend show real prices/currency and know whether Stripe
     # keys have even been set yet, without ever seeing the secret key.
-    username = str(request.query_params.get('username', '')).strip()
+    me = _session_profile(request)
+    username = me.username if me else ''
     discounts = {}
     if username:
         for d in TierDiscount.objects.filter(profile__username=username, used=False):
@@ -1684,6 +1774,9 @@ def create_checkout_session(request):
     if not provider and not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan. Administrator bilan bog'laning."}, status=503)
 
+    me, error = _require_profile(request)
+    if error:
+        return error
     tier = str(request.data.get('tier', '')).strip()
     amount = settings.LISTING_PRICE_CENTS.get(tier)
     if amount is None:
@@ -1698,6 +1791,9 @@ def create_checkout_session(request):
     listing_payload = dict(listing_payload)
     listing_payload['vip'] = (tier == 'vip')
     listing_payload['top'] = (tier == 'top')
+    # The seller is whoever is logged in - kept in the pending row, since
+    # the listing itself is only created after the payment is confirmed.
+    listing_payload['seller'] = me.username
 
     # Validate the listing data up front so we don't charge someone for a
     # payload that will fail to save once payment succeeds.
@@ -1708,7 +1804,7 @@ def create_checkout_session(request):
     # An admin-granted discount (see TierDiscount) is only found here, not
     # spent yet - _finalize_pending_payment marks it used once this
     # checkout actually completes, via the _discount_id it's stashed in below.
-    amount, discount = _discounted_price_cents(amount, listing_payload.get('seller'), tier)
+    amount, discount = _discounted_price_cents(amount, me.username, tier)
     if discount:
         listing_payload['_discount_id'] = discount.id
 
@@ -1790,7 +1886,9 @@ def _finalize_pending_payment(pending, request=None):
         return listing
     serializer = ListingSerializer(data=pending.payload)
     serializer.is_valid(raise_exception=True)
-    listing = serializer.save()
+    # seller was set from the logged-in session when the checkout was
+    # created (seller is read-only in the serializer, so pass it here).
+    listing = serializer.save(seller=pending.payload.get('seller', ''))
     _link_images_to_listing(pending.payload.get('image_ids'), listing)
     _link_voice_note_to_listing(pending.payload.get('voice_note_id'), listing)
     _attach_cadastre(listing, pending.payload.get('cadastre_number'))
@@ -1857,18 +1955,15 @@ def create_balance_topup_session(request):
     if not provider and not settings.STRIPE_SECRET_KEY:
         return Response({'ok': False, 'error': "To'lov tizimi hali sozlanmagan."}, status=503)
 
-    profile_id = request.data.get('profile_id')
+    profile, error = _require_profile(request)
+    if error:
+        return error
     try:
         amount = int(request.data.get('amount_cents'))
     except (TypeError, ValueError):
         amount = None
-    if not profile_id or not amount or amount < MIN_TOPUP_CENTS:
+    if not amount or amount < MIN_TOPUP_CENTS:
         return Response({'ok': False, 'error': "Noto'g'ri summa (kamida $1.00)."}, status=400)
-
-    try:
-        profile = Profile.objects.get(id=profile_id)
-    except Profile.DoesNotExist:
-        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
 
     if provider:
         url = uzpay.start(request, provider, 'topup', uzpay.usd_cents_to_uzs(amount, _usd_uzs_rate()),
@@ -1961,20 +2056,19 @@ def create_listing_from_balance(request):
     if amount is None:
         return Response({'ok': False, 'error': "Noto'g'ri e'lon turi."}, status=400)
 
-    profile_id = request.data.get('profile_id')
+    # Always the logged-in user's own balance - never a profile_id from
+    # the request body.
+    profile, error = _require_profile(request)
+    if error:
+        return error
     listing_payload = request.data.get('listing')
-    if not profile_id or not isinstance(listing_payload, dict):
+    if not isinstance(listing_payload, dict):
         return Response({'ok': False, 'error': "Ma'lumotlar yo'q."}, status=400)
-
-    try:
-        profile = Profile.objects.get(id=profile_id)
-    except Profile.DoesNotExist:
-        return Response({'ok': False, 'error': "Profil topilmadi."}, status=404)
 
     # An admin-granted discount (see TierDiscount) applies here too, same
     # as the card-checkout path - the balance check/deduction below uses
     # this (possibly lower) amount, not the sticker price.
-    amount, discount = _discounted_price_cents(amount, listing_payload.get('seller'), tier)
+    amount, discount = _discounted_price_cents(amount, profile.username, tier)
 
     if (profile.balance_cents or 0) < amount:
         return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
@@ -1986,12 +2080,12 @@ def create_listing_from_balance(request):
     if not serializer.is_valid():
         return Response({'ok': False, 'error': "E'lon ma'lumotlari noto'g'ri.", 'details': serializer.errors}, status=400)
 
-    # Deduct first, then create - if the listing save somehow fails the
-    # serializer.is_valid() check above already caught bad data, so this
-    # is effectively atomic in practice for sqlite/postgres single-request use.
-    profile.balance_cents = (profile.balance_cents or 0) - amount
-    profile.save(update_fields=['balance_cents'])
-    listing = serializer.save()
+    # Deduct first, then create - the serializer.is_valid() check above
+    # already caught bad data, so the save below is not expected to fail.
+    if not _spend_balance(profile, amount):
+        return Response({'ok': False, 'error': "Balansingizda yetarli mablag' yo'q."}, status=402)
+    profile.refresh_from_db(fields=['balance_cents'])
+    listing = serializer.save(seller=profile.username)
     _link_images_to_listing(listing_payload.get('image_ids'), listing)
     _link_voice_note_to_listing(listing_payload.get('voice_note_id'), listing)
     _attach_cadastre(listing, listing_payload.get('cadastre_number'))
@@ -2204,10 +2298,11 @@ def google_auth(request):
     email = str(payload.get('email', '')).strip().lower()
     if not email:
         return Response({'ok': False, 'error': "Google hisobida email topilmadi."}, status=400)
-    full_name = str(payload.get('name', '')).strip()
+    full_name = _clean_text(payload.get('name', '')).strip()
 
     profile = Profile.objects.filter(email__iexact=email).first()
     if profile:
+        _login_profile(request, profile)
         return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
 
     # New signup - derive a username from the email's local part, made
@@ -2220,6 +2315,7 @@ def google_auth(request):
         username = f'{base_username}{suffix}'
 
     profile = Profile.objects.create(email=email, username=username, full_name=full_name, role='Uy egasi')
+    _login_profile(request, profile)
     return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
@@ -2281,7 +2377,7 @@ def simple_register(request):
     """Sign-up with name + phone number + a password the user picks."""
     from django.contrib.auth.hashers import make_password
 
-    full_name = ' '.join(str(request.data.get('full_name', '')).split())
+    full_name = ' '.join(_clean_text(request.data.get('full_name', '')).split())
     phone = normalize_phone(request.data.get('phone', ''))
     password = str(request.data.get('password', ''))
     if not full_name:
@@ -2300,6 +2396,7 @@ def simple_register(request):
         profile.password_hash = make_password(password, hasher=_password_hasher())
         profile.full_name = full_name
         profile.save(update_fields=['password_hash', 'full_name'])
+        _login_profile(request, profile)
         return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
 
     base_username = re.sub(r'[^a-z0-9_]', '', full_name.lower().replace(' ', '_')) or 'foydalanuvchi'
@@ -2312,6 +2409,7 @@ def simple_register(request):
     profile = Profile.objects.create(
         phone=phone, username=username, full_name=full_name, role='Uy egasi',
         password_hash=make_password(password, hasher=_password_hasher()))
+    _login_profile(request, profile)
     return Response({'ok': True, 'profile': ProfileSerializer(profile).data}, status=201)
 
 
@@ -2335,8 +2433,27 @@ def login_with_password(request):
             valid = bool(profile.login_code_hash) and _check_login_code(
                 _normalize_login_code(password), profile.login_code_hash)
         if valid:
+            _login_profile(request, profile)
             return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
     return Response({'ok': False, 'error': "Telefon raqam yoki parol noto'g'ri."}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def auth_me(request):
+    """The logged-in user's own profile, or 401 when this browser has no
+    login session (the page then shows the user as logged out)."""
+    profile = _session_profile(request)
+    if profile is None:
+        return Response({'ok': False, 'error': "Tizimga kirilmagan."}, status=401)
+    return Response({'ok': True, 'profile': ProfileSerializer(profile).data})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def auth_logout(request):
+    request.session.pop(SESSION_PROFILE_KEY, None)
+    return Response({'ok': True})
 
 
 @csrf_exempt
