@@ -77,7 +77,7 @@
     if(btn && !btn.disabled) btn.textContent = PAY_METHOD_NAMES[topUpMethod] + " orqali to'ldirish";
     if(note){
       note.textContent = topUpMethod === 'transfer'
-        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing, to'lov tasdiqlangach balansga qo'shiladi."
+        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing va chek rasmini yuklang - admin tasdiqlagach balansga qo'shiladi."
         : isUzMethod(topUpMethod)
         ? PAY_METHOD_NAMES[topUpMethod] + " sahifasida summa so'mda (Markaziy bank kursi bo'yicha) ko'rsatiladi, Uzcard yoki Humo karta bilan to'lanadi."
         : "To'lov Stripe orqali, karta bilan amalga oshiriladi.";
@@ -115,7 +115,7 @@
     var noteEl = document.getElementById('paymentNote');
     if(noteEl){
       noteEl.textContent = postPayMethod === 'transfer'
-        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing - to'lov tasdiqlangach e'lon avtomatik joylanadi."
+        ? "Keyingi sahifada karta raqami ko'rsatiladi. Pulni o'tkazing va chek rasmini yuklang - admin tasdiqlagach e'lon joylanadi."
         : isUzMethod(postPayMethod)
         ? 'Keyingi qadamda ' + PAY_METHOD_NAMES[postPayMethod] + " to'lov sahifasi ochiladi - Uzcard yoki Humo karta bilan to'lang."
         : (postPayMethod === 'balance' ? "Summa balansingizdan yechiladi."

@@ -290,6 +290,11 @@ class UzPayment(models.Model):
     click_cancelled = models.BooleanField(default=False)
     # Manual card transfer: what the payer wrote (name / last 4 digits).
     payer_note = models.CharField(max_length=100, blank=True, default='')
+    # Manual card transfer: a photo/screenshot of the bank receipt ("chek")
+    # the payer uploads, stored as a data: URI like listing photos. The
+    # admin checks it against the bank app before confirming the payment.
+    receipt = models.TextField(blank=True, default='')
+    receipt_uploaded_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -764,21 +764,66 @@ class CardTransferTests(TestCase):
         page = self.client.get(url)
         self.assertContains(page, '4242 4242 4242 4242')
         self.assertContains(page, '100 000 so')
-        self.client.post(url, {'payer_note': 'Vali 1234'})
+        # a receipt is required
+        self.assertEqual(self.client.post(url, {'payer_note': 'Vali 1234'}).status_code, 400)
+        payment.refresh_from_db()
+        self.assertEqual(payment.receipt, '')
+        resp = self.client.post(url, {'payer_note': 'Vali 1234', 'receipt': self._receipt()})
+        self.assertContains(resp, 'Chek yuborildi')
         payment.refresh_from_db()
         self.assertEqual(payment.payer_note, 'Vali 1234')
+        self.assertTrue(payment.receipt.startswith('data:image/'))
         # not paid yet: nothing created, confirm says pending
         self.assertEqual(Listing.objects.count(), 0)
         self.assertEqual(self.client.get('/api/payments/confirm/', {'session_id': payment.session_id}).json()['status'], 'pending')
-        # owner confirms in admin -> listing appears, flagged VIP
-        from django.contrib.auth import get_user_model
-        get_user_model().objects.create_superuser('boss', 'b@x.uz', 'pw12345678')
-        self.client.login(username='boss', password='pw12345678')
-        self.client.post('/admin/listings/uzpayment/', {
-            'action': 'confirm_transfers', '_selected_action': [payment.pk]})
+        # owner sees the receipt in admin and confirms -> listing appears, flagged VIP
+        self._admin_login()
+        self.assertContains(self.client.get(f'/admin/listings/uzpayment/{payment.pk}/change/'), payment.receipt[:40])
+        self._confirm(payment)
         payment.refresh_from_db()
         self.assertTrue(payment.paid)
         self.assertTrue(Listing.objects.get().vip)
+
+    def _receipt(self):
+        buf = io.BytesIO()
+        Image.new('RGB', (60, 90), (240, 240, 240)).save(buf, 'PNG')
+        buf.seek(0)
+        buf.name = 'chek.png'
+        return buf
+
+    def _admin_login(self):
+        from django.contrib.auth import get_user_model
+        get_user_model().objects.create_superuser('boss', 'b@x.uz', 'pw12345678')
+        self.client.login(username='boss', password='pw12345678')
+
+    def _confirm(self, payment):
+        return self.client.post('/admin/listings/uzpayment/', {
+            'action': 'confirm_transfers', '_selected_action': [payment.pk]}, follow=True)
+
+    def test_no_listing_without_receipt_even_if_admin_confirms(self):
+        _url, payment = self.start()
+        self._admin_login()
+        self.assertContains(self._confirm(payment), 'Chek yuborilmagani uchun')
+        payment.refresh_from_db()
+        self.assertFalse(payment.paid)
+        self.assertEqual(Listing.objects.count(), 0)
+
+    def test_only_the_payer_can_send_the_receipt(self):
+        url, payment = self.start()  # placed by 'ali'
+        _login_as(self.client, 'vali')
+        self.assertEqual(self.client.post(url, {'receipt': self._receipt()}).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.client.post(url, {'receipt': self._receipt()}).status_code, 403)
+        payment.refresh_from_db()
+        self.assertEqual(payment.receipt, '')
+
+    def test_non_image_receipt_is_refused(self):
+        url, payment = self.start()
+        bad = io.BytesIO(b'not an image')
+        bad.name = 'chek.png'
+        self.assertContains(self.client.post(url, {'receipt': bad}), "Rasmni o&#x27;qib bo&#x27;lmadi", status_code=400)
+        payment.refresh_from_db()
+        self.assertEqual(payment.receipt, '')
 
     def test_hidden_until_card_number_is_set(self):
         with override_settings(TRANSFER_CARD_NUMBER=''):
