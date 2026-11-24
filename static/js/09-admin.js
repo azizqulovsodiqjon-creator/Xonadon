@@ -17,21 +17,9 @@
     }).then(function(r){ return r.json().then(function(data){ return {status:r.status, data:data}; }); })
       .then(function(res){
         if(res.status === 200 && res.data.ok){
-          errBox.style.display='none'; closeModal('adminLoginModal');
+          errBox.style.display='none';
           document.getElementById('adminLoginForm').reset();
-          if(res.data.isSuperAdmin){
-            // Deep-link support: a shared/refreshed /panel/?tab=profiles
-            // link should land straight on that tab, not always reset
-            // to the default "listings" one.
-            var tabFromUrl = new URLSearchParams(location.search).get('tab');
-            if(tabFromUrl && ['listings','payments','profiles','stats','houses','visitors','messages'].indexOf(tabFromUrl) !== -1){
-              adminTab = tabFromUrl;
-              document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
-            }
-            showPage('pageAdmin'); renderAdmin();
-          } else {
-            showPage('pageAdminStats'); renderAdminStatsOnly();
-          }
+          enterAdmin(res.data.isSuperAdmin);
         } else {
           errBox.textContent = (res.data && res.data.error) || "Login yoki parol noto'g'ri.";
           errBox.style.display='block';
@@ -39,6 +27,37 @@
       })
       .catch(function(err){ console.error('loginAdmin xato:', err); errBox.textContent = "Ulanishda xato yuz berdi."; errBox.style.display='block'; })
       .finally(function(){ if(btn) btn.disabled = false; });
+  }
+  // Show the admin dashboard (full admin) or the statistics-only page.
+  function enterAdmin(isSuperAdmin){
+    closeModal('adminLoginModal');
+    if(isSuperAdmin){
+      // Deep-link support: a shared/refreshed /panel/?tab=profiles
+      // link should land straight on that tab, not always reset
+      // to the default "listings" one.
+      var tabFromUrl = new URLSearchParams(location.search).get('tab');
+      if(tabFromUrl && ['listings','payments','profiles','stats','houses','visitors','messages'].indexOf(tabFromUrl) !== -1){
+        adminTab = tabFromUrl;
+        document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
+      }
+      showPage('pageAdmin'); renderAdmin();
+    } else {
+      showPage('pageAdminStats'); renderAdminStatsOnly();
+    }
+  }
+  // Opening or refreshing /panel/: the admin's login session lives on the
+  // server (Django session cookie) and is usually still valid - ask the
+  // server before showing the login form, instead of always asking for the
+  // password again after every refresh.
+  function restoreAdminSession(){
+    fetch('/api/admin/status/', {credentials:'same-origin', cache:'no-store'})
+      .then(function(r){ return r.ok ? r.json() : {}; })
+      .then(function(s){
+        if(!s.isAdmin){ openModal('adminLoginModal'); return; }
+        // the listings list feeds the dashboard's numbers - wait for it
+        loadListings(function(){ enterAdmin(s.isSuperAdmin); });
+      })
+      .catch(function(err){ console.error('admin status xato:', err); openModal('adminLoginModal'); });
   }
   function logoutAdmin(){
     fetch(ADMIN_LOGOUT_API, {method:'POST', credentials:'same-origin', headers: csrfHeaders()})

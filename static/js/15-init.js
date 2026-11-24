@@ -260,7 +260,7 @@
     // modal - the public homepage underneath is hidden, not just covered.
     if(PANEL_ROUTE){
       document.getElementById('pageHome').classList.remove('show');
-      openModal('adminLoginModal');
+      restoreAdminSession();  // shows the dashboard if still logged in, else the login form
     }
     document.getElementById('adminLogoutBtn').addEventListener('click', logoutAdmin);
     document.getElementById('statsAdminLogoutBtn').addEventListener('click', logoutAdmin);
@@ -1155,6 +1155,7 @@
               clearLoginStorage();
               isLoggedIn = false;
               currentProfile = null;
+              if(PANEL_ROUTE) return null;  // /panel/ never shows the public site
               showPage('pageHome');
               renderPublic();
               toast("Iltimos, qaytadan tizimga kiring.");
