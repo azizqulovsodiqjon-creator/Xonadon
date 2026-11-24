@@ -295,6 +295,9 @@ class UzPayment(models.Model):
     # admin checks it against the bank app before confirming the payment.
     receipt = models.TextField(blank=True, default='')
     receipt_uploaded_at = models.DateTimeField(null=True, blank=True)
+    # Set when the admin rejects a card transfer (no money came in / the
+    # receipt is fake) - it leaves the admin's queue and is never finished.
+    rejected_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -24,7 +24,7 @@
             // link should land straight on that tab, not always reset
             // to the default "listings" one.
             var tabFromUrl = new URLSearchParams(location.search).get('tab');
-            if(tabFromUrl && ['listings','profiles','stats','houses','visitors'].indexOf(tabFromUrl) !== -1){
+            if(tabFromUrl && ['listings','payments','profiles','stats','houses','visitors','messages'].indexOf(tabFromUrl) !== -1){
               adminTab = tabFromUrl;
               document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
             }
@@ -233,6 +233,103 @@
       wrap.innerHTML = '<div class="empty-admin">Tashriflarni yuklashda xato yuz berdi.</div>';
     });
   }
+  // "Tasdiqlash": card transfers waiting for the admin. The payer's receipt
+  // is shown right here; approving posts the listing (or applies the
+  // upgrade / credits the balance), rejecting drops it - nothing is posted
+  // before the admin approves.
+  var ADMIN_PAYMENTS_API = '/api/admin/payments/';
+  function updateAdminPaymentsCount(n){
+    var el = document.getElementById('adminPaymentsCount');
+    if(!el) return;
+    el.textContent = n;
+    el.classList.toggle('hidden', !n);
+  }
+  function loadAdminPaymentsCount(){
+    fetch(ADMIN_PAYMENTS_API, {credentials:'same-origin'}).then(function(r){ return r.ok ? r.json() : []; })
+      .then(function(list){ updateAdminPaymentsCount(list.filter(function(p){ return p.receipt; }).length); })
+      .catch(function(){});
+  }
+  function openReceiptViewer(src){
+    var box = document.createElement('div');
+    box.className = 'receipt-viewer';
+    box.innerHTML = '<img src="' + escapeHtml(src) + '" alt="Chek"><button type="button" aria-label="Yopish">✕</button>';
+    box.addEventListener('click', function(){ box.remove(); });
+    document.body.appendChild(box);
+  }
+  function renderAdminPayments(){
+    var wrap = document.getElementById('adminContent');
+    wrap.innerHTML = '<div class="empty-admin">Yuklanmoqda...</div>';
+    fetch(ADMIN_PAYMENTS_API, {credentials:'same-origin'}).then(function(r){
+      if(!r.ok){ throw new Error('admin payments HTTP ' + r.status); }
+      return r.json();
+    }).then(function(list){
+      updateAdminPaymentsCount(list.filter(function(p){ return p.receipt; }).length);
+      if(!list.length){
+        wrap.innerHTML = '<div class="empty-admin">Tasdiqlashni kutayotgan to\'lov yo\'q.</div>';
+        return;
+      }
+      function when(iso){
+        var d = new Date(iso);
+        return d.toLocaleDateString('ru-RU') + ' ' + d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+      }
+      wrap.innerHTML = list.map(function(p){
+        return '<div class="pay-row">' +
+          (p.receipt
+            ? '<img class="pay-receipt" src="' + escapeHtml(p.receipt) + '" data-receipt="' + p.id + '" alt="Chek" title="Kattalashtirish">'
+            : '<div class="pay-receipt none">Chek<br>yo\'q</div>') +
+          '<div class="queue-info pay-info">' +
+            '<div class="pay-amount">' + formatUzs(p.amountUzs) + '</div>' +
+            '<div class="qdesc">' + escapeHtml(p.what) + (p.title ? ' · ' + escapeHtml(p.title) : '') + '</div>' +
+            '<div class="qseller">' + escapeHtml(displayName(p.payer || '—')) +
+              (p.note ? ' · izoh: ' + escapeHtml(p.note) : '') + '</div>' +
+            '<div class="qseller">' + (p.receiptAt ? 'Chek yuborilgan: ' + when(p.receiptAt) : 'Chek hali yuborilmagan · buyurtma: ' + when(p.createdAt)) + '</div>' +
+          '</div>' +
+          '<div class="pay-actions">' +
+            '<button class="qbtn approve" data-pay="' + p.id + '" data-decision="approve"' + (p.receipt ? '' : ' disabled title="Chek yuborilmagan"') + '>Tasdiqlash</button>' +
+            '<button class="qbtn del" data-pay="' + p.id + '" data-decision="reject">Rad etish</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      var receipts = {};
+      list.forEach(function(p){ receipts[p.id] = p.receipt; });
+      wrap.querySelectorAll('[data-receipt]').forEach(function(img){
+        img.addEventListener('click', function(){ openReceiptViewer(receipts[this.getAttribute('data-receipt')]); });
+      });
+      wrap.querySelectorAll('[data-pay]').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var id = this.getAttribute('data-pay');
+          var decision = this.getAttribute('data-decision');
+          var question = decision === 'approve'
+            ? "Pul kartangizga tushganini bank ilovasida tekshirdingizmi? Tasdiqlansa, e'lon saytga chiqadi."
+            : "To'lovni rad etasizmi? E'lon joylanmaydi, foydalanuvchiga xabar boradi.";
+          if(!confirm(question)) return;
+          var row = this.closest('.pay-row');
+          row.querySelectorAll('button').forEach(function(b){ b.disabled = true; });
+          fetch(ADMIN_PAYMENTS_API + id + '/decide/', {
+            method: 'POST', credentials: 'same-origin',
+            headers: csrfHeaders({'Content-Type': 'application/json'}),
+            body: JSON.stringify({decision: decision})
+          }).then(function(r){ return r.json().then(function(d){ return {ok: r.ok, data: d}; }); })
+            .then(function(res){
+              if(!res.ok){
+                toast((res.data && (res.data.error || res.data.detail)) || "Xato yuz berdi.");
+                row.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+                return;
+              }
+              toast(decision === 'approve' ? "Tasdiqlandi - e'lon saytga chiqdi." : "Rad etildi.");
+              loadListings(function(){ renderAdmin(); });
+            }).catch(function(err){
+              console.error('admin payment decide xato:', err);
+              toast("Xato yuz berdi.");
+              row.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+            });
+        });
+      });
+    }).catch(function(err){
+      console.error('admin payments xato:', err);
+      wrap.innerHTML = '<div class="empty-admin">To\'lovlarni yuklashda xato yuz berdi.</div>';
+    });
+  }
   function setAdminTab(tab){
     adminTab = tab;
     document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
@@ -265,6 +362,11 @@
   function renderAdmin(){
     renderAdminStats();
     var wrap = document.getElementById('adminContent');
+    if(adminTab==='payments'){
+      renderAdminPayments();
+      return;
+    }
+    loadAdminPaymentsCount();
     if(adminTab==='stats'){
       // Same rich statistics the stats-only admin sees - the full admin
       // (988912) shouldn't need a separate login to see them too.

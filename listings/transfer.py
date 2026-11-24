@@ -10,10 +10,14 @@ The card details come from settings (TRANSFER_CARD_* env vars), so the card
 number never lives in the repository.
 """
 from django.conf import settings
+from django.db import transaction
 from django.http import Http404, HttpResponseForbidden
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
 
 from .models import Listing, UzPayment
 
@@ -63,13 +67,83 @@ def _save_receipt(payment, uploaded):
     return ''
 
 
+def _title(payment):
+    """The listing this payment is for, as shown to the admin."""
+    pending = payment.pending_listing
+    if payment.kind == 'topup' or not pending:
+        return ''
+    upgrade_id = pending.payload.get('_upgrade_listing_id')
+    if upgrade_id:
+        listing = Listing.objects.filter(pk=upgrade_id).first()
+        return listing.title if listing else ''
+    return str(pending.payload.get('title', ''))
+
+
+def _notify_payer(payment, text):
+    from .models import Message
+    payer = _payer_username(payment)
+    if payer:
+        Message.objects.create(sender=settings.SUPPORT_USERNAME, receiver=payer, text=text)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_payments(request):
+    """Card transfers waiting for the admin (/panel/ "Tasdiqlash" tab):
+    not confirmed and not rejected yet, the ones with a receipt first."""
+    waiting = (UzPayment.objects.filter(provider='transfer', paid=False, rejected_at__isnull=True)
+               .select_related('pending_listing', 'pending_topup__profile')
+               .order_by('-receipt_uploaded_at', '-created_at')[:100])
+    rows = sorted(waiting, key=lambda p: not p.receipt)  # with a receipt first, newest first
+    return Response([{
+        'id': p.id,
+        'what': _what(p),
+        'title': _title(p),
+        'amountUzs': p.amount_uzs,
+        'payer': _payer_username(p),
+        'note': p.payer_note,
+        'receipt': p.receipt,
+        'receiptAt': p.receipt_uploaded_at.isoformat() if p.receipt_uploaded_at else None,
+        'createdAt': p.created_at.isoformat(),
+    } for p in rows])
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def admin_payment_decide(request, payment_id):
+    """approve: the money is in - post the listing / apply the upgrade /
+    credit the balance. reject: drop it from the queue, nothing is posted.
+    Either way the payer gets a message from the support account."""
+    from . import uzpay
+    decision = request.data.get('decision')
+    if decision not in ('approve', 'reject'):
+        return Response({'ok': False, 'error': "decision 'approve' yoki 'reject' bo'lishi kerak."}, status=400)
+    with transaction.atomic():
+        payment = (UzPayment.objects.select_for_update()
+                   .filter(pk=payment_id, provider='transfer', paid=False, rejected_at__isnull=True).first())
+        if payment is None:
+            return Response({'ok': False, 'error': "To'lov topilmadi yoki allaqachon ko'rib chiqilgan."}, status=404)
+        what = _what(payment)
+        if decision == 'reject':
+            payment.rejected_at = timezone.now()
+            payment.save(update_fields=['rejected_at'])
+            _notify_payer(payment, f"{what} uchun to'lovingiz tasdiqlanmadi: pul tushmagan yoki chek noto'g'ri. "
+                                   "Savolingiz bo'lsa, shu yerga yozing.")
+            return Response({'ok': True, 'status': 'rejected'})
+        if not payment.receipt:
+            return Response({'ok': False, 'error': "Chek hali yuborilmagan - tasdiqlab bo'lmaydi."}, status=400)
+        uzpay._finish(payment, request._request)
+    _notify_payer(payment, f"{what} uchun to'lovingiz tasdiqlandi. Rahmat!")
+    return Response({'ok': True, 'status': 'approved'})
+
+
 @require_http_methods(['GET', 'POST'])
 def transfer_page(request, session_id):
     payment = UzPayment.objects.filter(provider='transfer', session_id=session_id).first()
     if not payment:
         raise Http404()
     error = ''
-    if request.method == 'POST' and not payment.paid:
+    if request.method == 'POST' and not payment.paid and not payment.rejected_at:
         # Only the person who placed the order may send its receipt.
         from .views import _session_profile
         me = _session_profile(request)

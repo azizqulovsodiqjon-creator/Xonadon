@@ -817,6 +817,55 @@ class CardTransferTests(TestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.receipt, '')
 
+    def test_panel_lists_receipt_and_approve_posts_the_listing(self):
+        from .models import Message
+        url, payment = self.start()  # placed by 'ali'
+        self.client.post(url, {'receipt': self._receipt(), 'payer_note': 'Ali 4242'})
+        # not for regular users
+        self.assertEqual(self.client.get('/api/admin/payments/').status_code, 403)
+        self.assertEqual(self.client.post(f'/api/admin/payments/{payment.pk}/decide/', {'decision': 'approve'},
+                                          content_type='application/json').status_code, 403)
+        self.assertEqual(Listing.objects.count(), 0)
+        self._admin_login()
+        rows = self.client.get('/api/admin/payments/').json()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]['payer'], rows[0]['amountUzs'], rows[0]['note'], rows[0]['title']),
+                         ('ali', 100000, 'Ali 4242', 'Hovli'))
+        self.assertTrue(rows[0]['receipt'].startswith('data:image/'))
+        resp = self.client.post(f'/api/admin/payments/{payment.pk}/decide/', {'decision': 'approve'},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 200, resp.content)
+        self.assertTrue(Listing.objects.get().vip)
+        self.assertEqual(self.client.get('/api/admin/payments/').json(), [])
+        # a second click does nothing
+        self.assertEqual(self.client.post(f'/api/admin/payments/{payment.pk}/decide/', {'decision': 'approve'},
+                                          content_type='application/json').status_code, 404)
+        self.assertEqual(Listing.objects.count(), 1)
+        self.assertTrue(Message.objects.filter(receiver='ali', text__contains='tasdiqlandi').exists())
+
+    def test_panel_cannot_approve_without_receipt_and_can_reject(self):
+        from .models import Message
+        url, payment = self.start()
+        self._admin_login()
+        resp = self.client.post(f'/api/admin/payments/{payment.pk}/decide/', {'decision': 'approve'},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 400)
+        resp = self.client.post(f'/api/admin/payments/{payment.pk}/decide/', {'decision': 'reject'},
+                                content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        payment.refresh_from_db()
+        self.assertIsNotNone(payment.rejected_at)
+        self.assertFalse(payment.paid)
+        self.assertEqual(Listing.objects.count(), 0)
+        self.assertEqual(self.client.get('/api/admin/payments/').json(), [])
+        self.assertTrue(Message.objects.filter(receiver='ali', text__contains='tasdiqlanmadi').exists())
+        # a rejected order can't be revived by uploading a receipt afterwards
+        _login_as(self.client, 'ali')
+        self.assertContains(self.client.get(url), "To'lov tasdiqlanmadi")
+        self.client.post(url, {'receipt': self._receipt()})
+        payment.refresh_from_db()
+        self.assertEqual(payment.receipt, '')
+
     def test_non_image_receipt_is_refused(self):
         url, payment = self.start()
         bad = io.BytesIO(b'not an image')

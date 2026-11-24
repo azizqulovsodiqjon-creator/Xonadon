@@ -41,6 +41,10 @@
   {% if payment.paid %}
   <div class="box"><p class="ok">To'lov tasdiqlandi. Rahmat!</p>
     <a class="btn" href="{{ return_url }}">Saytga qaytish</a></div>
+  {% elif payment.rejected_at %}
+  <div class="box"><p class="err">To'lov tasdiqlanmadi: pul tushmagan yoki chek noto'g'ri.</p>
+    <p class="muted">Savolingiz bo'lsa, saytdagi «Xabarlar» bo'limidan adminga yozing.</p>
+    <a class="btn" href="/">Saytga qaytish</a></div>
   {% else %}
   <div class="box">
     <div class="muted">O'tkaziladigan summa</div>

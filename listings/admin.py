@@ -60,7 +60,7 @@ class UzPaymentAdmin(admin.ModelAdmin):
     list_filter = ('provider', 'paid', HasReceiptFilter)
     search_fields = ('session_id', 'payer_note')
     ordering = ('-created_at',)
-    readonly_fields = ('provider', 'kind', 'session_id', 'amount_uzs', 'paid', 'paid_at', 'receipt_preview',
+    readonly_fields = ('provider', 'kind', 'session_id', 'amount_uzs', 'paid', 'paid_at', 'rejected_at', 'receipt_preview',
                        'receipt_uploaded_at', 'payer_note', 'pending_listing', 'pending_topup', 'created_at')
     exclude = ('receipt',)
     actions = ['confirm_transfers']
@@ -82,7 +82,7 @@ class UzPaymentAdmin(admin.ModelAdmin):
     def confirm_transfers(self, request, queryset):
         from . import uzpay
         done = skipped = 0
-        for payment in queryset.filter(provider='transfer', paid=False):
+        for payment in queryset.filter(provider='transfer', paid=False, rejected_at__isnull=True):
             # The payer must have sent the receipt first - the listing is
             # only posted once a receipt was checked and confirmed here.
             if not payment.receipt:

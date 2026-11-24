@@ -352,6 +352,20 @@
   .qbtn.del{background:rgba(var(--ink-rgb),0.08);color:var(--ink);}
   .qbtn:not(.del){background:var(--turquoise-soft);color:var(--turquoise);}
   .empty-admin{text-align:center;padding:60px 20px;color:rgba(var(--ink-rgb),0.45);font-size:14px;}
+  /* Admin "Tasdiqlash" tab: card transfers with the payer's receipt */
+  .tab-count{display:inline-block;min-width:18px;padding:1px 6px;margin-left:4px;border-radius:999px;background:#e5484d;color:#fff;font-size:11px;line-height:16px;text-align:center;}
+  .tab-count.hidden{display:none;}
+  .pay-row{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;gap:16px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
+  .pay-receipt{width:96px;height:128px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--line);cursor:zoom-in;background:rgba(var(--ink-rgb),0.04);}
+  .pay-receipt.none{display:grid;place-items:center;text-align:center;font-size:12px;font-weight:700;color:rgba(var(--ink-rgb),0.45);cursor:default;}
+  .pay-amount{font-family:'Onest',sans-serif;font-weight:700;font-size:18px;color:var(--teal-900);}
+  .pay-actions{display:flex;gap:8px;flex-shrink:0;}
+  .qbtn.approve{background:#1a8f4c;color:#fff;}
+  .qbtn:disabled{opacity:.45;cursor:not-allowed;}
+  .receipt-viewer{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:grid;place-items:center;padding:16px;cursor:zoom-out;}
+  .receipt-viewer img{max-width:100%;max-height:92vh;border-radius:10px;}
+  .receipt-viewer button{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;color:#111;font-size:18px;}
+  @media (max-width:600px){.pay-actions{width:100%;}.pay-actions .qbtn{flex:1;padding:11px;}}
   .profile-row{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px;margin-bottom:10px;}
   .profile-avatar{width:44px;height:44px;border-radius:50%;background:var(--accent2);color:#fff;font-family:'Onest',sans-serif;font-weight:700;font-size:16px;display:grid;place-items:center;flex-shrink:0;}
   .profile-info{flex:1;}
