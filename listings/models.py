@@ -91,6 +91,9 @@ class Listing(models.Model):
     # Machine translations of title/desc into the other site languages -
     # see listings/translate.py for the shape and how it's kept fresh.
     translations = models.JSONField(default=dict, blank=True)
+    # Background check of new/edited listings (listings/ai.py): {'status': 'ok'|'flagged'|'cleared',
+    # 'reasons': [...], 'checked_at': ..., '_src': hash of the checked text}. Admin-only, never in the API.
+    ai_review = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):

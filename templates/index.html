@@ -267,6 +267,7 @@
     <div class="admin-tabs">
       <button class="tab-btn active" data-tab="listings">E'lonlar</button>
       <button class="tab-btn" data-tab="payments">Tasdiqlash <span class="tab-count hidden" id="adminPaymentsCount"></span></button>
+      <button class="tab-btn" data-tab="ai">AI tekshiruv <span class="tab-count hidden" id="adminAiCount"></span></button>
       <button class="tab-btn" data-tab="profiles">Profillar</button>
       <button class="tab-btn" data-tab="stats">Statistika</button>
       <button class="tab-btn" data-tab="houses">Uylar statistikasi</button>
@@ -389,7 +390,9 @@
     </div>
 
     <div class="field"><label>E'lon sarlavhasi</label><input type="text" id="postTitle" placeholder="Sarlavhani kiriting"></div>
-    <div class="field"><label>Tavsif</label><textarea id="postDesc" placeholder="Tavsifni kiriting"></textarea></div>
+    <div class="field"><label>Tavsif</label><textarea id="postDesc" placeholder="Tavsifni kiriting"></textarea>
+      <button type="button" class="ai-btn hidden" id="aiDescribeBtn">✨ AI bilan yozish</button>
+    </div>
 
     <div class="field" id="conditionField"><label>Holati</label>
       <div class="toggle-row" id="condToggle"><button data-c="Ikkinchi qo'l">Ikkinchi qo'l</button><button data-c="Yangi bino">Yangi bino</button></div>
@@ -406,6 +409,8 @@
           <button data-currency="ye" class="sel">у.е</button>
           <button data-currency="uzs">UZS</button>
         </div>
+        <button type="button" class="ai-btn" id="aiPriceBtn">✨ Narxni baholash</button>
+        <div class="ai-price hidden" id="aiPriceBox"></div>
       </div>
       <div class="field" id="repairField"><label>Ta'mir</label>
         <select id="postRepair"><option value="Ta'mirni tanlang">Ta'mirni tanlang</option><option value="Evroremont">Evroremont</option><option value="O'rtacha">O'rtacha</option><option value="Ta'mirsiz">Ta'mirsiz</option></select>
@@ -721,6 +726,7 @@
 <script src="{% static 'js/13-payment.js' %}"></script>
 <script src="{% static 'js/14-auth.js' %}"></script>
 <script src="{% static 'js/15-init.js' %}"></script>
+<script src="{% static 'js/16-ai.js' %}"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(e){console.error('SW xato:',e);});});}</script>
 
 </body>
