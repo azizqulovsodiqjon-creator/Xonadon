@@ -100,6 +100,7 @@
     document.getElementById(id).classList.add('show');
     window.scrollTo(0,0);
     setMobileTab(id === 'pageHome' ? 'Home' : id === 'pagePost' ? 'Post' : id === 'pageMyProfile' ? 'Profile' : null);
+    if(typeof aiSyncFab === 'function') aiSyncFab(id); // AI yordamchi faqat bosh sahifada
   }
   // Keeps the mobile bottom tab bar's highlighted icon in sync with
   // whatever page/section is actually showing - name is one of
