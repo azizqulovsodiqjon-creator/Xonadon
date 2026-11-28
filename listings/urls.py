@@ -1,6 +1,6 @@
 from django.urls import path, re_path, include
 from rest_framework.routers import DefaultRouter
-from . import views, uzpay, legal, transfer
+from . import ai, views, uzpay, legal, transfer
 from .views import ListingViewSet, ProfileViewSet
 
 router = DefaultRouter()
@@ -77,5 +77,11 @@ urlpatterns = [
     path('api/auth/login/', views.login_with_password, name='login'),
     path('api/auth/me/', views.auth_me, name='auth-me'),
     path('api/auth/logout/', views.auth_logout, name='auth-logout'),
+    path('api/ai/status/', ai.ai_status, name='ai-status'),
+    path('api/ai/price-estimate/', ai.price_estimate, name='ai-price-estimate'),
+    path('api/ai/describe/', ai.describe, name='ai-describe'),
+    path('api/ai/assistant/', ai.assistant, name='ai-assistant'),
+    path('api/admin/ai-reviews/', ai.admin_ai_reviews, name='admin-ai-reviews'),
+    path('api/admin/ai-reviews/<int:listing_id>/decide/', ai.admin_ai_review_decide, name='admin-ai-review-decide'),
     path('api/', include(router.urls)),
 ]

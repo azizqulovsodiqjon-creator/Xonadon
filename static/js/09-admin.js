@@ -36,7 +36,7 @@
       // link should land straight on that tab, not always reset
       // to the default "listings" one.
       var tabFromUrl = new URLSearchParams(location.search).get('tab');
-      if(tabFromUrl && ['listings','payments','profiles','stats','houses','visitors','messages'].indexOf(tabFromUrl) !== -1){
+      if(tabFromUrl && ['listings','payments','ai','profiles','stats','houses','visitors','messages'].indexOf(tabFromUrl) !== -1){
         adminTab = tabFromUrl;
         document.querySelectorAll('.admin-tabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tabFromUrl); });
       }
@@ -385,7 +385,12 @@
       renderAdminPayments();
       return;
     }
+    if(adminTab==='ai' && typeof renderAdminAiReviews === 'function'){
+      renderAdminAiReviews();
+      return;
+    }
     loadAdminPaymentsCount();
+    if(typeof loadAdminAiCount === 'function') loadAdminAiCount();
     if(adminTab==='stats'){
       // Same rich statistics the stats-only admin sees - the full admin
       // (988912) shouldn't need a separate login to see them too.
