@@ -103,6 +103,15 @@
 
   /* ---------- 3. AI yordamchi (chat) ---------- */
   var aiChatHistory = [];
+  // The assistant button is shown on the home page only (not in the posting form, a listing, profile...).
+  function aiSyncFab(pageId){
+    var fab = document.getElementById('aiChatFab');
+    if(!fab) return;
+    var current = pageId || ((document.querySelector('.page.show') || {}).id);
+    var onHome = current === 'pageHome';
+    fab.classList.toggle('hidden', !onHome);
+    if(!onHome) document.getElementById('aiChatPanel').classList.add('hidden');
+  }
   function aiBuildChat(){
     if(document.getElementById('aiChatFab')) return;
     var fab = document.createElement('button');
@@ -236,7 +245,7 @@
     fetch(AI_API + 'status/', {credentials: 'same-origin'}).then(function(r){ return r.json(); }).then(function(s){
       aiOn = !!s.configured;
       if(descBtn) descBtn.classList.toggle('hidden', !aiOn);
-      if(aiOn && !PANEL_ROUTE) aiBuildChat();
+      if(aiOn && !PANEL_ROUTE){ aiBuildChat(); aiSyncFab(); }
     }).catch(function(){});
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', aiInit); else aiInit();
